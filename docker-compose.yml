@@ -1,0 +1,34 @@
+# PhysiScene 一键启动编排（占位骨架，随开发周次逐步补全）
+# 目标形态（依据 docs/02-系统设计/系统部署图.png）：
+#   frontend   : Nginx + Vue3 构建产物      → 80
+#   java       : Spring Boot 4.1.0 主后端    → 8080（唯一对外业务通道，/api /ws）
+#   python-ai  : FastAPI AI 服务             → 8000（仅 expose，不对宿主机暴露）
+#   mysql      : MySQL 8.4                   → 3306（仅内网）
+#   redis      : Redis 7.4（AOF）            → 6379（仅内网）
+#
+# 第三周接入 MySQL/Redis，第六周完成全部容器化。
+
+services:
+  # java-backend:
+  #   build: ./java-backend
+  #   ports: ["8080:8080"]
+  #   volumes: ["/data/uploads", "/data/reports"]
+
+  # python-ai-service:
+  #   build: ./python-ai-service
+  #   expose: ["8000"]
+  #   volumes: ["/data/chroma", "/data/kb/figures"]
+
+  # mysql:
+  #   image: mysql:8.4
+  #   command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+  #   volumes: ["mysql_data:/var/lib/mysql"]
+
+  # redis:
+  #   image: redis:7.4
+  #   command: redis-server --appendonly yes
+  #   volumes: ["redis_data:/data"]
+
+# volumes:
+#   mysql_data:
+#   redis_data:

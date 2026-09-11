@@ -1,0 +1,274 @@
+classDiagram
+    %% ========== 1. Agent 核心编排 ==========
+    class AgentEngine {
+        -IntentClassifier intentClassifier
+        -LLMClient llmClient
+        -RAGRetriever ragRetriever
+        -ToolRegistry toolRegistry
+        -TokenCounter tokenCounter
+        +handle(request: ChatRequest) ChatResponse
+        +generateSection(req: SectionRequest) SectionResponse
+        -routeByIntent(intent: IntentResult, ctx) ToolResult
+        -generateReply(intent, toolResult, ctx) str
+        -buildResponse(reply, toolCalls, chartData) ChatResponse
+    }
+
+    class IntentClassifier {
+        -LLMClient llmClient
+        -list~dict~ fewShotExamples
+        +classify(message: str, history: list) IntentResult
+        -buildPrompt(message, history) str
+        -parseIntentResponse(raw: str) IntentResult
+    }
+
+    class IntentResult {
+        +str intent "load_template/free_build/modify/question/history"
+        +float confidence
+        +dict entities
+        +bool needClarify
+    }
+
+    class LLMClient {
+        -str apiKey
+        -str baseUrl
+        -int maxRetries "3"
+        -list~float~ retryDelays "[1,2,4]"
+        +chat(prompt: str, maxTokens: int) str
+        +chatStream(prompt, maxTokens) AsyncIterator~str~
+        +chatWithTools(prompt, tools, maxTokens) ToolCallResponse
+        -retryWithBackoff(fn) Any
+    }
+
+    class RAGRetriever {
+        -ChromaClient chroma
+        -SentenceTransformer embedModel "bge-m3"
+        -str collectionName
+        -float threshold "0.7"
+        -int topK "5"
+        +retrieve(question: str, context: dict) list~Chunk~
+        +buildContext(chunks: list) str
+        -embed(text: str) list~float~
+    }
+
+    class Chunk {
+        +str source "人教版必修一 P45"
+        +str text
+        +float score
+        +str module
+    }
+
+    AgentEngine ..> IntentClassifier : uses
+    AgentEngine ..> LLMClient : uses
+    AgentEngine ..> RAGRetriever : uses
+    AgentEngine ..> ToolRegistry : uses
+    AgentEngine ..> TokenCounter : uses
+    IntentClassifier ..> LLMClient : uses
+    IntentClassifier ..> IntentResult : creates
+    RAGRetriever ..> Chunk : returns
+
+    %% ========== 2. OCR 与题目解析 ==========
+    class OCRService {
+        -PaddleOCR engine
+        -float minConfidence "0.6"
+        +recognize(imageBase64: str) OCRResult
+        -preprocess(image: bytes) bytes
+        -validateConfidence(lines: list) bool
+    }
+
+    class OCRResult {
+        +str rawText
+        +float confidence
+        +list~Line~ lines
+    }
+
+    class Line {
+        +str text
+        +float confidence
+        +list~int~ bbox
+    }
+
+    class EventParser {
+        -LLMClient llmClient
+        -PhysicsSchemaLoader schemaLoader
+        +parse(ocrText: str) ParseQuestionResponse
+        -correctOCR(rawText: str) str
+        -extractStructure(text: str) dict
+        -mapToElements(structure: dict) list~PhysicsElement~
+        -validateSchema(elements: list) bool
+    }
+
+    class PhysicsSchemaLoader {
+        -str javaApiUrl
+        -dict cachedSchemas
+        +loadSchema(simType: str) ElementSchema
+        +getAllowedTypes() list~str~
+        +refreshCache() void
+    }
+
+    OCRService ..> OCRResult : creates
+    OCRResult ..> Line : contains
+    EventParser ..> LLMClient : uses
+    EventParser ..> PhysicsSchemaLoader : uses
+
+    %% ========== 3. 工具注册表 ==========
+    class ToolRegistry {
+        -dict~str, BaseTool~ tools$
+        +register(tool: BaseTool)$ void
+        +get(name: str) BaseTool$
+        +listSchemas() list~dict~$
+        +execute(name: str, args: dict) dict$
+    }
+
+    class BaseTool {
+        <<abstract>>
+        +str name
+        +str description
+        +dict parameters
+        +schema dict
+        +execute(**kwargs) dict*
+    }
+
+    class RunSimulationTool {
+        +str name "run_simulation"
+        +str description "加载模板并启动仿真"
+        +execute(template: str) dict
+    }
+
+    class ListRecordsTool {
+        +str name "list_experiment_records"
+        +execute(userId: int, limit: int) dict
+    }
+
+    class AddElementTool {
+        +str name "add_element"
+        +execute(sceneId, type, position, properties) dict
+    }
+
+    class RemoveElementTool {
+        +str name "remove_element"
+        +execute(sceneId, elementId) dict
+    }
+
+    class ModifyElementTool {
+        +str name "modify_element_property"
+        +execute(sceneId, elementId, property, value) dict
+    }
+
+    class ListElementsTool {
+        +str name "list_elements"
+        +execute(sceneId) dict
+    }
+
+    class ClearSceneTool {
+        +str name "clear_scene"
+        +execute(sceneId) dict
+    }
+
+    class JavaClient {
+        -str javaApiUrl
+        -str internalKey
+        -httpx.AsyncClient httpClient
+        +getScene(sceneId) dict
+        +updateScene(sceneId, request) dict
+        +runSimulation(sceneId) dict
+        +listRecords(userId, limit) dict
+        +loadTemplate(templateId) dict
+        -buildHeaders() dict
+    }
+
+    BaseTool <|-- RunSimulationTool
+    BaseTool <|-- ListRecordsTool
+    BaseTool <|-- AddElementTool
+    BaseTool <|-- RemoveElementTool
+    BaseTool <|-- ModifyElementTool
+    BaseTool <|-- ListElementsTool
+    BaseTool <|-- ClearSceneTool
+
+    ToolRegistry ..> BaseTool : manages
+    RunSimulationTool ..> JavaClient : uses
+    ListRecordsTool ..> JavaClient : uses
+    AddElementTool ..> JavaClient : uses
+    RemoveElementTool ..> JavaClient : uses
+    ModifyElementTool ..> JavaClient : uses
+    ListElementsTool ..> JavaClient : uses
+    ClearSceneTool ..> JavaClient : uses
+
+    %% ========== 4. 工具 Token 与监控 ==========
+    class TokenCounter {
+        -RedisClient redis
+        -int dailyLimit "100000"
+        +precheck(userId: int, estimated: int) bool
+        +precharge(userId: int, amount: int) void
+        +refund(userId: int, delta: int) void
+        +getUsage(userId: int) int
+        +writeToSystemAccount(reason: str, amount: int) void
+        -key(userId: int) str "token_usage:{id}:{date}"
+    }
+
+    AgentEngine ..> TokenCounter : uses
+    IntentClassifier ..> TokenCounter : uses (回补)
+
+    %% ========== 5. Pydantic 契约模型 ==========
+    class ChatRequest {
+        +int userId
+        +str sessionId
+        +str sceneId
+        +str message
+        +list~dict~ history
+    }
+
+    class ChatResponse {
+        +str reply
+        +list~dict~ toolCalls
+        +dict chartData
+        +bool fallback
+        +str errorType
+    }
+
+    class ParseQuestionResponse {
+        +str simType
+        +list~PhysicsElement~ recommendedElements
+        +float confidence
+        +str fallbackHint
+    }
+
+    class PhysicsElement {
+        +str id
+        +str type
+        +Vector2D position
+        +float angle
+        +Vector2D scale
+        +PhysicalProperties properties
+        +InitialState initialState
+        +bool isFixed
+        +bool isVisible
+        +str color
+    }
+
+    class PhysicalProperties {
+        +float mass
+        +float friction
+        +float restitution
+        +float charge
+        +float bField
+        +str bDirection
+    }
+
+    class InitialState {
+        +Vector2D velocity
+        +float angularVelocity
+    }
+
+    class Vector2D {
+        +float x
+        +float y
+    }
+
+    AgentEngine ..> ChatRequest : receives
+    AgentEngine ..> ChatResponse : creates
+    EventParser ..> ParseQuestionResponse : creates
+    ParseQuestionResponse ..> PhysicsElement : contains
+    PhysicsElement ..> PhysicalProperties : contains
+    PhysicsElement ..> InitialState : contains
+    PhysicsElement ..> Vector2D : contains
+    InitialState ..> Vector2D : contains

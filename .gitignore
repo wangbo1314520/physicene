@@ -1,0 +1,43 @@
+# ===== Java =====
+java-backend/target/
+*.class
+*.jar
+!java-backend/.mvn/wrapper/*.jar
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.python-version
+poetry.lock.bak
+
+# ===== Node / 前端 =====
+node_modules/
+frontend/dist/
+frontend/node_modules/
+*.local
+.pnpm-store/
+
+# ===== 环境与密钥（SRS 4.2：API key 不进代码）=====
+.env
+.env.*
+*.pem
+*.key
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.iml
+
+# ===== 日志与临时 =====
+*.log
+logs/
+tmp/
+.DS_Store
+Thumbs.db
+
+# ===== 数据卷（Docker 持久化目录）=====
+data/
+!docs/**/data/
