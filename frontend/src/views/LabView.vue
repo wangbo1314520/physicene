@@ -174,7 +174,8 @@ async function startRun() {
   if (!scene.sceneId) await saveScene()
   if (!scene.sceneId) return
   resetReplay()
-  chart?.clear()
+  // 只清 series 保留坐标轴（chart.clear() 会连轴一起清掉，后续增量 setOption 报 xAxis not found）
+  chart?.setOption({ series: [] }, { replaceMerge: ['series'] })
   await run(scene.elements, scene.config, String(scene.sceneId))
 }
 
@@ -486,7 +487,7 @@ h3 { font-size: 13px; color: #b0b0cc; margin-bottom: 10px; }
 .timeline button { background: #2b5c8f; color: #fff; border: none; border-radius: 5px;
   padding: 4px 10px; cursor: pointer; }
 .timeline input[type=range] { flex: 1; }
-.chart { height: 170px; background: #14142a; border: 1px solid #2f2f4a; border-radius: 10px; }
+.chart { height: 200px; flex-shrink: 0; background: #14142a; border: 1px solid #2f2f4a; border-radius: 10px; }
 .right label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: #8a8aa0; margin-bottom: 8px; }
 .right input, .right select {
   background: #23233a; border: 1px solid #2f2f4a; border-radius: 4px; color: #e8e8f0;
