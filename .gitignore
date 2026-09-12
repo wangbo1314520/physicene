@@ -41,3 +41,8 @@ Thumbs.db
 # ===== 数据卷（Docker 持久化目录）=====
 data/
 !docs/**/data/
+
+# 调试临时文件（含 token，绝不入库）
+.token*
+.sceneid
+.tmplscene
