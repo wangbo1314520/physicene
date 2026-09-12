@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import * as echarts from 'echarts'
 import { createSimRenderer, type SimRenderer } from '../sim/threeScene'
 import {
@@ -74,6 +74,28 @@ const presets = reactive<Record<string, { name: string; elements: PhysicsElement
 const selected = ref<keyof typeof presets>('collision')
 const showParams = ref(true)
 
+// 规范化：所有可动元件补齐 properties/initialState（预设数据缺字段时参数面板不崩）
+for (const preset of Object.values(presets)) {
+  for (const el of preset.elements) {
+    if (el.type !== 'wall' && el.type !== 'slope') {
+      if (!el.properties) el.properties = { mass: 1, friction: 0, restitution: 0.5 }
+      if (!el.initialState) el.initialState = { velocity: { x: 0, y: 0 } }
+      if (!el.initialState.velocity) el.initialState.velocity = { x: 0, y: 0 }
+    }
+  }
+}
+
+// 质量显示单位（每个元件独立）：UI 显示 g 时，提交后端前换算回 kg
+const massUnit = reactive<Record<string, 'kg' | 'g'>>({})
+
+function toggleMassUnit(el: PhysicsElementInput) {
+  const cur = massUnit[el.id] ?? 'kg'
+  const next = cur === 'kg' ? 'g' : 'kg'
+  const m = el.properties?.mass ?? 1
+  el.properties!.mass = next === 'g' ? m * 1000 : m / 1000
+  massUnit[el.id] = next
+}
+
 const LINE_COLORS = ['#4A90D9', '#E05555', '#F5C542', '#3ecf8e', '#b06ce6', '#6cd9e8']
 
 function statusText() {
@@ -86,10 +108,17 @@ function statusText() {
   }
 }
 
+const busy = computed(() => state.status === 'running' || state.status === 'paused' || state.status === 'connecting')
+
 function startRun() {
   const preset = presets[selected.value]
-  // 深拷贝当前参数快照，避免运行中面板编辑影响已提交场景
-  const elements = JSON.parse(JSON.stringify(preset.elements))
+  // 深拷贝当前参数快照，避免运行中面板编辑影响已提交场景；质量按显示单位换算回 kg
+  const elements: PhysicsElementInput[] = JSON.parse(JSON.stringify(preset.elements))
+  for (const el of elements) {
+    if ((massUnit[el.id] ?? 'kg') === 'g' && el.properties) {
+      el.properties.mass = el.properties.mass / 1000
+    }
+  }
   const config = JSON.parse(JSON.stringify(preset.config))
   renderer?.syncElements(elements)
   run(elements, config)
@@ -106,6 +135,7 @@ watch(
 )
 
 // v-t 图增量刷新（每 6 帧一次）：带符号速度分量 + Ek/p 双轴
+// replaceMerge 清掉上一场残留 series（切实验后旧曲线不再滞留）
 watch(
   () => state.frameCount,
   (n) => {
@@ -113,32 +143,33 @@ watch(
     const series: echarts.SeriesOption[] = []
     state.vSeries.forEach((s, i) => {
       const color = LINE_COLORS[i % LINE_COLORS.length]
+      const id = state.vIds[i] ?? `主体${i + 1}`
       series.push({
-        name: `v${i + 1}x`, type: 'line', showSymbol: false,
+        name: `${id}.vx`, type: 'line', showSymbol: false,
         lineStyle: { color, width: 2 },
         itemStyle: { color },
         data: s.map((p) => [p.t, +p.vx.toFixed(3)]),
       })
       series.push({
-        name: `v${i + 1}y`, type: 'line', showSymbol: false,
+        name: `${id}.vy`, type: 'line', showSymbol: false,
         lineStyle: { color, width: 1.5, type: 'dashed', opacity: 0.7 },
         itemStyle: { color },
         data: s.map((p) => [p.t, +p.vy.toFixed(3)]),
       })
     })
     series.push({
-      name: 'Ek', type: 'line', showSymbol: false, yAxisIndex: 1,
+      name: '总动能 Ek', type: 'line', showSymbol: false, yAxisIndex: 1,
       lineStyle: { color: '#F5C542', width: 1.5 },
       itemStyle: { color: '#F5C542' },
       data: state.ekSeries.map((p) => [p.t, +p.v.toFixed(3)]),
     })
     series.push({
-      name: 'p', type: 'line', showSymbol: false, yAxisIndex: 1,
+      name: '总动量模 p', type: 'line', showSymbol: false, yAxisIndex: 1,
       lineStyle: { color: '#6cd9e8', width: 1.5 },
       itemStyle: { color: '#6cd9e8' },
       data: state.pSeries.map((p) => [p.t, +p.v.toFixed(3)]),
     })
-    chart.setOption({ series })
+    chart.setOption({ series }, { replaceMerge: ['series'] })
   },
 )
 
@@ -199,30 +230,36 @@ onUnmounted(() => {
         <h3>{{ el.id }} <code>{{ el.type }}</code></h3>
         <template v-if="el.type !== 'wall' && el.type !== 'slope'">
           <label>质量 m
-            <input type="number" step="0.5" min="0.1" v-model.number="el.properties!.mass" :disabled="state.status !== 'idle' && state.status !== 'ended'">
+            <span class="unit-row">
+              <input type="number" step="0.5" min="0.0001" v-model.number="el.properties!.mass" :disabled="busy">
+              <button class="unit" @click="toggleMassUnit(el)" :disabled="busy"
+                      :title="(massUnit[el.id] ?? 'kg') === 'kg' ? '切换为克' : '切换为千克'">
+                {{ massUnit[el.id] ?? 'kg' }}
+              </button>
+            </span>
           </label>
-          <label>摩擦系数 μ
-            <input type="number" step="0.05" min="0" max="1" v-model.number="el.properties!.friction" :disabled="state.status !== 'idle' && state.status !== 'ended'">
+          <label>摩擦系数 μ<span class="unit-hint">0~1 无量纲</span>
+            <input type="number" step="0.05" min="0" max="1" v-model.number="el.properties!.friction" :disabled="busy">
           </label>
-          <label>弹性 e
-            <input type="number" step="0.1" min="0" max="1" v-model.number="el.properties!.restitution" :disabled="state.status !== 'idle' && state.status !== 'ended'">
+          <label>弹性 e<span class="unit-hint">0~1 无量纲</span>
+            <input type="number" step="0.1" min="0" max="1" v-model.number="el.properties!.restitution" :disabled="busy">
           </label>
-          <label>初速 vx
-            <input type="number" step="1" v-model.number="el.initialState!.velocity!.x" :disabled="state.status !== 'idle' && state.status !== 'ended'">
+          <label>初速 vx (m/s)
+            <input type="number" step="1" v-model.number="el.initialState!.velocity!.x" :disabled="busy">
           </label>
-          <label>初速 vy
-            <input type="number" step="1" v-model.number="el.initialState!.velocity!.y" :disabled="state.status !== 'idle' && state.status !== 'ended'">
+          <label>初速 vy (m/s)
+            <input type="number" step="1" v-model.number="el.initialState!.velocity!.y" :disabled="busy">
           </label>
         </template>
         <span v-else class="hint">固定元件（{{ el.type === 'slope' ? '斜面默认固定' : '地面' }}）</span>
       </div>
       <div class="param-group">
         <h3>全局配置</h3>
-        <label>重力 gy
-          <input type="number" step="0.5" v-model.number="presets[selected].config.gravity.y" :disabled="state.status !== 'idle' && state.status !== 'ended'">
+        <label>重力 gy (m/s²)<span class="unit-hint">0 = 无重力</span>
+          <input type="number" step="0.5" v-model.number="presets[selected].config.gravity.y" :disabled="busy">
         </label>
-        <label>时长上限 s
-          <input type="number" step="1" min="1" max="30" v-model.number="presets[selected].config.maxDuration" :disabled="state.status !== 'idle' && state.status !== 'ended'">
+        <label>时长上限 (s)
+          <input type="number" step="1" min="1" max="30" v-model.number="presets[selected].config.maxDuration" :disabled="busy">
         </label>
       </div>
     </section>
@@ -276,6 +313,13 @@ onUnmounted(() => {
   color: #e8e8f0; padding: 4px 6px; font-size: 12px;
 }
 .param-group input:disabled { opacity: 0.45; }
+.param-group .unit-row { display: flex; gap: 4px; align-items: center; }
+.param-group .unit-row input { width: 62px; }
+.param-group button.unit {
+  width: 36px; padding: 4px 0; background: #2f2f4a; color: #8a8aa0;
+  border: 1px solid #3d3d5e; border-radius: 4px; font-size: 11px; cursor: pointer;
+}
+.param-group .unit-hint { font-size: 10px; color: #565675; }
 .param-group .hint { font-size: 11px; color: #6c6c85; align-self: center; }
 .content { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; }
 .canvas-wrap { position: relative; background: #14142a; border: 1px solid #2f2f4a; border-radius: 10px; overflow: hidden; }

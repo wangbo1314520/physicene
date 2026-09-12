@@ -30,6 +30,7 @@ export interface SimState {
   subjects: SubjectState[]
   keyEvents: { t: number; label: string; eventType: string }[]
   vSeries: { t: number; vx: number; vy: number }[][] // 每个运动主体的速度分量序列（带符号）
+  vIds: string[] // 运动主体 id（与 vSeries 下标对应，图例命名用）
   ekSeries: { t: number; v: number }[]
   pSeries: { t: number; v: number }[]
   endInfo: { reason: string; totalFrames: number; totalDuration: number } | null
@@ -48,6 +49,7 @@ export function useSimulationSocket() {
     subjects: [],
     keyEvents: [],
     vSeries: [],
+    vIds: [],
     ekSeries: [],
     pSeries: [],
     endInfo: null,
@@ -61,7 +63,7 @@ export function useSimulationSocket() {
     close()
     Object.assign(state, {
       status: 'connecting', currentT: 0, subjects: [], keyEvents: [],
-      vSeries: [], ekSeries: [], pSeries: [], endInfo: null, frameCount: 0,
+      vSeries: [], vIds: [], ekSeries: [], pSeries: [], endInfo: null, frameCount: 0,
     })
     try {
       const resp = (await http.post('/simulations/run', { elements, config })) as {
@@ -90,6 +92,10 @@ export function useSimulationSocket() {
         state.frameCount++
         const snap = msg.snapshot as { elements: SubjectState[] }
         state.subjects = snap.elements
+        if (state.vIds.length !== snap.elements.length
+            || snap.elements.some((s, i) => s.id !== state.vIds[i])) {
+          state.vIds = snap.elements.map((s) => s.id)
+        }
         snap.elements.forEach((s, i) => {
           if (!state.vSeries[i]) state.vSeries[i] = []
           state.vSeries[i].push({ t: msg.t, vx: s.vx, vy: s.vy })
