@@ -64,4 +64,21 @@ public class PhysicsWorld {
             instance.end("released");
         }
     }
+
+    /**
+     * 定时回收（SRS SD-4）：结束超过 30 分钟的实例释放；
+     * 创建超过 2 小时的（含暂停后被遗忘的）兜底释放。
+     * 每实例约占 1MB 帧缓存 + dyn4j World，不回收长期运行会内存泄漏。
+     */
+    @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 300_000)
+    public void cleanupExpired() {
+        long now = System.currentTimeMillis();
+        instances.entrySet().removeIf(entry -> {
+            SimulationInstance inst = entry.getValue();
+            if (inst.isEnded()) {
+                return now - inst.getEndedAtMillis() > 30 * 60_000L;
+            }
+            return now - inst.getCreatedAtMillis() > 2 * 60 * 60_000L;
+        });
+    }
 }

@@ -73,6 +73,10 @@ public class SimulationInstance {
     private double stillTimer = 0;
     private EndInfo endInfo;
     private SimResultBuilder resultBuilder;
+    /** 结束时间戳（实例回收依据，SD-4：30 分钟无连接释放） */
+    private volatile long endedAtMillis;
+    /** 创建时间戳（兜底回收：暂停后遗忘的实例等） */
+    private final long createdAtMillis = System.currentTimeMillis();
 
     // —— 推送监听（WebSocket 层注册；在仿真线程回调，发送方自行保证线程安全）——
     private final List<Consumer<Frame>> frameListeners = new CopyOnWriteArrayList<>();
@@ -228,6 +232,7 @@ public class SimulationInstance {
             return;
         }
         status = Status.ENDED;
+        endedAtMillis = System.currentTimeMillis();
         endInfo = new EndInfo(reason, frameCount, round(t));
         log.info("仿真结束 simId={} reason={} frames={} duration={}", simId, reason, frameCount, t);
         endListeners.forEach(l -> l.accept(endInfo));
@@ -298,6 +303,14 @@ public class SimulationInstance {
 
     public void setOwnerId(Long ownerId) {
         this.ownerId = ownerId;
+    }
+
+    public long getEndedAtMillis() {
+        return endedAtMillis;
+    }
+
+    public long getCreatedAtMillis() {
+        return createdAtMillis;
     }
 
     public Scene getScene() {

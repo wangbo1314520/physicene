@@ -33,8 +33,7 @@ public class AiProxyController {
     @PostMapping("/api/v1/agent/chat")
     public ApiResponse<Map<String, Object>> chat(@RequestBody Map<String, Object> body) {
         Map<String, Object> request = new HashMap<>(body);
-        request.put("userId", UserContext.userId()); // 强制覆盖（防伪造）
-        request.remove("role");
+        request.put("userId", UserContext.userId()); // 强制覆盖（防伪造，SD-3）
         Map<String, Object> resp = aiServiceClient.agentChat(request);
         return ApiResponse.ok(resp);
     }

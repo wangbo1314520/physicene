@@ -114,7 +114,12 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
 
   return {
     syncElements(elements) {
-      for (const mesh of meshes.values()) scene.remove(mesh)
+      // 释放旧网格的 GPU 资源（参数编辑触发频繁重建，不释放会持续泄漏显存）
+      for (const mesh of meshes.values()) {
+        scene.remove(mesh)
+        mesh.geometry.dispose()
+        ;(mesh.material as THREE.Material).dispose()
+      }
       meshes.clear()
       for (const el of elements) {
         if (el.isVisible === false) continue

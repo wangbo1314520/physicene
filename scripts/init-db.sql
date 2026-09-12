@@ -216,6 +216,6 @@ INSERT INTO ocr_type_mapping (keyword, sim_type, priority) VALUES
     ('抛体',   'template_projectile',  8);
 
 -- admin 账号：用户名 admin，初始密码 admin123（BCrypt cost=10）
--- hash 由应用侧生成工具产生，首次部署后请立即修改
+-- 首次部署后请立即修改密码
 INSERT INTO user (username, password_hash, role, name) VALUES
-    ('admin', '$2a$10$REPLACE_WITH_REAL_BCRYPT_HASH', 'admin', '系统管理员');
+    ('admin', '$2b$10$JG3iwZMTGXvSCZuuCSiNqujQ6Dx9YlUCgUtyfNw2BPUqNOAH/JYai', 'admin', '系统管理员');

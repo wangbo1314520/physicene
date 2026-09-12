@@ -1,4 +1,6 @@
 """Agent 对话路由（SRS 6.2）：POST /agent/chat，仅接受 Java 经 Feign 转发的内部调用。"""
+import secrets
+
 from fastapi import APIRouter, Depends, Header, HTTPException
 
 from physicene_ai.core import agent_engine
@@ -11,7 +13,7 @@ router = APIRouter()
 
 def require_internal_key(x_internal_key: str = Header(default="")) -> None:
     """共享密钥校验（SRS 4.2：Java↔Python 内部鉴权，不暴露前端）。"""
-    if x_internal_key != settings.internal_key:
+    if not secrets.compare_digest(x_internal_key, settings.internal_key):
         raise HTTPException(status_code=401, detail="invalid internal key")
 
 

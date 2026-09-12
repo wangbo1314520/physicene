@@ -14,7 +14,7 @@ const chartRef = ref<HTMLDivElement | null>(null)
 let renderer: SimRenderer | null = null
 let chart: echarts.ECharts | null = null
 
-const { state, error, run, attach, pause, play, step, end } = useSimulationSocket()
+const { state, error, run, attach, pause, play, step, end, close: closeSocket } = useSimulationSocket()
 
 // ===== AI 助教对话框（第四周：用嘴做实验）=====
 const chatLog = ref<HTMLElement | null>(null)
@@ -392,6 +392,7 @@ function onKey(ev: KeyboardEvent) {
 onUnmounted(() => {
   window.removeEventListener('keydown', onKey)
   window.clearInterval(replay.timer)
+  closeSocket() // 离开页面断开仿真 WS，避免后台持续收帧
   renderer?.dispose()
   chart?.dispose()
 })
