@@ -44,6 +44,12 @@
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
+        <!-- 物理引擎（SRS 2.4：dyn4j 5.0.2，2D 物理） -->
+        <dependency>
+            <groupId>org.dyn4j</groupId>
+            <artifactId>dyn4j</artifactId>
+            <version>5.0.2</version>
+        </dependency>
 
         <dependency>
             <groupId>org.projectlombok</groupId>

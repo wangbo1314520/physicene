@@ -1,0 +1,198 @@
+package com.physicene.backend.physics.websocket;
+
+import com.physicene.backend.physics.engine.PhysicsWorld;
+import com.physicene.backend.physics.engine.SimResultBuilder;
+import com.physicene.backend.physics.engine.SimulationInstance;
+import com.physicene.backend.physics.model.DataRow;
+import com.physicene.backend.physics.model.Frame;
+import com.physicene.backend.physics.model.KeyEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.handler.TextWebSocketHandler;
+import tools.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * 仿真推帧 WebSocket（SRS 6.1）：/ws/simulation/{simId}。
+ * 服务端消息：frame(30fps) / keyEvent / paused / resumed / ended / sync / kicked / not_found / error。
+ * 客户端控制：pause / play / step / seek / sync / end。
+ * 握手 JWT 鉴权与 simId 归属校验随 Week 3 JwtUtil 落地（当前开发期放开）。
+ */
+@Component
+public class PhysicsWebSocketHandler extends TextWebSocketHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(PhysicsWebSocketHandler.class);
+
+    private final PhysicsWorld physicsWorld;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** 同 simId 单连接：新连接挤掉旧连接（契约 kicked 语义） */
+    private final Map<String, WebSocketSession> sessionsBySim = new ConcurrentHashMap<>();
+
+    public PhysicsWebSocketHandler(PhysicsWorld physicsWorld) {
+        this.physicsWorld = physicsWorld;
+    }
+
+    @Override
+    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+        String simId = extractSimId(session);
+        if (simId == null) {
+            send(session, Map.of("type", "error", "code", 1001, "message", "路径缺少 simId"));
+            session.close(CloseStatus.BAD_DATA);
+            return;
+        }
+        SimulationInstance instance = physicsWorld.getInstance(simId);
+        if (instance == null) {
+            send(session, Map.of("type", "not_found", "simId", simId));
+            session.close(CloseStatus.NORMAL);
+            return;
+        }
+
+        WebSocketSession old = sessionsBySim.put(simId, session);
+        if (old != null && old.isOpen() && old != session) {
+            send(old, Map.of("type", "kicked"));
+            old.close(CloseStatus.NORMAL);
+        }
+
+        instance.addFrameListener(frame -> sendFrame(session, instance, frame));
+        instance.addKeyEventListener(event -> sendKeyEvent(session, event));
+        instance.addEndListener(end -> {
+            Map<String, Object> msg = new LinkedHashMap<>();
+            msg.put("type", "ended");
+            msg.put("simId", simId);
+            msg.put("reason", end.reason());
+            msg.put("totalFrames", end.totalFrames());
+            msg.put("totalDuration", end.totalDuration());
+            send(session, msg);
+        });
+        log.info("WS simulation 连接建立 simId={} session={}", simId, session.getId());
+    }
+
+    @Override
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) {
+        String simId = extractSimId(session);
+        SimulationInstance instance = simId == null ? null : physicsWorld.getInstance(simId);
+        if (instance == null) {
+            send(session, Map.of("type", "not_found"));
+            return;
+        }
+        Map<String, Object> body;
+        try {
+            body = objectMapper.readValue(message.getPayload(),
+                    new tools.jackson.core.type.TypeReference<Map<String, Object>>() {
+                    });
+        } catch (Exception e) {
+            send(session, Map.of("type", "error", "code", 1001, "message", "消息格式错误"));
+            return;
+        }
+        String action = String.valueOf(body.get("action"));
+        switch (action) {
+            case "pause" -> {
+                instance.pause();
+                send(session, Map.of("type", "paused", "t", instance.getCurrentT()));
+            }
+            case "play" -> {
+                instance.resume();
+                send(session, Map.of("type", "resumed", "t", instance.getCurrentT()));
+            }
+            case "step" -> {
+                // 契约：单步仅在暂停状态生效
+                instance.stepOnce();
+                Frame latest = instance.latestFrame();
+                if (latest != null) {
+                    sendFrame(session, instance, latest);
+                }
+            }
+            case "seek" -> {
+                double t = toDouble(body.get("t"), instance.getCurrentT());
+                Frame frame = instance.seek(t);
+                if (frame != null) {
+                    sendFrame(session, instance, frame);
+                }
+            }
+            case "sync" -> sendSync(session, instance);
+            case "end" -> instance.end("stopped_by_user");
+            default -> send(session, Map.of("type", "error", "code", 1001,
+                    "message", "未知 action: " + action));
+        }
+    }
+
+    @Override
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        String simId = extractSimId(session);
+        if (simId != null) {
+            sessionsBySim.remove(simId, session);
+            log.info("WS simulation 连接关闭 simId={} status={}", simId, status);
+        }
+    }
+
+    private void sendSync(WebSocketSession session, SimulationInstance instance) {
+        Map<String, Object> msg = new LinkedHashMap<>();
+        msg.put("type", "sync");
+        msg.put("status", instance.isEnded() ? "ended" : "running");
+        msg.put("currentT", instance.getCurrentT());
+        msg.put("isPaused", instance.isPaused());
+        Frame latest = instance.latestFrame();
+        if (latest != null) {
+            msg.put("latestFrame", latest);
+        }
+        send(session, msg);
+    }
+
+    private void sendFrame(WebSocketSession session, SimulationInstance instance, Frame frame) {
+        Map<String, Object> msg = new LinkedHashMap<>();
+        msg.put("type", "frame");
+        msg.put("t", frame.getT());
+        msg.put("snapshotType", frame.getSnapshotType());
+        msg.put("snapshot", frame.getSnapshot());
+        DataRow lastRow = instance.getDataTable().isEmpty()
+                ? null : instance.getDataTable().get(instance.getDataTable().size() - 1);
+        msg.put("dataTableIncrement", lastRow);
+        msg.put("hasChart", true);
+        send(session, msg);
+    }
+
+    private void sendKeyEvent(WebSocketSession session, KeyEvent event) {
+        Map<String, Object> msg = new LinkedHashMap<>();
+        msg.put("type", "keyEvent");
+        msg.put("t", event.getT());
+        msg.put("eventType", event.getType());
+        msg.put("label", event.getLabel());
+        msg.put("frameIndex", event.getFrameIndex());
+        send(session, msg);
+    }
+
+    private void send(WebSocketSession session, Map<String, Object> msg) {
+        try {
+            if (session.isOpen()) {
+                // 多线程（仿真线程 + WS 容器线程）并发写同一 session 需串行化
+                synchronized (session) {
+                    session.sendMessage(new TextMessage(objectMapper.writeValueAsString(msg)));
+                }
+            }
+        } catch (IOException e) {
+            log.warn("WS 推送失败 session={}: {}", session.getId(), e.getMessage());
+        }
+    }
+
+    private static String extractSimId(WebSocketSession session) {
+        String path = session.getUri() != null ? session.getUri().getPath() : null;
+        if (path == null) {
+            return null;
+        }
+        int idx = path.lastIndexOf('/');
+        return idx >= 0 && idx < path.length() - 1 ? path.substring(idx + 1) : null;
+    }
+
+    private static double toDouble(Object v, double dflt) {
+        return v instanceof Number n ? n.doubleValue() : dflt;
+    }
+}
