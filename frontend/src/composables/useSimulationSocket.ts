@@ -29,7 +29,7 @@ export interface SimState {
   currentT: number
   subjects: SubjectState[]
   keyEvents: { t: number; label: string; eventType: string }[]
-  vSeries: { t: number; v: number }[][] // 每个运动主体的 |v| 序列
+  vSeries: { t: number; vx: number; vy: number }[][] // 每个运动主体的速度分量序列（带符号）
   ekSeries: { t: number; v: number }[]
   pSeries: { t: number; v: number }[]
   endInfo: { reason: string; totalFrames: number; totalDuration: number } | null
@@ -91,9 +91,8 @@ export function useSimulationSocket() {
         const snap = msg.snapshot as { elements: SubjectState[] }
         state.subjects = snap.elements
         snap.elements.forEach((s, i) => {
-          const v = Math.hypot(s.vx, s.vy)
           if (!state.vSeries[i]) state.vSeries[i] = []
-          state.vSeries[i].push({ t: msg.t, v })
+          state.vSeries[i].push({ t: msg.t, vx: s.vx, vy: s.vy })
         })
         const row = msg.dataTableIncrement as
           | { t: number; fields: Record<string, number> }

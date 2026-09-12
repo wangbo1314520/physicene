@@ -14,10 +14,10 @@ let chart: echarts.ECharts | null = null
 
 const { state, error, run, pause, play, step, end } = useSimulationSocket()
 
-// 预置两个实验场景（Day 14 验收：两车碰撞动量守恒；Day 8：自由落体）
-const presets: Record<string, { name: string; elements: PhysicsElementInput[]; config: Record<string, unknown> }> = {
+// 预置实验场景（斜面：方块贴斜面顶端静止下滑，倾角 30°）
+const presets = reactive<Record<string, { name: string; elements: PhysicsElementInput[]; config: Record<string, any> }>>({
   collision: {
-    name: '两车弹性碰撞（动量守恒）',
+    name: '两车弹性碰撞（e=1 速度交换）',
     elements: [
       { id: 'car1', type: 'cube', position: { x: -3, y: 0.5 }, color: '#4A90D9',
         properties: { mass: 1, friction: 0, restitution: 1.0 },
@@ -25,6 +25,20 @@ const presets: Record<string, { name: string; elements: PhysicsElementInput[]; c
       { id: 'car2', type: 'cube', position: { x: 3, y: 0.5 }, color: '#E05555',
         properties: { mass: 1, friction: 0, restitution: 1.0 },
         initialState: { velocity: { x: -5, y: 0 } } },
+      { id: 'ground', type: 'wall', position: { x: 0, y: -0.1 }, scale: { x: 20, y: 0.2 },
+        color: '#8a8aa0' },
+    ],
+    config: { gravity: { x: 0, y: 0 }, maxDuration: 3.0 },
+  },
+  inelastic: {
+    name: '两车非弹性碰撞（e=0.3 动能有损）',
+    elements: [
+      { id: 'car1', type: 'cube', position: { x: -3, y: 0.5 }, color: '#4A90D9',
+        properties: { mass: 1, friction: 0, restitution: 0.3 },
+        initialState: { velocity: { x: 5, y: 0 } } },
+      { id: 'car2', type: 'cube', position: { x: 3, y: 0.5 }, color: '#E05555',
+        properties: { mass: 2, friction: 0, restitution: 0.3 },
+        initialState: { velocity: { x: -2, y: 0 } } },
       { id: 'ground', type: 'wall', position: { x: 0, y: -0.1 }, scale: { x: 20, y: 0.2 },
         color: '#8a8aa0' },
     ],
@@ -41,37 +55,49 @@ const presets: Record<string, { name: string; elements: PhysicsElementInput[]; c
     config: { gravity: { x: 0, y: -9.8 }, maxDuration: 3.0 },
   },
   slope: {
-    name: '斜面滑块（slope 元件）',
+    name: '斜面滑块（30° 静止下滑）',
     elements: [
-      { id: 'slope1', type: 'slope', position: { x: -2, y: 0 }, scale: { x: 2, y: 1.2 },
+      // 斜面：scale(2, 2.3) → 底 4 × 高 2.3，tan θ = 2.3/4 ≈ 30°，直角在左下
+      { id: 'slope1', type: 'slope', position: { x: -2, y: 0 }, scale: { x: 2, y: 2.3 },
         color: '#3ecf8e' },
-      { id: 'block', type: 'cube', position: { x: -3.4, y: 1.6 }, color: '#4A90D9',
-        properties: { mass: 1, friction: 0.1, restitution: 0.1 } },
-      { id: 'ground', type: 'wall', position: { x: 0, y: -1.2 }, scale: { x: 30, y: 0.2 },
+      // 方块：贴斜面顶端静止（沿法线偏移半边长，倾角 -30° 对齐斜面）
+      { id: 'block', type: 'cube', position: { x: -3.23, y: 1.28 }, angle: -0.5236,
+        color: '#4A90D9',
+        properties: { mass: 1, friction: 0.1, restitution: 0.1 },
+        initialState: { velocity: { x: 0, y: 0 } } },
+      { id: 'ground', type: 'wall', position: { x: 2, y: -1.3 }, scale: { x: 24, y: 0.2 },
         color: '#8a8aa0' },
     ],
     config: { gravity: { x: 0, y: -9.8 }, maxDuration: 4.0 },
   },
-}
-const selected = ref<keyof typeof presets>('collision')
-
-const statusText = reactive({
-  get() {
-    switch (state.status) {
-      case 'running': return `▶ 运行中 t=${state.currentT.toFixed(2)}s`
-      case 'paused': return `⏸ 已暂停 t=${state.currentT.toFixed(2)}s`
-      case 'ended': return `■ 已结束 (${state.endInfo?.reason ?? ''} ${state.endInfo?.totalDuration.toFixed(2) ?? 0}s)`
-      case 'connecting': return '… 连接中'
-      default: return '待运行'
-    }
-  },
 })
+const selected = ref<keyof typeof presets>('collision')
+const showParams = ref(true)
+
+const LINE_COLORS = ['#4A90D9', '#E05555', '#F5C542', '#3ecf8e', '#b06ce6', '#6cd9e8']
+
+function statusText() {
+  switch (state.status) {
+    case 'running': return `▶ 运行中 t=${state.currentT.toFixed(2)}s`
+    case 'paused': return `⏸ 已暂停 t=${state.currentT.toFixed(2)}s`
+    case 'ended': return `■ 已结束 (${state.endInfo?.reason ?? ''} ${state.endInfo?.totalDuration.toFixed(2) ?? 0}s)`
+    case 'connecting': return '… 连接中'
+    default: return '待运行'
+  }
+}
 
 function startRun() {
   const preset = presets[selected.value]
-  renderer?.syncElements(preset.elements)
-  run(preset.elements, preset.config)
+  // 深拷贝当前参数快照，避免运行中面板编辑影响已提交场景
+  const elements = JSON.parse(JSON.stringify(preset.elements))
+  const config = JSON.parse(JSON.stringify(preset.config))
+  renderer?.syncElements(elements)
+  run(elements, config)
 }
+
+watch(selected, () => {
+  renderer?.syncElements(presets[selected.value].elements)
+})
 
 watch(
   () => state.subjects,
@@ -79,35 +105,40 @@ watch(
   { deep: true },
 )
 
-// v-t 图增量刷新（每 6 帧一次，避免 ECharts 重排压力）
+// v-t 图增量刷新（每 6 帧一次）：带符号速度分量 + Ek/p 双轴
 watch(
   () => state.frameCount,
   (n) => {
     if (!chart || n % 6 !== 0) return
-    chart.setOption({
-      series: [
-        ...state.vSeries.map((s, i) => ({
-          name: `|v${i + 1}|`,
-          type: 'line' as const,
-          showSymbol: false,
-          data: s.map((p) => [p.t, +p.v.toFixed(3)]),
-        })),
-        {
-          name: 'Ek',
-          type: 'line' as const,
-          showSymbol: false,
-          yAxisIndex: 1,
-          data: state.ekSeries.map((p) => [p.t, +p.v.toFixed(3)]),
-        },
-        {
-          name: 'p',
-          type: 'line' as const,
-          showSymbol: false,
-          yAxisIndex: 1,
-          data: state.pSeries.map((p) => [p.t, +p.v.toFixed(3)]),
-        },
-      ],
+    const series: echarts.SeriesOption[] = []
+    state.vSeries.forEach((s, i) => {
+      const color = LINE_COLORS[i % LINE_COLORS.length]
+      series.push({
+        name: `v${i + 1}x`, type: 'line', showSymbol: false,
+        lineStyle: { color, width: 2 },
+        itemStyle: { color },
+        data: s.map((p) => [p.t, +p.vx.toFixed(3)]),
+      })
+      series.push({
+        name: `v${i + 1}y`, type: 'line', showSymbol: false,
+        lineStyle: { color, width: 1.5, type: 'dashed', opacity: 0.7 },
+        itemStyle: { color },
+        data: s.map((p) => [p.t, +p.vy.toFixed(3)]),
+      })
     })
+    series.push({
+      name: 'Ek', type: 'line', showSymbol: false, yAxisIndex: 1,
+      lineStyle: { color: '#F5C542', width: 1.5 },
+      itemStyle: { color: '#F5C542' },
+      data: state.ekSeries.map((p) => [p.t, +p.v.toFixed(3)]),
+    })
+    series.push({
+      name: 'p', type: 'line', showSymbol: false, yAxisIndex: 1,
+      lineStyle: { color: '#6cd9e8', width: 1.5 },
+      itemStyle: { color: '#6cd9e8' },
+      data: state.pSeries.map((p) => [p.t, +p.v.toFixed(3)]),
+    })
+    chart.setOption({ series })
   },
 )
 
@@ -127,9 +158,9 @@ onMounted(() => {
       xAxis: { type: 'value', name: 't/s', nameTextStyle: { color: '#6c6c85' },
         axisLabel: { color: '#8a8aa0' }, splitLine: { lineStyle: { color: '#23233a' } } },
       yAxis: [
-        { type: 'value', name: '|v| (m/s)', nameTextStyle: { color: '#6c6c85' },
+        { type: 'value', name: 'v (m/s)', nameTextStyle: { color: '#6c6c85' },
           axisLabel: { color: '#8a8aa0' }, splitLine: { lineStyle: { color: '#23233a' } } },
-        { type: 'value', name: 'Ek / p', nameTextStyle: { color: '#6c6c85' },
+        { type: 'value', name: 'Ek(J) / p(kg·m/s)', nameTextStyle: { color: '#6c6c85' },
           axisLabel: { color: '#8a8aa0' }, splitLine: { show: false } },
       ],
       series: [],
@@ -155,10 +186,46 @@ onUnmounted(() => {
       <button :disabled="state.status !== 'paused'" @click="play">▶ 继续</button>
       <button :disabled="state.status !== 'paused'" @click="step">⏭ 单步</button>
       <button :disabled="state.status === 'ended' || state.status === 'idle'" @click="end">■ 停止</button>
-      <span class="status">{{ statusText }}</span>
+      <span class="status">{{ statusText() }}</span>
+      <button class="ghost" @click="showParams = !showParams">
+        {{ showParams ? '收起参数' : '展开参数' }}
+      </button>
     </section>
 
     <p v-if="error" class="error">{{ error }}</p>
+
+    <section v-if="showParams" class="params">
+      <div class="param-group" v-for="el in presets[selected].elements" :key="el.id">
+        <h3>{{ el.id }} <code>{{ el.type }}</code></h3>
+        <template v-if="el.type !== 'wall' && el.type !== 'slope'">
+          <label>质量 m
+            <input type="number" step="0.5" min="0.1" v-model.number="el.properties!.mass" :disabled="state.status !== 'idle' && state.status !== 'ended'">
+          </label>
+          <label>摩擦系数 μ
+            <input type="number" step="0.05" min="0" max="1" v-model.number="el.properties!.friction" :disabled="state.status !== 'idle' && state.status !== 'ended'">
+          </label>
+          <label>弹性 e
+            <input type="number" step="0.1" min="0" max="1" v-model.number="el.properties!.restitution" :disabled="state.status !== 'idle' && state.status !== 'ended'">
+          </label>
+          <label>初速 vx
+            <input type="number" step="1" v-model.number="el.initialState!.velocity!.x" :disabled="state.status !== 'idle' && state.status !== 'ended'">
+          </label>
+          <label>初速 vy
+            <input type="number" step="1" v-model.number="el.initialState!.velocity!.y" :disabled="state.status !== 'idle' && state.status !== 'ended'">
+          </label>
+        </template>
+        <span v-else class="hint">固定元件（{{ el.type === 'slope' ? '斜面默认固定' : '地面' }}）</span>
+      </div>
+      <div class="param-group">
+        <h3>全局配置</h3>
+        <label>重力 gy
+          <input type="number" step="0.5" v-model.number="presets[selected].config.gravity.y" :disabled="state.status !== 'idle' && state.status !== 'ended'">
+        </label>
+        <label>时长上限 s
+          <input type="number" step="1" min="1" max="30" v-model.number="presets[selected].config.maxDuration" :disabled="state.status !== 'idle' && state.status !== 'ended'">
+        </label>
+      </div>
+    </section>
 
     <section class="content">
       <div class="canvas-wrap">
@@ -182,15 +249,34 @@ onUnmounted(() => {
 
 <style scoped>
 .sim-page { max-width: 1280px; margin: 0 auto; padding: 16px 24px; }
-.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
 .toolbar select, .toolbar button {
   background: #23233a; color: #e8e8f0; border: 1px solid #2f2f4a;
   border-radius: 6px; padding: 7px 14px; font-size: 13px; cursor: pointer;
 }
 .toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
 .toolbar .primary { background: #2b5c8f; border-color: #4a90d9; }
+.toolbar .ghost { background: transparent; color: #8a8aa0; }
 .status { color: #8a8aa0; font-size: 13px; margin-left: 8px; }
 .error { color: #e05555; font-size: 13px; }
+.params {
+  display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 10px;
+  background: #1d1d33; border: 1px solid #2f2f4a; border-radius: 10px; padding: 12px 14px;
+}
+.param-group h3 { font-size: 13px; color: #b0b0cc; margin-bottom: 8px; font-weight: 600; }
+.param-group h3 code { color: #4a90d9; font-size: 11px; background: #23233a; padding: 1px 6px; border-radius: 4px; }
+.param-group label {
+  display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: #8a8aa0;
+  margin-right: 12px; margin-bottom: 6px;
+}
+.param-group { display: flex; flex-wrap: wrap; align-items: flex-start; }
+.param-group > div { display: flex; flex-wrap: wrap; }
+.param-group input {
+  width: 76px; background: #23233a; border: 1px solid #2f2f4a; border-radius: 4px;
+  color: #e8e8f0; padding: 4px 6px; font-size: 12px;
+}
+.param-group input:disabled { opacity: 0.45; }
+.param-group .hint { font-size: 11px; color: #6c6c85; align-self: center; }
 .content { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; }
 .canvas-wrap { position: relative; background: #14142a; border: 1px solid #2f2f4a; border-radius: 10px; overflow: hidden; }
 .canvas-wrap canvas { display: block; width: 100%; height: 520px; }
