@@ -54,19 +54,36 @@ const presets = reactive<Record<string, { name: string; elements: PhysicsElement
     ],
     config: { gravity: { x: 0, y: -9.8 }, maxDuration: 3.0 },
   },
-  slope: {
-    name: '斜面滑块（30° 静止下滑）',
+  slope_real: {
+    name: '斜面滑块 · 现实（滑离底部有磕碰）',
     elements: [
       // 斜面：scale(2, 2.3) → 底 4 × 高 2.3，tan θ = 2.3/4 ≈ 30°，直角在左下
       { id: 'slope1', type: 'slope', position: { x: -2, y: 0 }, scale: { x: 2, y: 2.3 },
         color: '#3ecf8e' },
-      // 方块：贴斜面顶端静止（沿法线偏移半边长，倾角 -30° 对齐斜面）
+      // 方块：贴斜面顶端静止；有效弹性 = max(块 0.2, 地面 0.3)，滑落后磕碰弹跳
       { id: 'block', type: 'cube', position: { x: -3.23, y: 1.28 }, angle: -0.5236,
         color: '#4A90D9',
-        properties: { mass: 1, friction: 0.1, restitution: 0.1 },
+        properties: { mass: 1, friction: 0.1, restitution: 0.2 },
         initialState: { velocity: { x: 0, y: 0 } } },
+      // 地面故意低于斜面底边 5cm：滑离瞬间产生落差磕碰
       { id: 'ground', type: 'wall', position: { x: 2, y: -1.3 }, scale: { x: 24, y: 0.2 },
-        color: '#8a8aa0' },
+        color: '#8a8aa0', properties: { friction: 0.1, restitution: 0.3 } },
+    ],
+    config: { gravity: { x: 0, y: -9.8 }, maxDuration: 4.0 },
+  },
+  slope_ideal: {
+    name: '斜面滑块 · 理想（球模型，平滑过渡无弹跳）',
+    elements: [
+      { id: 'slope1', type: 'slope', position: { x: -2, y: 0 }, scale: { x: 2, y: 2.3 },
+        color: '#3ecf8e' },
+      // 球形单点接触 + 双侧 e=0（dyn4j 弹性取 max，必须球和地面同时为零）
+      { id: 'ball', type: 'sphere', position: { x: -3.23, y: 1.28 },
+        color: '#F5C542',
+        properties: { mass: 1, friction: 0.1, restitution: 0 },
+        initialState: { velocity: { x: 0, y: 0 } } },
+      // 地面顶面与斜面底边严格齐平（y=-1.15）：无落差 + e=0，vy 全程无正向跳变
+      { id: 'ground', type: 'wall', position: { x: 2, y: -1.25 }, scale: { x: 24, y: 0.2 },
+        color: '#8a8aa0', properties: { friction: 0.1, restitution: 0 } },
     ],
     config: { gravity: { x: 0, y: -9.8 }, maxDuration: 4.0 },
   },
@@ -228,39 +245,43 @@ onUnmounted(() => {
     <section v-if="showParams" class="params">
       <div class="param-group" v-for="el in presets[selected].elements" :key="el.id">
         <h3>{{ el.id }} <code>{{ el.type }}</code></h3>
-        <template v-if="el.type !== 'wall' && el.type !== 'slope'">
-          <label>质量 m
-            <span class="unit-row">
-              <input type="number" step="0.5" min="0.0001" v-model.number="el.properties!.mass" :disabled="busy">
-              <button class="unit" @click="toggleMassUnit(el)" :disabled="busy"
-                      :title="(massUnit[el.id] ?? 'kg') === 'kg' ? '切换为克' : '切换为千克'">
-                {{ massUnit[el.id] ?? 'kg' }}
-              </button>
-            </span>
-          </label>
-          <label>摩擦系数 μ<span class="unit-hint">0~1 无量纲</span>
-            <input type="number" step="0.05" min="0" max="1" v-model.number="el.properties!.friction" :disabled="busy">
-          </label>
-          <label>弹性 e<span class="unit-hint">0~1 无量纲</span>
-            <input type="number" step="0.1" min="0" max="1" v-model.number="el.properties!.restitution" :disabled="busy">
-          </label>
-          <label>初速 vx (m/s)
-            <input type="number" step="1" v-model.number="el.initialState!.velocity!.x" :disabled="busy">
-          </label>
-          <label>初速 vy (m/s)
-            <input type="number" step="1" v-model.number="el.initialState!.velocity!.y" :disabled="busy">
-          </label>
-        </template>
-        <span v-else class="hint">固定元件（{{ el.type === 'slope' ? '斜面默认固定' : '地面' }}）</span>
+        <div class="fields">
+          <template v-if="el.type !== 'wall' && el.type !== 'slope'">
+            <label>质量 m
+              <span class="unit-row">
+                <input type="number" step="0.5" min="0.0001" v-model.number="el.properties!.mass" :disabled="busy">
+                <button class="unit" @click="toggleMassUnit(el)" :disabled="busy"
+                        :title="(massUnit[el.id] ?? 'kg') === 'kg' ? '切换为克' : '切换为千克'">
+                  {{ massUnit[el.id] ?? 'kg' }}
+                </button>
+              </span>
+            </label>
+            <label>摩擦系数 μ<span class="unit-hint">0~1 无量纲</span>
+              <input type="number" step="0.05" min="0" max="1" v-model.number="el.properties!.friction" :disabled="busy">
+            </label>
+            <label>弹性 e<span class="unit-hint">0~1 无量纲</span>
+              <input type="number" step="0.1" min="0" max="1" v-model.number="el.properties!.restitution" :disabled="busy">
+            </label>
+            <label>初速 vx (m/s)
+              <input type="number" step="1" v-model.number="el.initialState!.velocity!.x" :disabled="busy">
+            </label>
+            <label>初速 vy (m/s)
+              <input type="number" step="1" v-model.number="el.initialState!.velocity!.y" :disabled="busy">
+            </label>
+          </template>
+          <span v-else class="hint">固定元件（{{ el.type === 'slope' ? '斜面默认固定' : '地面' }}）</span>
+        </div>
       </div>
       <div class="param-group">
         <h3>全局配置</h3>
-        <label>重力 gy (m/s²)<span class="unit-hint">0 = 无重力</span>
-          <input type="number" step="0.5" v-model.number="presets[selected].config.gravity.y" :disabled="busy">
-        </label>
-        <label>时长上限 (s)
-          <input type="number" step="1" min="1" max="30" v-model.number="presets[selected].config.maxDuration" :disabled="busy">
-        </label>
+        <div class="fields">
+          <label>重力 gy (m/s²)<span class="unit-hint">0 = 无重力</span>
+            <input type="number" step="0.5" v-model.number="presets[selected].config.gravity.y" :disabled="busy">
+          </label>
+          <label>时长上限 (s)
+            <input type="number" step="1" min="1" max="30" v-model.number="presets[selected].config.maxDuration" :disabled="busy">
+          </label>
+        </div>
       </div>
     </section>
 
@@ -297,30 +318,33 @@ onUnmounted(() => {
 .status { color: #8a8aa0; font-size: 13px; margin-left: 8px; }
 .error { color: #e05555; font-size: 13px; }
 .params {
-  display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 10px;
-  background: #1d1d33; border: 1px solid #2f2f4a; border-radius: 10px; padding: 12px 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 10px; margin-bottom: 10px;
+}
+.param-group {
+  background: #1d1d33; border: 1px solid #2f2f4a; border-radius: 10px;
+  padding: 10px 14px 12px;
 }
 .param-group h3 { font-size: 13px; color: #b0b0cc; margin-bottom: 8px; font-weight: 600; }
 .param-group h3 code { color: #4a90d9; font-size: 11px; background: #23233a; padding: 1px 6px; border-radius: 4px; }
+.param-group .fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px 10px; }
 .param-group label {
   display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: #8a8aa0;
-  margin-right: 12px; margin-bottom: 6px;
 }
-.param-group { display: flex; flex-wrap: wrap; align-items: flex-start; }
-.param-group > div { display: flex; flex-wrap: wrap; }
 .param-group input {
-  width: 76px; background: #23233a; border: 1px solid #2f2f4a; border-radius: 4px;
+  width: 100%; background: #23233a; border: 1px solid #2f2f4a; border-radius: 4px;
   color: #e8e8f0; padding: 4px 6px; font-size: 12px;
 }
 .param-group input:disabled { opacity: 0.45; }
-.param-group .unit-row { display: flex; gap: 4px; align-items: center; }
-.param-group .unit-row input { width: 62px; }
+.param-group .unit-row { display: flex; gap: 4px; align-items: stretch; }
+.param-group .unit-row input { width: 100%; min-width: 0; flex: 1; }
 .param-group button.unit {
-  width: 36px; padding: 4px 0; background: #2f2f4a; color: #8a8aa0;
+  flex-shrink: 0; width: 38px; background: #2f2f4a; color: #8a8aa0;
   border: 1px solid #3d3d5e; border-radius: 4px; font-size: 11px; cursor: pointer;
 }
 .param-group .unit-hint { font-size: 10px; color: #565675; }
-.param-group .hint { font-size: 11px; color: #6c6c85; align-self: center; }
+.param-group .hint { font-size: 11px; color: #6c6c85; }
 .content { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; }
 .canvas-wrap { position: relative; background: #14142a; border: 1px solid #2f2f4a; border-radius: 10px; overflow: hidden; }
 .canvas-wrap canvas { display: block; width: 100%; height: 520px; }
