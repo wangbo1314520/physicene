@@ -4,10 +4,15 @@ import type { PhysicsElementInput, SubjectState } from '../composables/useSimula
 /**
  * Three.js 2.5D 渲染（SRS：物理 2D x/y，等距视角营造立体感）。
  * 坐标映射：物理 (x, y) → three (x, y, z=0)，cube 有 z 厚度。
+ * LabView 交互：screenToWorld（拖放置点）/ pickElement（点击选中）。
  */
 export interface SimRenderer {
   syncElements(elements: PhysicsElementInput[]): void
   updateStates(subjects: SubjectState[]): void
+  updateElement(id: string, patch: Partial<PhysicsElementInput>): void
+  screenToWorld(clientX: number, clientY: number): { x: number; y: number } | null
+  pickElement(clientX: number, clientY: number): string | null
+  setSelected(id: string | null): void
   dispose(): void
 }
 
@@ -19,7 +24,6 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
   scene.background = new THREE.Color(0x14142a)
   scene.fog = new THREE.Fog(0x14142a, 40, 90)
 
-  // 等距视角（isometric，默认 2.5D）
   const camera = new THREE.PerspectiveCamera(
     45, canvas.clientWidth / canvas.clientHeight, 0.1, 200,
   )
@@ -31,18 +35,17 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
   dir.position.set(10, 18, 8)
   scene.add(dir)
 
-  // 参考地面网格
   const grid = new THREE.GridHelper(60, 60, 0x3a3a5e, 0x23233a)
-  grid.rotation.x = Math.PI / 2 // GridHelper 默认在 xz 平面，旋到 xy
+  grid.rotation.x = Math.PI / 2
   scene.add(grid)
+
+  const raycaster = new THREE.Raycaster()
+  const zPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0)
 
   const meshes = new Map<string, THREE.Mesh>()
   const materials: THREE.Material[] = []
   const geometries: THREE.BufferGeometry[] = []
-
-  function disposeObj(obj: THREE.Object3D) {
-    scene.remove(obj)
-  }
+  let selectedId: string | null = null
 
   function buildMesh(el: PhysicsElementInput): THREE.Mesh {
     let geometry: THREE.BufferGeometry
@@ -55,7 +58,6 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
         break
       }
       case 'slope': {
-        // 基准三角形：底 2×高 1（与后端 SlopeElement 一致），挤出厚度
         const w = 2 * sx, h = 1 * sy
         const shape = new THREE.Shape([
           new THREE.Vector2(-w / 2, -h / 2),
@@ -88,6 +90,21 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     return mesh
   }
 
+  function applySelection() {
+    for (const [id, mesh] of meshes) {
+      const mat = mesh.material as THREE.MeshStandardMaterial
+      mat.emissive = new THREE.Color(id === selectedId ? 0x2a5c8f : 0x000000)
+    }
+  }
+
+  function ndc(clientX: number, clientY: number) {
+    const rect = canvas.getBoundingClientRect()
+    return new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1,
+    )
+  }
+
   let raf = 0
   const loop = () => {
     renderer.render(scene, camera)
@@ -97,7 +114,7 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
 
   return {
     syncElements(elements) {
-      for (const mesh of meshes.values()) disposeObj(mesh)
+      for (const mesh of meshes.values()) scene.remove(mesh)
       meshes.clear()
       for (const el of elements) {
         if (el.isVisible === false) continue
@@ -105,6 +122,7 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
         meshes.set(el.id, mesh)
         scene.add(mesh)
       }
+      applySelection()
     },
     updateStates(subjects) {
       for (const s of subjects) {
@@ -114,6 +132,30 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
           if (s.angle !== undefined) mesh.rotation.z = s.angle
         }
       }
+    },
+    updateElement(id, patch) {
+      const mesh = meshes.get(id)
+      if (!mesh) return
+      if (patch.position) mesh.position.set(patch.position.x, patch.position.y, 0)
+      if (patch.angle !== undefined) mesh.rotation.z = patch.angle
+      if (patch.color) (mesh.material as THREE.MeshStandardMaterial).color.set(patch.color)
+    },
+    screenToWorld(clientX, clientY) {
+      raycaster.setFromCamera(ndc(clientX, clientY), camera)
+      const point = new THREE.Vector3()
+      if (!raycaster.ray.intersectPlane(zPlane, point)) return null
+      return { x: +point.x.toFixed(3), y: +point.y.toFixed(3) }
+    },
+    pickElement(clientX, clientY) {
+      raycaster.setFromCamera(ndc(clientX, clientY), camera)
+      const hits = raycaster.intersectObjects([...meshes.values()])
+      if (hits.length === 0) return null
+      const found = [...meshes.entries()].find(([, m]) => m === hits[0].object)
+      return found ? found[0] : null
+    },
+    setSelected(id) {
+      selectedId = id
+      applySelection()
     },
     dispose() {
       cancelAnimationFrame(raf)

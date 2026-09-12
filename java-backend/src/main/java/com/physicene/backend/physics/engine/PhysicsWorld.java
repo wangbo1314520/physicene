@@ -24,10 +24,11 @@ public class PhysicsWorld {
         this.elementRegistry = elementRegistry;
     }
 
-    /** 初始化并启动（异步实时仿真），返回 simId */
-    public String start(Scene scene) {
+    /** 初始化并启动（异步实时仿真），返回 simId；userId 用于 WS 握手归属校验 */
+    public String start(Scene scene, Long userId) {
         String simId = UUID.randomUUID().toString();
         SimulationInstance instance = new SimulationInstance(simId, scene, elementRegistry);
+        instance.setOwnerId(userId);
         instances.put(simId, instance);
         new SimulationRunner(instance).start();
         return simId;

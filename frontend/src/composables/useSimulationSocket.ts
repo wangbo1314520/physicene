@@ -25,6 +25,7 @@ export interface PhysicsElementInput {
 
 export interface SimState {
   simId: string | null
+  recordId: number | null
   status: 'idle' | 'connecting' | 'running' | 'paused' | 'ended'
   currentT: number
   subjects: SubjectState[]
@@ -44,6 +45,7 @@ export interface SimState {
 export function useSimulationSocket() {
   const state = reactive<SimState>({
     simId: null,
+    recordId: null,
     status: 'idle',
     currentT: 0,
     subjects: [],
@@ -58,21 +60,28 @@ export function useSimulationSocket() {
   const error = ref('')
   let ws: WebSocket | null = null
 
-  async function run(elements: PhysicsElementInput[], config: Record<string, unknown>) {
+  async function run(elements: PhysicsElementInput[], config: Record<string, unknown>,
+                     sceneId?: string | null) {
     error.value = ''
     close()
     Object.assign(state, {
       status: 'connecting', currentT: 0, subjects: [], keyEvents: [],
       vSeries: [], vIds: [], ekSeries: [], pSeries: [], endInfo: null, frameCount: 0,
+      recordId: null,
     })
     try {
-      const resp = (await http.post('/simulations/run', { elements, config })) as {
+      const body = sceneId ? { sceneId } : { elements, config }
+      const resp = (await http.post('/simulations/run', body)) as {
         simId: string
         wsUrl: string
+        recordId: number | null
       }
       state.simId = resp.simId
+      state.recordId = resp.recordId
+      const token = localStorage.getItem('ps_token') ?? ''
       const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-      ws = new WebSocket(`${proto}://${location.host}${resp.wsUrl}`)
+      ws = new WebSocket(
+        `${proto}://${location.host}${resp.wsUrl}?token=${encodeURIComponent(token)}`)
       ws.onopen = () => (state.status = 'running')
       ws.onmessage = (ev) => handle(JSON.parse(ev.data as string))
       ws.onclose = () => {

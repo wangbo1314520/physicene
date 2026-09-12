@@ -48,10 +48,13 @@ public class SimulationInstance {
     public record EndInfo(String reason, int totalFrames, double totalDuration) {
     }
 
-    private final String simId;
+    private String simId;
     private final Scene scene;
     private final World<Body> world;
     private final double dt;
+
+    /** 归属用户（WS 握手校验用；内联调试运行可为 null） */
+    private volatile Long ownerId;
 
     private final Map<String, Body> bodies = new LinkedHashMap<>();       // id → body（全部）
     private final List<Body> dynamicBodies = new ArrayList<>();           // 可运动主体（快照/统计只看它们）
@@ -287,6 +290,14 @@ public class SimulationInstance {
 
     public String getSimId() {
         return simId;
+    }
+
+    public Long getOwnerId() {
+        return ownerId;
+    }
+
+    public void setOwnerId(Long ownerId) {
+        this.ownerId = ownerId;
     }
 
     public Scene getScene() {

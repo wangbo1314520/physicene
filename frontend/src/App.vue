@@ -4,7 +4,10 @@
 <template>
   <nav class="topbar">
     <router-link to="/" class="brand">PhysiScene</router-link>
-    <router-link to="/sim">仿真实验</router-link>
+    <router-link to="/lab">实验台</router-link>
+    <router-link to="/scenes">我的场景</router-link>
+    <router-link to="/sim">演示实验</router-link>
+    <span class="spacer"></span>
     <router-link to="/">链路验收页</router-link>
   </nav>
   <router-view />
@@ -27,4 +30,5 @@ body {
 .topbar a { color: #8a8aa0; text-decoration: none; font-size: 14px; }
 .topbar a.router-link-active, .topbar a:hover { color: #e8e8f0; }
 .topbar .brand { color: #4a90d9; font-weight: 700; font-size: 16px; }
+.topbar .spacer { flex: 1; }
 </style>

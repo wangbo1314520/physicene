@@ -1,7 +1,7 @@
 package com.physicene.backend.physics.websocket;
 
+import com.physicene.backend.common.util.JwtUtil;
 import com.physicene.backend.physics.engine.PhysicsWorld;
-import com.physicene.backend.physics.engine.SimResultBuilder;
 import com.physicene.backend.physics.engine.SimulationInstance;
 import com.physicene.backend.physics.model.DataRow;
 import com.physicene.backend.physics.model.Frame;
@@ -32,13 +32,15 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
     private static final Logger log = LoggerFactory.getLogger(PhysicsWebSocketHandler.class);
 
     private final PhysicsWorld physicsWorld;
+    private final JwtUtil jwtUtil;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /** 同 simId 单连接：新连接挤掉旧连接（契约 kicked 语义） */
     private final Map<String, WebSocketSession> sessionsBySim = new ConcurrentHashMap<>();
 
-    public PhysicsWebSocketHandler(PhysicsWorld physicsWorld) {
+    public PhysicsWebSocketHandler(PhysicsWorld physicsWorld, JwtUtil jwtUtil) {
         this.physicsWorld = physicsWorld;
+        this.jwtUtil = jwtUtil;
     }
 
     @Override
@@ -49,10 +51,29 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
             session.close(CloseStatus.BAD_DATA);
             return;
         }
+        // 握手鉴权（SRS 6.1）：token 查询参数 + simId 归属校验，失败 4001
+        Long tokenUserId;
+        try {
+            String token = extractQueryParam(session, "token");
+            if (token == null) {
+                throw new IllegalArgumentException("缺少 token");
+            }
+            tokenUserId = jwtUtil.parse(token).userId();
+        } catch (Exception e) {
+            send(session, Map.of("type", "error", "code", 1002, "message", "握手鉴权失败"));
+            session.close(CloseStatus.NOT_ACCEPTABLE); // 4001 语义
+            return;
+        }
         SimulationInstance instance = physicsWorld.getInstance(simId);
         if (instance == null) {
             send(session, Map.of("type", "not_found", "simId", simId));
             session.close(CloseStatus.NORMAL);
+            return;
+        }
+        // 归属校验：内联调试运行（ownerId=null）放开；场景运行必须本人
+        if (instance.getOwnerId() != null && !instance.getOwnerId().equals(tokenUserId)) {
+            send(session, Map.of("type", "error", "code", 1003, "message", "无权访问该仿真"));
+            session.close(CloseStatus.NOT_ACCEPTABLE);
             return;
         }
 
@@ -190,6 +211,20 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
         }
         int idx = path.lastIndexOf('/');
         return idx >= 0 && idx < path.length() - 1 ? path.substring(idx + 1) : null;
+    }
+
+    private static String extractQueryParam(WebSocketSession session, String name) {
+        String query = session.getUri() != null ? session.getUri().getQuery() : null;
+        if (query == null) {
+            return null;
+        }
+        for (String pair : query.split("&")) {
+            int eq = pair.indexOf('=');
+            if (eq > 0 && name.equals(pair.substring(0, eq))) {
+                return java.net.URLDecoder.decode(pair.substring(eq + 1), java.nio.charset.StandardCharsets.UTF_8);
+            }
+        }
+        return null;
     }
 
     private static double toDouble(Object v, double dflt) {
