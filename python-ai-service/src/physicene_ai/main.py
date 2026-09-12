@@ -6,16 +6,18 @@
 
 from fastapi import FastAPI
 
+from physicene_ai.api.routes_agent import router as agent_router
 from physicene_ai.api.routes_health import router as health_router
 from physicene_ai.utils.logger import logger
 
 app = FastAPI(
     title="PhysiScene AI Service",
-    version="0.1.0",
+    version="0.4.0",
     description="Agent 对话 / RAG 教材检索 / OCR 识题（内部服务，经 Java 网关访问）",
 )
 
 app.include_router(health_router)
+app.include_router(agent_router)
 
 
 @app.get("/", include_in_schema=False)

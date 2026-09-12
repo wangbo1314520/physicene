@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
 import { createSimRenderer, type SimRenderer } from '../sim/threeScene'
@@ -14,7 +14,65 @@ const chartRef = ref<HTMLDivElement | null>(null)
 let renderer: SimRenderer | null = null
 let chart: echarts.ECharts | null = null
 
-const { state, error, run, pause, play, step, end } = useSimulationSocket()
+const { state, error, run, attach, pause, play, step, end } = useSimulationSocket()
+
+// ===== AI 助教对话框（第四周：用嘴做实验）=====
+const chatLog = ref<HTMLElement | null>(null)
+const chat = reactive({
+  messages: [] as { role: string; content: string }[],
+  input: '',
+  busy: false,
+  sessionId: 'sess-' + Date.now().toString(36),
+})
+
+async function sendChat() {
+  const msg = chat.input.trim()
+  if (!msg || chat.busy) return
+  chat.messages.push({ role: 'user', content: msg })
+  chat.input = ''
+  chat.busy = true
+  try {
+    const resp = (await http.post('/v1/agent/chat', {
+      sessionId: chat.sessionId,
+      sceneId: scene.sceneId ? String(scene.sceneId) : null,
+      message: msg,
+      history: chat.messages.slice(-11, -1).map((m) => ({ role: m.role, content: m.content })),
+    })) as {
+      reply: string
+      toolCalls?: { name: string; result: any }[]
+    }
+    const toolNames = (resp.toolCalls ?? []).map((t) => t.name)
+    chat.messages.push({
+      role: 'assistant',
+      content: resp.reply + (toolNames.length ? `\n⚙ ${toolNames.join(', ')}` : ''),
+    })
+
+    // 工具产生的场景变化 → 刷新画布
+    const sceneChanged = toolNames.some((n) =>
+      ['add_element', 'remove_element', 'move_element', 'rotate_element',
+        'modify_element_property', 'clear_scene'].includes(n))
+    const runTc = (resp.toolCalls ?? []).find((t) => t.name === 'run_simulation')
+    const runResult = runTc && typeof runTc.result === 'object' ? runTc.result : null
+    if (runResult?.sceneId) {
+      await loadScene(Number(runResult.sceneId))       // AI 建的新场景
+    } else if (sceneChanged && scene.sceneId) {
+      await loadScene(scene.sceneId)                    // 原场景被改 → 重载
+    }
+    // AI 启动的仿真 → 自动接管观看（连 WS + 曲线 + 结束后回放）
+    if (runResult?.simId && runResult?.wsUrl) {
+      resetReplay()
+      chart?.setOption({ series: [] }, { replaceMerge: ['series'] })
+      attach(String(runResult.simId), String(runResult.wsUrl), runResult.recordId ?? null)
+      toast.value = 'AI 已启动实验，正在为你直播～'
+    }
+  } catch (e) {
+    chat.messages.push({ role: 'assistant', content: '助手开小差了：' + String(e).replace('Error: ', '') })
+  } finally {
+    chat.busy = false
+    await nextTick()
+    chatLog.value?.scrollTo({ top: chatLog.value.scrollHeight })
+  }
+}
 
 // ===== 场景状态 =====
 const scene = reactive({
@@ -370,9 +428,20 @@ onUnmounted(() => {
           <span class="icon" :style="{ color: p.color }">{{ p.icon }}</span>{{ p.label }}
         </div>
         <p class="hint">拖到画布放置 · 点击选中 · Delete 删除</p>
-        <div class="chat-placeholder">
+        <div class="chat">
           <h3>AI 助教</h3>
-          <p>第四周接入：自然语言搭建场景、问原理（RAG）</p>
+          <div class="chat-log" ref="chatLog">
+            <div v-if="!chat.messages.length" class="chat-empty">
+              试试对我说：<br>「做个小车碰撞实验」<br>「加一个方块」<br>「把质量改成 3」<br>「什么是动量守恒」
+            </div>
+            <div v-for="(m, i) in chat.messages" :key="i" :class="['msg', m.role]">{{ m.content }}</div>
+          </div>
+          <div class="chat-input">
+            <input v-model="chat.input" :disabled="chat.busy"
+                   placeholder="用嘴做实验…"
+                   @keyup.enter="sendChat">
+            <button @click="sendChat" :disabled="chat.busy">{{ chat.busy ? '…' : '发' }}</button>
+          </div>
         </div>
       </aside>
 
@@ -461,6 +530,7 @@ onUnmounted(() => {
 .left, .right {
   background: #1d1d33; border: 1px solid #2f2f4a; border-radius: 10px;
   padding: 12px; overflow-y: auto;
+  display: flex; flex-direction: column;
 }
 h3 { font-size: 13px; color: #b0b0cc; margin-bottom: 10px; }
 .palette-item {
@@ -471,10 +541,24 @@ h3 { font-size: 13px; color: #b0b0cc; margin-bottom: 10px; }
 .palette-item:hover { border-color: #4a90d9; }
 .palette-item .icon { font-size: 18px; }
 .hint { color: #565675; font-size: 11px; margin: 8px 0; }
-.chat-placeholder {
-  margin-top: 16px; padding: 10px; background: #191930; border: 1px dashed #3d3d5e;
-  border-radius: 8px; color: #565675; font-size: 11px;
+.chat {
+  margin-top: 12px; flex: 1; display: flex; flex-direction: column; min-height: 180px;
+  background: #191930; border: 1px solid #3d3d5e; border-radius: 8px; padding: 10px;
 }
+.chat-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.chat-empty { color: #565675; font-size: 11px; line-height: 1.8; }
+.msg { font-size: 12px; line-height: 1.5; padding: 6px 9px; border-radius: 8px;
+  white-space: pre-wrap; word-break: break-word; }
+.msg.user { background: #2b5c8f; color: #e8e8f0; align-self: flex-end; max-width: 92%; }
+.msg.assistant { background: #23233a; color: #b0b0cc; align-self: flex-start; max-width: 96%; }
+.chat-input { display: flex; gap: 6px; margin-top: 8px; }
+.chat-input input {
+  flex: 1; background: #23233a; border: 1px solid #2f2f4a; border-radius: 6px;
+  color: #e8e8f0; padding: 7px 9px; font-size: 12px; min-width: 0;
+}
+.chat-input button { background: #2b5c8f; color: #fff; border: none; border-radius: 6px;
+  padding: 0 12px; font-size: 12px; cursor: pointer; }
+.chat-input button:disabled { opacity: 0.5; }
 .center { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .canvas-wrap { position: relative; flex: 1; min-height: 200px; background: #14142a;
   border: 1px solid #2f2f4a; border-radius: 10px; overflow: hidden; }

@@ -11,6 +11,8 @@ dependencies = [
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "loguru>=0.7",
+    "httpx (>=0.28.1,<0.29.0)",
+    "openai (>=3.13.0,<4.0.0)",
 ]
 
 [build-system]
@@ -25,3 +27,8 @@ packages = [{ include = "physicene_ai", from = "src" }]
 name = "tuna"
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 priority = "primary"
+
+[dependency-groups]
+dev = [
+    "pytest (>=9.1.1,<10.0.0)"
+]

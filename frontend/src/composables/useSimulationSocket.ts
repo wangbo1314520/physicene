@@ -149,6 +149,27 @@ export function useSimulationSocket() {
     }
   }
 
+  /** 附加到已在运行/已结束的仿真（AI 助手 run_simulation 后前端直接接管观看） */
+  function attach(simId: string, wsUrl: string, recordId: number | null = null) {
+    error.value = ''
+    close()
+    Object.assign(state, {
+      status: 'connecting', currentT: 0, subjects: [], keyEvents: [],
+      vSeries: [], vIds: [], ekSeries: [], pSeries: [], endInfo: null, frameCount: 0,
+      recordId,
+    })
+    state.simId = simId
+    const token = localStorage.getItem('ps_token') ?? ''
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+    ws = new WebSocket(`${proto}://${location.host}${wsUrl}?token=${encodeURIComponent(token)}`)
+    ws.onopen = () => (state.status = 'running')
+    ws.onmessage = (ev) => handle(JSON.parse(ev.data as string))
+    ws.onclose = () => {
+      if (state.status !== 'ended') state.status = 'idle'
+    }
+    ws.onerror = () => (error.value = 'WebSocket 连接失败')
+  }
+
   function send(action: string, extra?: Record<string, unknown>) {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ action, ...extra }))
@@ -170,5 +191,5 @@ export function useSimulationSocket() {
     }
   }
 
-  return { state, error, run, pause, play, step, seek, end, sync, close }
+  return { state, error, run, attach, pause, play, step, seek, end, sync, close }
 }
