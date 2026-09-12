@@ -278,10 +278,23 @@ const replay = reactive({
 
 async function loadReplay() {
   if (!state.recordId) return
-  const data = (await http.get(`/records/${state.recordId}`, {
+  // 分页拉全帧（契约 frameLimit≤500/页；10s 仿真=600 帧会超一页）
+  const first = (await http.get(`/records/${state.recordId}`, {
     params: { frameOffset: 0, frameLimit: 500, withIndex: true },
-  })) as { frames: { t: number; snapshotType: string; snapshot: any }[] }
-  replay.frames = data.frames
+  })) as {
+    totalFrames: number
+    frames: { t: number; snapshotType: string; snapshot: any }[]
+  }
+  replay.frames = [...first.frames]
+  let offset = first.frames.length
+  while (offset < first.totalFrames && offset < 1800) {
+    const page = (await http.get(`/records/${state.recordId}`, {
+      params: { frameOffset: offset, frameLimit: 500 },
+    })) as { frames: { t: number; snapshotType: string; snapshot: any }[] }
+    if (!page.frames.length) break
+    replay.frames.push(...page.frames)
+    offset += page.frames.length
+  }
   replay.available = true
   replay.t = 0
   applyReplayFrame(0)

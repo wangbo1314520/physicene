@@ -109,14 +109,18 @@ public class SimulationController {
         if (instance == null) {
             return;
         }
-        instance.addEndListener(end -> {
+        Runnable persist = () -> {
             try {
                 ExperimentRecordEntity record = recordRepository.findById(recordId).orElse(null);
                 if (record == null) {
                     return;
                 }
+                if (record.getStatus() != ExperimentRecordEntity.Status.RUNNING) {
+                    return; // 已持久化过（双重触发兜底）
+                }
                 record.setEndTime(LocalDateTime.now());
-                record.setStatus("error".equals(end.reason())
+                record.setStatus("error".equals(instance.getEndInfo() != null
+                        ? instance.getEndInfo().reason() : "")
                         ? ExperimentRecordEntity.Status.FAILED
                         : ExperimentRecordEntity.Status.COMPLETED);
                 SimResult simResult = SimResultBuilder.build(instance);
@@ -126,7 +130,12 @@ public class SimulationController {
             } catch (Exception e) {
                 log.error("记录持久化失败 recordId={}", recordId, e);
             }
-        });
+        };
+        instance.addEndListener(end -> persist.run());
+        // 竞态兜底：极短仿真可能在挂监听前就已结束（start 先于 save/attach 执行）
+        if (instance.isEnded()) {
+            persist.run();
+        }
     }
 
     @GetMapping("/{simId}/result")

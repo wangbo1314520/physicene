@@ -75,10 +75,13 @@ public class PhysicsWorld {
         long now = System.currentTimeMillis();
         instances.entrySet().removeIf(entry -> {
             SimulationInstance inst = entry.getValue();
-            if (inst.isEnded()) {
-                return now - inst.getEndedAtMillis() > 30 * 60_000L;
+            boolean expired = inst.isEnded()
+                    ? now - inst.getEndedAtMillis() > 30 * 60_000L
+                    : now - inst.getCreatedAtMillis() > 2 * 60 * 60_000L;
+            if (expired) {
+                inst.end("released"); // 停掉仍在跑的仿真线程
             }
-            return now - inst.getCreatedAtMillis() > 2 * 60 * 60_000L;
+            return expired;
         });
     }
 }

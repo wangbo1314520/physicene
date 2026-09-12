@@ -104,10 +104,14 @@ public class SimulationInstance {
             }
         }
 
-        // 碰撞关键事件：同一对元件只报一次（碰撞持续期每步都会回调）
+        // 碰撞关键事件：同一对元件只报一次；初始就贴合的接触（如方块恰好放在地面上）
+        // 不算"碰撞"——前两步内的接触是放置不是碰撞
         CollisionListener<Body, BodyFixture> collisionAdapter = new CollisionListenerAdapter<>() {
             @Override
             public boolean collision(org.dyn4j.world.ManifoldCollisionData<Body, BodyFixture> data) {
+                if (t <= dt * 2) {
+                    return true; // 初始贴合：静默放行
+                }
                 String id1 = String.valueOf(data.getBody1().getUserData());
                 String id2 = String.valueOf(data.getBody2().getUserData());
                 String pair = id1.compareTo(id2) < 0 ? id1 + "|" + id2 : id2 + "|" + id1;

@@ -38,8 +38,12 @@ public class JwtInterceptor implements HandlerInterceptor {
         String key = request.getHeader("X-Internal-Key");
         if (key != null && key.equals(internalKey)) {
             String uid = request.getHeader("X-User-Id");
-            UserContext.set(new UserContext.AuthUser(
-                    uid == null ? null : Long.valueOf(uid), "internal", "student"));
+            try {
+                UserContext.set(new UserContext.AuthUser(
+                        uid == null ? null : Long.valueOf(uid), "internal", "student"));
+            } catch (NumberFormatException e) {
+                throw new BusinessException(ErrorCode.UNAUTHORIZED, "内部调用 X-User-Id 非法");
+            }
             return true;
         }
 
