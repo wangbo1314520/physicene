@@ -29,11 +29,21 @@ public abstract class AbstractMechanicalElement implements ElementBehavior {
     protected abstract double momentOfInertia(double mass);
 
     @Override
+    public String ownId() {
+        return data.getId();
+    }
+
+    /** 子类定制 fixture（场区域元件设 sensor 免碰撞） */
+    protected void customizeFixture(BodyFixture fixture) {
+    }
+
+    @Override
     public Body createBody(World<Body> world) {
         Body body = new Body();
         BodyFixture fixture = body.addFixture(buildShape());
         fixture.setFriction(data.getProperties().getFriction());
         fixture.setRestitution(data.getProperties().getRestitution());
+        customizeFixture(fixture);
 
         if (data.isFixed()) {
             body.setMass(MassType.INFINITE);

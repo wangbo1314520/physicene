@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import * as echarts from 'echarts'
 import { createSimRenderer, type SimRenderer } from '../sim/threeScene'
+import { getToken, login, register } from '../api/auth'
 import {
   useSimulationSocket,
   type PhysicsElementInput,
@@ -86,6 +87,75 @@ const presets = reactive<Record<string, { name: string; elements: PhysicsElement
         color: '#8a8aa0', properties: { friction: 0.1, restitution: 0 } },
     ],
     config: { gravity: { x: 0, y: -9.8 }, maxDuration: 4.0 },
+  },
+  projectile_h: {
+    name: '平抛运动（水平初速 + 重力）',
+    elements: [
+      { id: 'ball', type: 'sphere', position: { x: -10, y: 10 }, color: '#F5C542',
+        properties: { mass: 0.5, friction: 0, restitution: 0.3 },
+        initialState: { velocity: { x: 6, y: 0 } } },
+      { id: 'ground', type: 'wall', position: { x: 0, y: -0.1 }, scale: { x: 40, y: 0.2 },
+        color: '#8a8aa0' },
+    ],
+    config: { gravity: { x: 0, y: -9.8 }, maxDuration: 4 },
+  },
+  projectile_45: {
+    name: '斜抛运动 45°（v0=20，射程 40m）',
+    elements: [
+      { id: 'ball', type: 'cube', position: { x: -15, y: 0.5 }, color: '#F5C542',
+        properties: { mass: 0.5, friction: 0, restitution: 0.2 },
+        initialState: { velocity: { x: 14.14, y: 14.14 } } },
+      { id: 'ground', type: 'wall', position: { x: 0, y: -0.1 }, scale: { x: 60, y: 0.2 },
+        color: '#8a8aa0' },
+    ],
+    config: { gravity: { x: 0, y: -9.8 }, maxDuration: 5 },
+  },
+  recoil: {
+    name: '反冲运动（静止分离，动量守恒 p=0）',
+    elements: [
+      { id: 'car1', type: 'cube', position: { x: -0.6, y: 0.5 }, color: '#4A90D9',
+        properties: { mass: 1, friction: 0, restitution: 0.5 },
+        initialState: { velocity: { x: -4, y: 0 } } },
+      { id: 'car2', type: 'cube', position: { x: 0.6, y: 0.5 }, color: '#E05555',
+        properties: { mass: 2, friction: 0, restitution: 0.5 },
+        initialState: { velocity: { x: 2, y: 0 } } },
+      { id: 'ground', type: 'wall', position: { x: 0, y: -0.1 }, scale: { x: 40, y: 0.2 },
+        color: '#8a8aa0' },
+    ],
+    config: { gravity: { x: 0, y: 0 }, maxDuration: 5 },
+  },
+  friction_decel: {
+    name: '摩擦减速（μ=0.3 滑块减速到停止）',
+    elements: [
+      { id: 'cube_a', type: 'cube', position: { x: -8, y: 0.5 }, color: '#4A90D9',
+        properties: { mass: 1, friction: 0.3, restitution: 0 },
+        initialState: { velocity: { x: 8, y: 0 } } },
+      { id: 'ground', type: 'wall', position: { x: 0, y: -0.1 }, scale: { x: 40, y: 0.2 },
+        color: '#8a8aa0', properties: { friction: 0.3, restitution: 0 } },
+    ],
+    config: { gravity: { x: 0, y: -9.8 }, maxDuration: 5 },
+  },
+  e_deflect: {
+    name: '电场偏转（示波器模型，电荷抛物线）',
+    elements: [
+      { id: 'pc', type: 'point_charge', position: { x: -10, y: 0 }, color: '#F5C542',
+        properties: { mass: 1, charge: 1 },
+        initialState: { velocity: { x: 5, y: 0 } } },
+      { id: 'ef', type: 'e_field', position: { x: 1, y: 0 }, scale: { x: 22, y: 10 },
+        properties: { eFieldX: 0, eFieldY: -2 } },
+    ],
+    config: { gravity: { x: 0, y: 0 }, maxDuration: 5 },
+  },
+  b_circle: {
+    name: '磁场圆周运动（洛伦兹力，r=mv/qB）',
+    elements: [
+      { id: 'pc', type: 'point_charge', position: { x: -5, y: 0 }, color: '#F5C542',
+        properties: { mass: 1, charge: 1 },
+        initialState: { velocity: { x: 0, y: 4 } } },
+      { id: 'bf', type: 'b_field', position: { x: 0, y: 0 }, scale: { x: 30, y: 30 },
+        properties: { bField: 1, bDirection: 'out' } },
+    ],
+    config: { gravity: { x: 0, y: 0 }, maxDuration: 8 },
   },
 })
 const selected = ref<keyof typeof presets>('collision')
@@ -190,7 +260,20 @@ watch(
   },
 )
 
-onMounted(() => {
+onMounted(async () => {
+  // 演示页免登录：自动以演示账号进入（答辩演示友好；登录接口失败不触发跳转）
+  if (!getToken()) {
+    try {
+      await login('demo', 'demo1234')
+    } catch {
+      try {
+        await register('demo', 'demo1234', 'student', '演示账号')
+        await login('demo', 'demo1234')
+      } catch {
+        // 后端不可用时演示页照常展示预设
+      }
+    }
+  }
   if (canvasRef.value) {
     renderer = createSimRenderer(canvasRef.value)
     renderer.syncElements(presets[selected.value].elements)
@@ -246,7 +329,40 @@ onUnmounted(() => {
       <div class="param-group" v-for="el in presets[selected].elements" :key="el.id">
         <h3>{{ el.id }} <code>{{ el.type }}</code></h3>
         <div class="fields">
-          <template v-if="el.type !== 'wall' && el.type !== 'slope'">
+          <template v-if="el.type === 'e_field'">
+            <label>场强 Ex (N/C)
+              <input type="number" step="0.5" v-model.number="el.properties!.eFieldX" :disabled="busy">
+            </label>
+            <label>场强 Ey (N/C)
+              <input type="number" step="0.5" v-model.number="el.properties!.eFieldY" :disabled="busy">
+            </label>
+          </template>
+          <template v-else-if="el.type === 'b_field'">
+            <label>磁感应强度 B (T)
+              <input type="number" step="0.1" min="0" v-model.number="el.properties!.bField" :disabled="busy">
+            </label>
+            <label>磁场方向
+              <select v-model="el.properties!.bDirection" :disabled="busy">
+                <option value="out">⊙ 垂直纸面向外</option>
+                <option value="in">⊗ 垂直纸面向内</option>
+              </select>
+            </label>
+          </template>
+          <template v-else-if="el.type === 'point_charge'">
+            <label>质量 m (kg)
+              <input type="number" step="0.5" min="0.1" v-model.number="el.properties!.mass" :disabled="busy">
+            </label>
+            <label>电荷量 q (C)
+              <input type="number" step="0.5" v-model.number="el.properties!.charge" :disabled="busy">
+            </label>
+            <label>初速 vx (m/s)
+              <input type="number" step="1" v-model.number="el.initialState!.velocity!.x" :disabled="busy">
+            </label>
+            <label>初速 vy (m/s)
+              <input type="number" step="1" v-model.number="el.initialState!.velocity!.y" :disabled="busy">
+            </label>
+          </template>
+          <template v-else-if="el.type !== 'wall' && el.type !== 'slope'">
             <label>质量 m
               <span class="unit-row">
                 <input type="number" step="0.5" min="0.0001" v-model.number="el.properties!.mass" :disabled="busy">

@@ -112,6 +112,10 @@ public class SimulationInstance {
                 if (t <= dt * 2) {
                     return true; // 初始贴合：静默放行
                 }
+                // 场区域（sensor）接触不算碰撞事件
+                if (data.getFixture1().isSensor() || data.getFixture2().isSensor()) {
+                    return true;
+                }
                 String id1 = String.valueOf(data.getBody1().getUserData());
                 String id2 = String.valueOf(data.getBody2().getUserData());
                 String pair = id1.compareTo(id2) < 0 ? id1 + "|" + id2 : id2 + "|" + id1;
@@ -131,7 +135,8 @@ public class SimulationInstance {
         if (status != Status.RUNNING) {
             return;
         }
-        // 扩展点：自定义力（V1.5 电磁元件 computeForce 在此注入 ElementContext）
+        // 自定义力扩展点（F2.6 computeForce）：电磁元件（点电荷）在此受力
+        applyCustomForces();
 
         world.step(1);
         t += dt;
@@ -167,6 +172,39 @@ public class SimulationInstance {
         }
 
         evaluateStopConditions();
+    }
+
+    /** 构建力上下文并对有 computeForce 的元件施力（ElementContext 只读，SRS F2.9） */
+    private void applyCustomForces() {
+        boolean anyForce = false;
+        for (ElementBehavior behavior : behaviors) {
+            if (behavior.hasCustomForce()) {
+                anyForce = true;
+                break;
+            }
+        }
+        if (!anyForce) {
+            return; // 纯力学场景零开销
+        }
+        java.util.Map<String, Vector2D> positionMap = new java.util.HashMap<>();
+        java.util.Map<String, Vector2D> velocityMap = new java.util.HashMap<>();
+        for (java.util.Map.Entry<String, Body> e : bodies.entrySet()) {
+            org.dyn4j.geometry.Vector2 p = e.getValue().getTransform().getTranslation();
+            org.dyn4j.geometry.Vector2 v = e.getValue().getLinearVelocity();
+            positionMap.put(e.getKey(), new Vector2D(p.x, p.y));
+            velocityMap.put(e.getKey(), new Vector2D(v.x, v.y));
+        }
+        ElementContext ctx = new ElementContext(scene.getElements(), positionMap, velocityMap,
+                t, new Vector2D(scene.getConfig().getGravity().x(), scene.getConfig().getGravity().y()));
+        for (ElementBehavior behavior : behaviors) {
+            Vector2D force = behavior.computeForce(ctx);
+            if (force != null) {
+                Body body = bodies.get(behavior.ownId());
+                if (body != null && !Double.isNaN(force.x()) && !Double.isNaN(force.y())) {
+                    body.applyForce(new org.dyn4j.geometry.Vector2(force.x(), force.y()));
+                }
+            }
+        }
     }
 
     private FullSnapshot buildSnapshot() {

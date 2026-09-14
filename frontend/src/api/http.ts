@@ -15,11 +15,13 @@ http.interceptors.request.use((config) => {
   return config
 })
 
+const isAuthApi = (url?: string) => !!url && url.includes('/auth/')
+
 http.interceptors.response.use(
   (resp) => {
     const body = resp.data
     if (body && typeof body.code === 'number' && body.code !== 0) {
-      if (body.code === 1002) {
+      if (body.code === 1002 && !isAuthApi(resp.config?.url)) {
         localStorage.removeItem('ps_token')
         localStorage.removeItem('ps_user')
         if (location.pathname !== '/login') location.href = '/login'
@@ -30,7 +32,7 @@ http.interceptors.response.use(
   },
   (err) => {
     const body = err.response?.data
-    if (body?.code === 1002) {
+    if (body?.code === 1002 && !isAuthApi(err.config?.url)) {
       localStorage.removeItem('ps_token')
       localStorage.removeItem('ps_user')
       if (location.pathname !== '/login') location.href = '/login'

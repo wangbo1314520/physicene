@@ -268,6 +268,28 @@ watch(() => scene.elements, syncRenderer, { deep: true })
 
 // ===== 保存 / 加载 =====
 const toast = ref('')
+let toastTimer = 0
+// toast 自动消失（4s），任何赋值都触发
+watch(toast, (v) => {
+  window.clearTimeout(toastTimer)
+  if (v) toastTimer = window.setTimeout(() => (toast.value = ''), 4000)
+})
+
+/** 一键新建：清空画布开始下一个实验（已保存的场景不受影响） */
+function newCanvas() {
+  if (busy.value) return
+  scene.sceneId = null
+  scene.name = ''
+  scene.elements = []
+  scene.config = { gravity: { x: 0, y: -9.8 }, maxDuration: 10 }
+  typeCounter = {}
+  selectedId.value = null
+  resetReplay()
+  cancelOcrPreview()
+  chart?.setOption({ series: [] }, { replaceMerge: ['series'] })
+  syncRenderer()
+  toast.value = '已新建空白画布，开始搭下一个实验吧（原场景在「我的场景」里）'
+}
 
 async function saveScene() {
   try {
@@ -509,6 +531,7 @@ onUnmounted(() => {
         <option value="template_projectile">斜抛运动</option>
       </select>
       <button :disabled="busy" @click="saveScene">💾 保存</button>
+      <button :disabled="busy" @click="newCanvas" title="清空画布开始新实验（原场景仍在我的场景里）">🗑 新建画布</button>
       <button class="primary" :disabled="busy" @click="startRun">▶ 运行实验</button>
       <button :disabled="busy" @click="pickImage">📷 拍照识题</button>
       <input ref="fileInput" type="file" accept="image/jpeg,image/png" style="display:none" @change="onImageChosen">

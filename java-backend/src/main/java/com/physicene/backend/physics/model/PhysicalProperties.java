@@ -18,9 +18,15 @@ public class PhysicalProperties {
     /** 电荷量 C（V1.5） */
     private double charge = 0.0;
 
-    /** 磁感应强度 T（V1.5，magnet 专用） */
+    /** 磁感应强度 T（V1.5，b_field 区域元件用） */
     private Double bField = null;
 
-    /** 磁场方向 "out"/"in"（V1.5，magnet 专用） */
+    /** 磁场方向 "out"（垂直纸面向外）/"in"（向内） */
     private String bDirection = null;
+
+    /** 匀强电场 X 分量 N/C（V1.5，e_field 区域元件用；教学量纲） */
+    private Double eFieldX = null;
+
+    /** 匀强电场 Y 分量 N/C */
+    private Double eFieldY = null;
 }

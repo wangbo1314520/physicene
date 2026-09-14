@@ -1,8 +1,11 @@
 package com.physicene.backend.physics;
 
+import com.physicene.backend.physics.element.BFieldFactory;
 import com.physicene.backend.physics.element.CubeElementFactory;
+import com.physicene.backend.physics.element.EFieldFactory;
 import com.physicene.backend.physics.element.ElementBehaviorFactory;
 import com.physicene.backend.physics.element.ElementRegistry;
+import com.physicene.backend.physics.element.PointChargeFactory;
 import com.physicene.backend.physics.element.SlopeElementFactory;
 import com.physicene.backend.physics.element.SphereElementFactory;
 import com.physicene.backend.physics.element.WallElementFactory;
@@ -35,8 +38,107 @@ class PhysicsEngineTest {
     private static ElementRegistry registry() {
         List<ElementBehaviorFactory> factories = List.of(
                 new CubeElementFactory(), new WallElementFactory(),
-                new SphereElementFactory(), new SlopeElementFactory());
+                new SphereElementFactory(), new SlopeElementFactory(),
+                new PointChargeFactory(), new EFieldFactory(), new BFieldFactory());
         return new ElementRegistry(factories);
+    }
+
+    private static PhysicsElement charge(String id, double x, double y, double vx, double vy,
+                                         double mass, double charge) {
+        PhysicsElement e = new PhysicsElement();
+        e.setId(id);
+        e.setType("point_charge");
+        e.setPosition(new Vector2D(x, y));
+        PhysicalProperties p = new PhysicalProperties();
+        p.setMass(mass);
+        p.setCharge(charge);
+        e.setProperties(p);
+        InitialState init = new InitialState();
+        init.setVelocity(new Vector2D(vx, vy));
+        e.setInitialState(init);
+        return e;
+    }
+
+    private static PhysicsElement fieldRegion(String id, String type, double x, double y,
+                                              double w, double h, Double bField, String bDir,
+                                              Double eX, Double eY) {
+        PhysicsElement e = new PhysicsElement();
+        e.setId(id);
+        e.setType(type);
+        e.setPosition(new Vector2D(x, y));
+        e.setScale(new Vector2D(w, h));
+        PhysicalProperties p = new PhysicalProperties();
+        p.setBField(bField);
+        p.setBDirection(bDir);
+        p.setEFieldX(eX);
+        p.setEFieldY(eY);
+        e.setProperties(p);
+        return e;
+    }
+
+    /**
+     * 电磁实验①：带电粒子在匀强磁场中做圆周运动（选择性必修）。
+     * m=1, v=4, q=+1, B=1(out) → r = mv/(qB) = 4 m，周期 T = 2πm/(qB) ≈ 6.28 s。
+     */
+    @Test
+    void chargedParticleCircularMotionInBField() {
+        Scene scene = new Scene();
+        scene.setElements(List.of(
+                charge("pc", 0, 0, 0, 4, 1, 1),
+                fieldRegion("bf", "b_field", 0, 0, 30, 30, 1.0, "out", null, null)));
+        SimulationConfig cfg = new SimulationConfig();
+        cfg.setGravity(Vector2D.ZERO);
+        cfg.setMaxDuration(7.0); // 略超一个周期
+        scene.setConfig(cfg);
+
+        SimulationInstance instance = new SimulationInstance("test-bfield", scene, registry());
+        double maxRadiusError = 0;
+        double startX = 0, startY = 0;
+        boolean returnedNearStart = false;
+        for (int i = 0; i < 420; i++) { // 7s = 420 步
+            instance.step();
+            if (instance.isEnded()) {
+                break;
+            }
+            FullSnapshot snap = (FullSnapshot) instance.latestFrame().getSnapshot();
+            SubjectState s = snap.getElements().get(0);
+            if (i > 6) { // 稳定后测距圆心 (4,0) 的半径
+                double r = Math.hypot(s.x() - 4.0, s.y() - 0.0);
+                maxRadiusError = Math.max(maxRadiusError, Math.abs(r - 4.0));
+            }
+            if (i > 360 && Math.hypot(s.x() - startX, s.y() - startY) < 0.35) {
+                returnedNearStart = true; // 一圈回到出发点附近
+            }
+        }
+        assertTrue(maxRadiusError < 0.35, "圆周半径≈4m（半隐式欧拉旋转力漂移<9%，误差=" + maxRadiusError + "）");
+        assertTrue(returnedNearStart, "一个周期后应回到出发点附近（周期 ≈6.28s）");
+    }
+
+    /**
+     * 电磁实验②：带电粒子进入匀强电场发生偏转（示波器偏转模型）。
+     * q=+1, m=1, v0x=5, E=(0,-2) → a=−2 m/s²；t=1s 时 x≈−5、y≈−1、vy≈−2。
+     */
+    @Test
+    void chargedParticleDeflectionInEField() {
+        Scene scene = new Scene();
+        scene.setElements(List.of(
+                charge("pc", -10, 0, 5, 0, 1, 1),
+                fieldRegion("ef", "e_field", 1, 0, 22, 10, null, null, 0.0, -2.0)));
+        SimulationConfig cfg = new SimulationConfig();
+        cfg.setGravity(Vector2D.ZERO);
+        cfg.setMaxDuration(3.0);
+        scene.setConfig(cfg);
+
+        SimulationInstance instance = new SimulationInstance("test-efield", scene, registry());
+        instance.step(); // t=1/60 起，累计到 t≈1s
+        while (!instance.isEnded() && instance.getCurrentT() < 1.0) {
+            instance.step();
+        }
+        FullSnapshot snap = (FullSnapshot) instance.latestFrame().getSnapshot();
+        SubjectState s = snap.getElements().get(0);
+        assertTrue(Math.abs(s.x() - (-5.0)) < 0.1, "t=1s x≈-5（实际 " + s.x() + "）");
+        assertTrue(Math.abs(s.y() - (-1.0)) < 0.1, "t=1s y≈-1 抛物线（实际 " + s.y() + "）");
+        assertTrue(Math.abs(s.vy() - (-2.0)) < 0.1, "vy≈-2（实际 " + s.vy() + "）");
     }
 
     private static PhysicsElement cube(String id, double x, double y, double vx, double vy,
@@ -141,8 +243,8 @@ class PhysicsEngineTest {
     @Test
     void elementRegistry() {
         ElementRegistry reg = registry();
-        assertEquals(4, reg.supportedTypes().size(), "v1 元件：cube/sphere/slope/wall");
-        assertTrue(reg.supports("cube") && reg.supports("wall")
+        assertEquals(7, reg.supportedTypes().size(), "元件：cube/sphere/slope/wall + 电磁三件套");
+        assertTrue(reg.supports("cube") && reg.supports("wall") && reg.supports("point_charge") && reg.supports("e_field") && reg.supports("b_field")
                 && reg.supports("sphere") && reg.supports("slope"));
 
         PhysicsElement bad = new PhysicsElement();

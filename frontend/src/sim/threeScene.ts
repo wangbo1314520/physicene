@@ -86,6 +86,17 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
         geometry = new THREE.SphereGeometry(Math.max(0.05, r), 24, 16)
         break
       }
+      case 'point_charge': {
+        const r = 0.25 * ((sx + sy) / 2)
+        geometry = new THREE.SphereGeometry(Math.max(0.08, r), 24, 16)
+        break
+      }
+      case 'e_field':
+      case 'b_field': {
+        // 场区域：薄板半透明显示（绿=电场，紫=B 向外，青=B 向内）
+        geometry = new THREE.BoxGeometry(Math.max(0.1, sx), Math.max(0.1, sy), 0.05)
+        break
+      }
       case 'slope': {
         const w = 2 * sx, h = 1 * sy
         const shape = new THREE.Shape([
@@ -104,18 +115,30 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
         break
       }
     }
+    const isField = el.type === 'e_field' || el.type === 'b_field'
+    let color = el.color ?? '#4A90D9'
+    let opacity = 1
+    if (el.type === 'e_field') {
+      color = '#3ecf8e'
+      opacity = 0.13
+    } else if (el.type === 'b_field') {
+      color = (el.properties?.bDirection === 'in') ? '#6cd9e8' : '#b06ce6'
+      opacity = 0.13
+    }
     const material = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(el.color ?? '#4A90D9'),
+      color: new THREE.Color(color),
       roughness: 0.45,
       metalness: 0.15,
-      transparent: el.type === 'wall',
-      opacity: el.type === 'wall' ? 0.55 : 1,
+      transparent: isField || el.type === 'wall',
+      opacity: isField ? opacity : el.type === 'wall' ? 0.55 : 1,
+      emissive: el.type === 'point_charge' ? new THREE.Color(color).multiplyScalar(0.7)
+        : new THREE.Color(0x000000),
     })
     geometries.push(geometry)
     materials.push(material)
     const mesh = new THREE.Mesh(geometry, material)
-    mesh.userData.baseOpacity = el.type === 'wall' ? 0.55 : 1
-    mesh.userData.baseTransparent = el.type === 'wall'
+    mesh.userData.baseOpacity = isField ? opacity : el.type === 'wall' ? 0.55 : 1
+    mesh.userData.baseTransparent = isField || el.type === 'wall'
     mesh.position.set(el.position.x, el.position.y, 0)
     mesh.rotation.z = el.angle ?? 0
     return mesh

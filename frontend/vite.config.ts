@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     port: 5173,
+    // Windows 外置盘（E:）文件监听不可靠，曾致模块缓存不刷新（本周 4 次事故），轮询根治
+    watch: { usePolling: true, interval: 400 },
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

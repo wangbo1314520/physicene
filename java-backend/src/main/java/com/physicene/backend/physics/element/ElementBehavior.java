@@ -20,8 +20,18 @@ public interface ElementBehavior {
      */
     Body createBody(World<Body> world);
 
-    /** 每步自定义力（如 V1.5 洛伦兹力 F=qv×B）；力学元件返回 null 走引擎默认 */
+    /** 每步自定义力（如点电荷受电场/磁场力）；力学元件返回 null 走引擎默认 */
     default Vector2D computeForce(ElementContext ctx) {
+        return null;
+    }
+
+    /** 是否实现了自定义力（仿真循环零开销短路用） */
+    default boolean hasCustomForce() {
+        return false;
+    }
+
+    /** 该行为实例绑定的元件 id（施力定位 body 用） */
+    default String ownId() {
         return null;
     }
 
