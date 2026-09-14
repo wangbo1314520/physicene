@@ -17,6 +17,15 @@ REPLY_SYSTEM_PROMPT = """你是高中物理实验平台 PhysiScene 的 AI 助教
 QUESTION_SYSTEM_PROMPT = """你是高中物理助教，用简洁清晰的中文回答物理概念问题（3-6 句）。
 必要时结合实验场景举例。目前尚未接入教材知识库，回答基于通用物理知识。"""
 
+ANALYZE_SYSTEM_PROMPT = """你是高中物理实验助教，正在和学生一起分析刚做完的仿真实验。
+你会拿到实验数据摘要（元件、关键事件、各物理量极值、数据采样）。
+分析要求：
+1. 先用 1-2 句概括实验过程（结合关键事件时刻）
+2. 结合具体数字分析物理规律（如速度变化、能量转化、动量是否守恒），数字要用摘要里的真实数据
+3. 指出这个实验验证/展示了什么知识点
+4. 给学生留 1 个思考问题（引导深入）
+语气亲切，全文 5-8 句，用列表或短段落，不要编造数据里没有的数值。"""
+
 
 def handle(request: ChatRequest) -> ChatResponse:
     try:
@@ -35,6 +44,7 @@ def handle(request: ChatRequest) -> ChatResponse:
             "modify": _handle_modify,
             "question": _handle_question,
             "history": _handle_history,
+            "analyze": _handle_analyze,
         }
         return router[intent.intent](request, intent.entities)
 
@@ -192,6 +202,36 @@ def _handle_question(request: ChatRequest, entities: dict) -> ChatResponse:
     else:
         reply = f"{reply}\n\n【非教材引用】"
     return ChatResponse(reply=reply)
+
+
+def _handle_analyze(request: ChatRequest, entities: dict) -> ChatResponse:
+    """实验分析（第五周新增意图）：拉取真实实验数据 → LLM 结合数据做物理分析。"""
+    import json
+    args = {"recordId": request.record_id} if request.record_id else {}
+    call, result = _run_tool("get_experiment_result", request, args)
+    if "__error__" in result:
+        return ChatResponse(reply=result["__error__"], tool_calls=[call] if call else [])
+    if result.get("__no_record__"):
+        return ChatResponse(reply="还没有做完的实验哦～先说「做个小车碰撞实验」跑一场，我再帮你分析。")
+
+    summary = json.dumps(result, ensure_ascii=False, default=str)[:4500]
+    if llm_client.mock:
+        fact = (f"实验记录 #{result.get('recordId')}（{result.get('totalDuration')}s，"
+                f"关键事件 {len(result.get('keyEvents') or [])} 个）。"
+                f"mock 模式不生成分析。")
+        return ChatResponse(reply=fact, tool_calls=[call] if call else [])
+    try:
+        reply = llm_client.chat(
+            [{"role": "system", "content": ANALYZE_SYSTEM_PROMPT},
+             {"role": "user", "content": f"学生问题：「{request.message}」\n\n实验数据摘要：\n{summary}"}],
+            max_tokens=1500, temperature=0.5).content
+        return ChatResponse(reply=reply, tool_calls=[call] if call else [])
+    except Exception:  # noqa: BLE001 LLM 失败给出数据要点
+        events = "、".join(f"{e['label']}@{e['t']}s" for e in (result.get("keyEvents") or [])[:4])
+        return ChatResponse(
+            reply=f"AI 暂时繁忙，先把数据要点给你：实验时长 {result.get('totalDuration')}s；"
+                  f"关键事件：{events or '无'}；各物理量范围见曲线图。稍后再让我分析一次？",
+            tool_calls=[call] if call else [])
 
 
 def _handle_history(request: ChatRequest, entities: dict) -> ChatResponse:

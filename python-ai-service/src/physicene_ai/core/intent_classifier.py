@@ -7,14 +7,17 @@ from physicene_ai.core.llm_client import llm_client
 from physicene_ai.models.contract import IntentResult
 from physicene_ai.utils.logger import logger
 
-INTENTS = ("load_template", "free_build", "modify", "question", "history")
+INTENTS = ("load_template", "free_build", "modify", "question", "history", "analyze")
 
-SYSTEM_PROMPT = """你是高中物理实验平台的意图分类器。把学生的话分类为五种意图之一：
+SYSTEM_PROMPT = """你是高中物理实验平台的意图分类器。把学生的话分类为六种意图之一：
 - load_template：加载预设实验模板（如"做个小车碰撞实验"、"来一个斜抛"）
 - free_build：向场景添加/删除/移动元件（如"加一个方块"、"放个斜面"、"清空场景"）
 - modify：修改既有元件参数（如"把方块质量改成3"、"速度变5"）
 - question：问物理原理/概念（如"什么是动量守恒"、"为什么能量损失了"）。
   与物理无关的提问（天气、闲聊等）也归 question（不要 needClarify，由回答层标注非教材引用）
+- history：查看历史实验记录（如"我昨天的实验呢"、"看看实验记录"）
+- analyze：分析刚做完的实验结果/数据/曲线（如"分析一下我的实验"、"帮我看看刚才的实验"、"速度曲线说明什么"、"实验结果对不对"）。
+  只要在谈论"这次/刚才的实验"的结果，就是 analyze 而不是 question
 - history：查看历史实验记录（如"我昨天的实验呢"、"看看实验记录"）
 
 只输出 JSON（不要解释）：
@@ -30,7 +33,9 @@ entities 按意图提取：
 "加一个小车" → {"intent":"free_build","confidence":0.9,"entities":{"action":"add","elementType":"cube"},"needClarify":false}
 "把速度变3" → {"intent":"modify","confidence":0.85,"entities":{"property":"velocity","value":3},"needClarify":false}
 "什么是动量守恒" → {"intent":"question","confidence":0.97,"entities":{},"needClarify":false}
-"我昨天的实验呢" → {"intent":"history","confidence":0.95,"entities":{},"needClarify":false}"""
+"我昨天的实验呢" → {"intent":"history","confidence":0.95,"entities":{},"needClarify":false}
+"帮我分析一下刚才的实验" → {"intent":"analyze","confidence":0.95,"entities":{},"needClarify":false}
+"速度曲线为什么先增后减" → {"intent":"analyze","confidence":0.85,"entities":{},"needClarify":false}"""
 
 ELEMENT_WORDS = {"方块": "cube", "小车": "cube", "小球": "sphere", "球": "sphere",
                  "斜面": "slope", "斜坡": "slope", "地面": "wall", "墙": "wall", "墙壁": "wall"}
@@ -44,6 +49,8 @@ def _keyword_classify(message: str) -> IntentResult:
         if word in message and any(v in message for v in ("做个", "来一个", "开始", "加载", "运行", "玩")):
             return IntentResult(intent="load_template", confidence=0.9,
                                 entities={"template": template})
+    if any(w in message for w in ("分析", "总结", "评估")) and any(w in message for w in ("实验", "结果", "曲线", "数据", "刚才")):
+        return IntentResult(intent="analyze", confidence=0.9)
     if any(w in message for w in ("为什么", "什么是", "什么叫", "原理", "解释")):
         return IntentResult(intent="question", confidence=0.9)
     if any(w in message for w in ("历史", "记录", "昨天", "上次")):

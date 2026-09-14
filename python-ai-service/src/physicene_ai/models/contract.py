@@ -16,6 +16,7 @@ class ChatRequest(CamelModel):
     user_id: int
     session_id: str = ""
     scene_id: str | None = None
+    record_id: int | None = None  # 实验分析意图用：刚完成的实验记录
     message: str
     history: list[ChatMessage] = Field(default_factory=list)
 

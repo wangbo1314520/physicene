@@ -1,5 +1,6 @@
 """工具注册表（SRS F3.3）：Agent 启动时读表；加新工具只加注册条目。"""
 from physicene_ai.tools.base import BaseTool
+from physicene_ai.tools.analysis_tools import GetExperimentResultTool
 from physicene_ai.tools.scene_tools import (
     AddElementTool,
     ClearSceneTool,
@@ -22,6 +23,7 @@ _TOOLS: list[type[BaseTool]] = [
     ModifyElementPropertyTool,
     ListElementsTool,
     ClearSceneTool,
+    GetExperimentResultTool,
 ]
 
 

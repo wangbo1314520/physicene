@@ -35,6 +35,7 @@ async function sendChat() {
     const resp = (await http.post('/v1/agent/chat', {
       sessionId: chat.sessionId,
       sceneId: scene.sceneId ? String(scene.sceneId) : null,
+      recordId: state.recordId,
       message: msg,
       history: chat.messages.slice(-11, -1).map((m) => ({ role: m.role, content: m.content })),
     })) as {
@@ -540,6 +541,10 @@ onUnmounted(() => {
               试试对我说：<br>「做个小车碰撞实验」<br>「加一个方块」<br>「把质量改成 3」<br>「什么是动量守恒」
             </div>
             <div v-for="(m, i) in chat.messages" :key="i" :class="['msg', m.role]">{{ m.content }}</div>
+            <button v-if="state.status === 'ended' && state.recordId && !chat.busy"
+                    class="analyze-btn" @click="chat.input = '帮我分析一下刚才的实验'; sendChat()">
+              📊 分析这次实验
+            </button>
           </div>
           <div class="chat-input">
             <input v-model="chat.input" :disabled="chat.busy"
@@ -664,6 +669,10 @@ h3 { font-size: 13px; color: #b0b0cc; margin-bottom: 10px; }
 .chat-input button { background: #2b5c8f; color: #fff; border: none; border-radius: 6px;
   padding: 0 12px; font-size: 12px; cursor: pointer; }
 .chat-input button:disabled { opacity: 0.5; }
+.analyze-btn {
+  align-self: center; background: #23402e; color: #7fe3b3; border: 1px solid #3ecf8e;
+  border-radius: 14px; padding: 5px 14px; font-size: 12px; cursor: pointer;
+}
 .center { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .canvas-wrap { position: relative; flex: 1; min-height: 200px; background: #14142a;
   border: 1px solid #2f2f4a; border-radius: 10px; overflow: hidden; }

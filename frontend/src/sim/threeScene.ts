@@ -31,10 +31,14 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
   camera.position.set(14, 10, 14)
   camera.lookAt(0, 2, 0)
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.55))
-  const dir = new THREE.DirectionalLight(0xffffff, 1.1)
+  // three r155+ 物理光照单位：强度需按新标准（旧 0.55/1.1 会渲染成深色）
+  scene.add(new THREE.AmbientLight(0xffffff, 2.2))
+  const dir = new THREE.DirectionalLight(0xffffff, 2.8)
   dir.position.set(10, 18, 8)
   scene.add(dir)
+  const dir2 = new THREE.DirectionalLight(0xffffff, 1.2)
+  dir2.position.set(-8, 6, -10)
+  scene.add(dir2)
 
   const grid = new THREE.GridHelper(60, 60, 0x3a3a5e, 0x23233a)
   grid.rotation.x = Math.PI / 2
@@ -48,6 +52,29 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
   const geometries: THREE.BufferGeometry[] = []
   let selectedId: string | null = null
   let ghostIds = new Set<string>()
+
+  /** 自动取景：按场景包围盒调整相机（塔高 25m 的自由落体也能全看到） */
+  function frameAll() {
+    if (meshes.size === 0) {
+      camera.position.set(14, 10, 14)
+      camera.lookAt(0, 2, 0)
+      return
+    }
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+    for (const mesh of meshes.values()) {
+      const p = mesh.position
+      minX = Math.min(minX, p.x - 1)
+      maxX = Math.max(maxX, p.x + 1)
+      minY = Math.min(minY, p.y - 1)
+      maxY = Math.max(maxY, p.y + 1)
+    }
+    const cx = (minX + maxX) / 2
+    const cy = (minY + maxY) / 2
+    const span = Math.max(maxX - minX, (maxY - minY) * 1.35) + 4
+    const dist = span * 1.05
+    camera.position.set(cx + dist * 0.62, cy + dist * 0.5, dist * 0.62)
+    camera.lookAt(cx, cy, 0)
+  }
 
   function buildMesh(el: PhysicsElementInput): THREE.Mesh {
     let geometry: THREE.BufferGeometry
@@ -118,6 +145,19 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
   }
   loop()
 
+  // 调试钩子（E2E/排障用）
+  ;(window as any).__simDebug = () => ({
+    meshes: meshes.size,
+    ids: [...meshes.keys()],
+    cam: camera.position.toArray().map((v) => +v.toFixed(1)),
+    canvasSize: [canvas.clientWidth, canvas.clientHeight],
+    drawSize: [renderer.domElement.width, renderer.domElement.height],
+  })
+  ;(window as any).__simProject = (x: number, y: number) => {
+    const v = new THREE.Vector3(x, y, 0).project(camera)
+    return [(v.x * 0.5 + 0.5) * canvas.clientWidth, (-v.y * 0.5 + 0.5) * canvas.clientHeight]
+  }
+
   return {
     syncElements(elements) {
       // 释放旧网格的 GPU 资源（参数编辑触发频繁重建，不释放会持续泄漏显存）
@@ -133,6 +173,7 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
         meshes.set(el.id, mesh)
         scene.add(mesh)
       }
+      frameAll()
       applySelection()
     },
     updateStates(subjects) {

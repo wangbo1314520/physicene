@@ -72,5 +72,10 @@ class JavaClient:
         return self.call("GET", "/api/records", user_id=user_id,
                          params={"page": 1, "size": min(limit, 20)})
 
+    def get_record_detail(self, user_id: int, record_id: int) -> dict:
+        """实验分析用：完整 SimResult（dataTable/charts/keyEvents）"""
+        return self.call("GET", f"/api/records/{record_id}", user_id=user_id,
+                         params={"frameOffset": 0, "frameLimit": 1})
+
 
 java_client = JavaClient()
