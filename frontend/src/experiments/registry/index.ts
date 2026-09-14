@@ -3,7 +3,15 @@
  * B0 上线 7 个（电磁三件套批次已开发的实验）；其余锁定并标注目标批次。
  * B1=2D 引擎 B2=2.5D 引擎 B3=3D 引擎 P1=阶段一 P2=阶段二
  */
+import type { Component } from 'vue'
 import type { ExperimentModule, ExperimentPreset } from '../core/types'
+import ExpEmf from '../defs/ExpEmf.vue'
+import ExpHookePhoto from '../defs/ExpHookePhoto.vue'
+import ExpCanvasPanels from '../defs/ExpCanvasPanels.vue'
+import ExpForceComposition from '../defs/ExpForceComposition.vue'
+import ExpProjectile from '../defs/ExpProjectile.vue'
+import ExpOilFilm from '../defs/ExpOilFilm.vue'
+import ExpDoubleSlit from '../defs/ExpDoubleSlit.vue'
 
 /** 通用四步流程（2.5D 仿真实验共用骨架，B0 7 个实验的步骤） */
 function simSteps(extra: { goal: string; hint: string }[] = []): ExperimentModule['steps'] {
@@ -34,6 +42,22 @@ function simSteps(extra: { goal: string; hint: string }[] = []): ExperimentModul
       hint: extra[0]?.hint ?? '在结论框中写下你观察到的物理规律（如动量守恒、F=Kq₁q₂/r²），然后提交',
       scoreWeight: 3,
     },
+  ]
+}
+
+function panelSteps(recordHint: string): ExperimentModule['steps'] {
+  return [
+    { id: 'read', title: '阅读实验目的', goal: '明确本实验要探究的物理规律', hint: '阅读左侧实验简介，理解目标后进入下一步' },
+    { id: 'operate', title: '操作仪器获取数据', goal: '调节参数并记录读数（至少 4-6 组）', hint: recordHint, scoreWeight: 2 },
+    {
+      id: 'record', title: '记录并分析数据',
+      goal: '记录实验数据（自动进入坐标纸/图示）',
+      hint: '点击仪器面板上的「📏 记录」按钮完成采集',
+      check: (ctx) => ctx.lastEvent?.type === 'data-recorded',
+      errorHints: { default: '请先点击仪器面板的记录按钮' },
+      scoreWeight: 3,
+    },
+    { id: 'conclude', title: '填写实验结论', goal: '总结实验验证的规律', hint: '在结论框写下规律（可参考拟合结果），然后提交', scoreWeight: 3 },
   ]
 }
 
@@ -132,6 +156,62 @@ const AVAILABLE: ExperimentModule[] = [
     ], { gravity: { x: 0, y: 0 }, maxDuration: 6 }),
     steps: simSteps(),
   },
+  {
+    id: 'bx3-emf-internal',
+    name: '电池电动势和内阻的测量',
+    book: '必修第三册', chapter: '第十二章 电能 能量守恒定律', dimension: '2D',
+    summary: 'U-I 图线：截距=电动势 E，斜率=−内阻 r。',
+    available: true, batch: 'B1', component: ExpEmf as Component,
+    steps: panelSteps('调节滑动变阻器 R，点击「记录此组 (I, U)」采集不同 R 下的读数，至少 6 组'),
+  },
+  {
+    id: 'bx1-hooke',
+    name: '探究弹簧弹力与形变量的关系（胡克定律）',
+    book: '必修第一册', chapter: '第三章 相互作用——力', dimension: '2D',
+    summary: 'F-x 图线过原点，斜率=劲度系数 k。',
+    available: true, batch: 'B1', component: ExpHookePhoto as unknown as Component,
+    steps: panelSteps('选择砝码档位，点击「📏 记录读数」采集 (x, F) 数据，至少 5 组'),
+  },
+  {
+    id: 'xb3-photoelectric',
+    name: '观察光电效应现象（Uc-ν 测普朗克常量）',
+    book: '选择性必修第三册', chapter: '第四章 原子结构和波粒二象性', dimension: '2D',
+    summary: 'Uc-ν 直线：斜率=h/e，截距=−W/e。',
+    available: true, batch: 'B1', component: ExpHookePhoto as unknown as Component,
+    steps: panelSteps('调节频率档位，点击「📏 记录读数」采集 (ν, Uc) 数据，至少 5 组'),
+  },
+  {
+    id: 'bx1-force-composition',
+    name: '探究两个互成角度的力的合成规律',
+    book: '必修第一册', chapter: '第三章 相互作用——力', dimension: '2D',
+    summary: '平行四边形定则：合力=对角线矢量。',
+    available: true, batch: 'B1', component: ExpForceComposition as unknown as Component,
+    steps: panelSteps('调节 F1/F2/夹角，观察合力是否始终等于平行四边形对角线，点击「记录验证数据」'),
+  },
+  {
+    id: 'bx2-projectile',
+    name: '探究平抛运动的特点',
+    book: '必修第二册', chapter: '第五章 抛体运动', dimension: '2D',
+    summary: '水平匀速 + 竖直自由落体：y = h − (g/2v₀²)x²。',
+    available: true, batch: 'B1', component: ExpProjectile as unknown as Component,
+    steps: panelSteps('调节 v₀ 与 h，点击「▶ 播放并采样轨迹」，观察轨迹形状'),
+  },
+  {
+    id: 'xb1-double-slit',
+    name: '用双缝干涉测量光的波长',
+    book: '选择性必修第一册', chapter: '第四章 光', dimension: '2D',
+    summary: '条纹间距 Δy=λL/d，测 Δy 反推波长。',
+    available: true, batch: 'B1', component: ExpDoubleSlit as unknown as Component,
+    steps: panelSteps('调节 λ/d/L 观察条纹变化，用游标测 Δy，点击「记录测量结果」'),
+  },
+  {
+    id: 'xb3-oil-film',
+    name: '用油膜法估测油酸分子的大小',
+    book: '选择性必修第三册', chapter: '第一章 分子动理论', dimension: '2D',
+    summary: '单分子油膜：d = V/S，数量级 10⁻⁹m。',
+    available: true, batch: 'B1', component: ExpOilFilm as unknown as Component,
+    steps: panelSteps('点击轮廓内格子计数（约 35-45 格），点击「记录计数结果」'),
+  }
 ]
 
 /** 阶段一其余 15 个 + 阶段二 18 个（锁定占位，标注目标批次） */
@@ -146,21 +226,14 @@ const LOCKED: ExperimentModule[] = [
   locked('bx1-tape-velocity', '测量纸带的平均速度和瞬时速度', '必修第一册', '第二章 匀变速直线运动的研究', '2D', 'B1', '纸带读数 → 平均/瞬时速度 → 描点作图'),
   locked('bx1-trolley-vt', '探究小车速度随时间变化的规律', '必修第一册', '第二章 匀变速直线运动的研究', '2.5D', 'B2', '斜面小车 + 纸带 + v-t 图像拟合'),
   locked('bx1-freefall-timer', '用打点计时器研究自由落体运动', '必修第一册', '第二章 匀变速直线运动的研究', '2.5D', 'B2', '自由落体纸带测重力加速度'),
-  locked('bx1-hooke', '探究弹簧弹力与形变量的关系', '必修第一册', '第三章 相互作用——力', '2.5D', 'B2', '弹簧 F-x 图像与劲度系数'),
-  locked('bx1-force-composition', '探究两个互成角度的力的合成规律', '必修第一册', '第三章 相互作用——力', '2D', 'B1', '平行四边形定则矢量作图'),
   locked('bx2-centripetal', '探究向心力与半径、角速度、质量的关系', '必修第二册', '第六章 圆周运动', '2.5D', 'B2', 'F=mrω² 控制变量探究'),
   locked('bx2-work-velocity', '探究功与速度变化的关系', '必修第二册', '第八章 机械能守恒定律', '2.5D', 'B2', 'W∝v²/2 数据拟合'),
-  locked('bx2-projectile', '探究平抛运动的特点', '必修第二册', '第五章 抛体运动', '2D', 'B1', '平抛轨迹描绘与分解验证'),
   locked('bx3-capacitor-charge', '观察电容器的充、放电现象', '必修第三册', '第十章 静电场中的能量', '2D', 'B4', 'RC 充放电曲线与时间常数'),
   locked('bx3-resistivity', '导体电阻率的测量', '必修第三册', '第十一章 电路及其应用', '2D', 'B4', '伏安法 + 游标卡尺 + R=ρL/S'),
   locked('bx3-multimeter', '练习使用多用电表', '必修第三册', '第十一章 电路及其应用', '2.5D', 'B4', '档位/量程/读数规范'),
-  locked('bx3-emf-internal', '电池电动势和内阻的测量', '必修第三册', '第十二章 电能 能量守恒定律', '2D', 'B4', 'U-I 图线截距斜率法'),
   locked('xb1-pendulum-g', '用单摆测量重力加速度', '选择性必修第一册', '第二章 机械振动', '2.5D', 'B2', 'T²-L 图线测 g'),
   locked('xb1-refraction', '测量玻璃的折射率', '选择性必修第一册', '第四章 光', '2D', 'B5', '插针法光路 + 折射定律'),
-  locked('xb1-double-slit', '用双缝干涉测量光的波长', '选择性必修第一册', '第四章 光', '2D', 'B5', 'Δy=λL/d 测波长'),
-  locked('xb3-oil-film', '用油膜法估测油酸分子的大小', '选择性必修第三册', '第一章 分子动理论', '2D', 'B1', '数格子估面积 → 分子直径数量级'),
   locked('xb3-gas-isotherm', '探究气体等温变化的规律', '选择性必修第三册', '第二章 气体、固体和液体', '2.5D', 'B2', 'pV 图像与玻意耳定律'),
-  locked('xb3-photoelectric', '观察光电效应现象', '选择性必修第三册', '第四章 原子结构和波粒二象性', '2D', 'B1', '遏止电压与截止频率，U-ν 图线测 h'),
   // ── 阶段二（B3 3D 引擎 + B6/B7）──
   locked('bx1-newton-tube', '牛顿管实验（真空落体）', '必修第一册', '第二章 匀变速直线运动的研究', '2.5D', 'B2', '抽真空前后羽毛与硬币下落对比'),
   locked('bx1-static-friction', '静摩擦力的大小随拉力的变化', '必修第一册', '第三章 相互作用——力', '2D', 'B1', 'F-t 曲线与最大静摩擦'),

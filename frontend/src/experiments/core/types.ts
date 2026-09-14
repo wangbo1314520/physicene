@@ -49,6 +49,8 @@ export interface ExperimentModule {
   batch?: string
   /** 2.5D 实验的仿真预置（available 且 dimension=2.5D 时必填） */
   preset?: ExperimentPreset
+  /** 自定义实验组件（2D/3D 类实验：自带仪器面板与图层，B1 起） */
+  component?: unknown
   steps: ExperimentStep[]
 }
 

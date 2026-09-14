@@ -10,6 +10,7 @@ import type { ExperimentModule, RunMode } from '../core/types'
 import { StepEngine } from '../runner/StepEngine'
 import { AutosaveManager, expApi, type ExpSession } from '../data/api'
 import SimRenderer2D5 from '../renderers/SimRenderer2D5.vue'
+import type { Component } from 'vue'
 
 const route = useRoute()
 const expId = route.params.id as string
@@ -123,7 +124,10 @@ onUnmounted(() => {
 
     <section class="body">
       <div class="main">
-        <SimRenderer2D5 v-if="mod.preset" ref="simRef" :preset="mod.preset" @ended="onSimEnded" />
+        <component v-if="mod.component" :is="mod.component" @ended="onSimEnded"
+                   @record="(d: unknown) => { engine?.record(d); engine?.emitEvent({ type: 'data-recorded', payload: d }); scheduleSave(); }"
+                   @advance="() => { if (engine?.next() === false) saveHint = '考试模式：检查点未通过'; scheduleSave(); }" />
+        <SimRenderer2D5 v-else-if="mod.preset" ref="simRef" :preset="mod.preset" @ended="onSimEnded" />
         <p class="summary">🎯 {{ mod.summary }}</p>
       </div>
 
@@ -144,7 +148,7 @@ onUnmounted(() => {
         </div>
 
         <div v-if="!submitted" class="ops">
-          <button class="ghost" :disabled="!currentStep" @click="recordData">📋 记录数据</button>
+          <button v-if="!mod.component" class="ghost" :disabled="!currentStep" @click="recordData">📋 记录数据</button>
           <button class="primary" :disabled="!currentStep" @click="nextStep">下一步 →</button>
         </div>
 
