@@ -18,6 +18,10 @@ export interface ProcessedData {
   gridCount?: GridCountState
   /** 场线（预留渲染，B1 提供图层实现） */
   fieldLines?: FieldLineState
+  /** 纸带数据（B2 v1.1 新增） */
+  tape?: TapeState
+  /** 约束实验模拟数据（B2 v1.1 新增） */
+  simulation?: SimState
   /** 导出物（提交时生成，随 Report 存档） */
   exports?: { pngDataUrl?: string; svg?: string; csv?: string }
 }
@@ -125,6 +129,35 @@ export interface GridCountState {
 export interface FieldLineState {
   charges: { x: number; y: number; q: number }[]
   linesPerCharge: number
+}
+
+
+export interface TapeState {
+  /** 打点周期 s（0.02 = 50Hz） */
+  period: number
+  /** 计数点间隔数（5 → 0.1s） */
+  nInterval: number
+  /** 计数点位置 (m) */
+  countingX: number[]
+  /** 段位移 */
+  intervals: number[]
+  /** 逐差法加速度 */
+  acceleration: number | null
+  /** 各计数点瞬时速度 */
+  instantaneousVelocities: number[]
+  /** 平均速度 */
+  averageVelocity: number
+}
+
+export interface SimState {
+  /** 实验类型标识 */
+  kind: 'spring' | 'pendulum' | 'conical' | 'newtonTube' | 'gasIsotherm' | 'workVelocity' | 'actionReaction'
+  /** 关键参数 */
+  params?: Record<string, number>
+  /** 关键测量结果 */
+  results?: Record<string, number>
+  /** 采样序列（时间-数据对，供坐标纸使用） */
+  series?: { x: number; y: number }[]
 }
 
 export const EMPTY_PROCESSED: ProcessedData = { version: 1 }

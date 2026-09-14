@@ -12,6 +12,17 @@ import ExpForceComposition from '../defs/ExpForceComposition.vue'
 import ExpProjectile from '../defs/ExpProjectile.vue'
 import ExpOilFilm from '../defs/ExpOilFilm.vue'
 import ExpDoubleSlit from '../defs/ExpDoubleSlit.vue'
+import ExpTapePractice from '../defs/ExpTapePractice.vue'
+import ExpTrolleyVT from '../defs/ExpTrolleyVT.vue'
+import ExpFreefallTape from '../defs/ExpFreefallTape.vue'
+import ExpSpringOsc from '../defs/ExpSpringOsc.vue'
+import ExpPendulumG from '../defs/ExpPendulumG.vue'
+import ExpConicalPend from '../defs/ExpConicalPend.vue'
+import ExpNewtonTube from '../defs/ExpNewtonTube.vue'
+import ExpGasIsotherm from '../defs/ExpGasIsotherm.vue'
+import ExpWorkVelocity from '../defs/ExpWorkVelocity.vue'
+import ExpActionReaction from '../defs/ExpActionReaction.vue'
+import ExpMultimeter from '../defs/ExpMultimeter.vue'
 
 /** 通用四步流程（2.5D 仿真实验共用骨架，B0 7 个实验的步骤） */
 function simSteps(extra: { goal: string; hint: string }[] = []): ExperimentModule['steps'] {
@@ -222,27 +233,122 @@ function locked(id: string, name: string, book: string, chapter: string,
 
 const LOCKED: ExperimentModule[] = [
   // ── 阶段一（B1 纸带/作图类 → B2 2.5D 约束类 → B4 电路 → B5 光学）──
-  locked('bx1-timer-practice', '练习使用打点计时器', '必修第一册', '第二章 匀变速直线运动的研究', '2.5D', 'B2', '打点计时器操作规范与纸带读取'),
+    {
+    id: 'bx1-timer-practice',
+    name: '练习使用打点计时器',
+    book: '必修第一册', chapter: '第二章 匀变速直线运动的研究', dimension: '2.5D',
+    summary: '50Hz 打点，逐差法求 a',
+    available: true, batch: 'B2', component: ExpTapePractice as unknown as Component,
+    steps: panelSteps('点击「打出纸带」→ 观察计数点 → 记录逐差法分析'),
+  },
   locked('bx1-tape-velocity', '测量纸带的平均速度和瞬时速度', '必修第一册', '第二章 匀变速直线运动的研究', '2D', 'B1', '纸带读数 → 平均/瞬时速度 → 描点作图'),
-  locked('bx1-trolley-vt', '探究小车速度随时间变化的规律', '必修第一册', '第二章 匀变速直线运动的研究', '2.5D', 'B2', '斜面小车 + 纸带 + v-t 图像拟合'),
-  locked('bx1-freefall-timer', '用打点计时器研究自由落体运动', '必修第一册', '第二章 匀变速直线运动的研究', '2.5D', 'B2', '自由落体纸带测重力加速度'),
-  locked('bx2-centripetal', '探究向心力与半径、角速度、质量的关系', '必修第二册', '第六章 圆周运动', '2.5D', 'B2', 'F=mrω² 控制变量探究'),
-  locked('bx2-work-velocity', '探究功与速度变化的关系', '必修第二册', '第八章 机械能守恒定律', '2.5D', 'B2', 'W∝v²/2 数据拟合'),
+    {
+    id: 'bx1-trolley-vt',
+    name: '探究小车速度随时间变化的规律',
+    book: '必修第一册', chapter: '第二章 匀变速直线运动的研究', dimension: '2.5D',
+    summary: '纸带 → v-t 图 → 加速度',
+    available: true, batch: 'B2', component: ExpTrolleyVT as unknown as Component,
+    steps: panelSteps('点击「打出纸带」→ 观察计数点 → 记录逐差法分析'),
+  },
+    {
+    id: 'bx1-freefall-timer',
+    name: '用打点计时器研究自由落体运动',
+    book: '必修第一册', chapter: '第二章 匀变速直线运动的研究', dimension: '2.5D',
+    summary: '纸带 → 逐差法测 g',
+    available: true, batch: 'B2', component: ExpFreefallTape as unknown as Component,
+    steps: panelSteps('点击「打出纸带」→ 观察计数点 → 记录逐差法分析'),
+  },
+    {
+    id: 'bx2-centripetal',
+    name: '探究向心力大小与半径、角速度、质量的关系',
+    book: '必修第二册', chapter: '第六章 圆周运动', dimension: '2.5D',
+    summary: 'F = mrω² 控制变量',
+    available: true, batch: 'B2', component: ExpConicalPend as unknown as Component,
+    steps: panelSteps('调节 L/θ → 计算 → 记录验证数据'),
+  },
+    {
+    id: 'bx2-work-velocity',
+    name: '探究功与速度变化的关系',
+    book: '必修第二册', chapter: '第八章 机械能守恒定律', dimension: '2.5D',
+    summary: 'W = ½mv² 数据拟合',
+    available: true, batch: 'B2', component: ExpWorkVelocity as unknown as Component,
+    steps: panelSteps('采集 W-v² 数据 → 记录'),
+  },
   locked('bx3-capacitor-charge', '观察电容器的充、放电现象', '必修第三册', '第十章 静电场中的能量', '2D', 'B4', 'RC 充放电曲线与时间常数'),
   locked('bx3-resistivity', '导体电阻率的测量', '必修第三册', '第十一章 电路及其应用', '2D', 'B4', '伏安法 + 游标卡尺 + R=ρL/S'),
-  locked('bx3-multimeter', '练习使用多用电表', '必修第三册', '第十一章 电路及其应用', '2.5D', 'B4', '档位/量程/读数规范'),
-  locked('xb1-pendulum-g', '用单摆测量重力加速度', '选择性必修第一册', '第二章 机械振动', '2.5D', 'B2', 'T²-L 图线测 g'),
+    {
+    id: 'bx3-multimeter',
+    name: '练习使用多用电表（虚拟仪表）',
+    book: '必修第三册', chapter: '第十一章 电路及其应用', dimension: '2.5D',
+    summary: '虚拟多用电表读数练习',
+    available: true, batch: 'B2', component: ExpMultimeter as unknown as Component,
+    steps: panelSteps('虚拟仪表读数练习 → 记录'),
+  },
+    {
+    id: 'xb1-pendulum-g',
+    name: '用单摆测量重力加速度',
+    book: '选择性必修第一册', chapter: '第二章 机械振动', dimension: '2.5D',
+    summary: 'T²-L 图线测 g',
+    available: true, batch: 'B2', component: ExpPendulumG as unknown as Component,
+    steps: panelSteps('调节摆长/摆角 → 启动计时 → 停止测 g'),
+  },
   locked('xb1-refraction', '测量玻璃的折射率', '选择性必修第一册', '第四章 光', '2D', 'B5', '插针法光路 + 折射定律'),
-  locked('xb3-gas-isotherm', '探究气体等温变化的规律', '选择性必修第三册', '第二章 气体、固体和液体', '2.5D', 'B2', 'pV 图像与玻意耳定律'),
+    {
+    id: 'xb3-gas-isotherm',
+    name: '探究气体等温变化的规律',
+    book: '选择性必修第三册', chapter: '第二章 气体、固体和液体', dimension: '2.5D',
+    summary: 'pV = C 玻意耳定律',
+    available: true, batch: 'B2', component: ExpGasIsotherm as unknown as Component,
+    steps: panelSteps('采集 pV 数据 → 记录'),
+  },
   // ── 阶段二（B3 3D 引擎 + B6/B7）──
-  locked('bx1-newton-tube', '牛顿管实验（真空落体）', '必修第一册', '第二章 匀变速直线运动的研究', '2.5D', 'B2', '抽真空前后羽毛与硬币下落对比'),
+    {
+    id: 'bx1-newton-tube',
+    name: '牛顿管实验（真空落体）',
+    book: '必修第一册', chapter: '第二章 匀变速直线运动的研究', dimension: '2.5D',
+    summary: '真空 vs 有空气的落体对比',
+    available: true, batch: 'B2', component: ExpNewtonTube as unknown as Component,
+    steps: panelSteps('调气压 → 释放 → 记录'),
+  },
   locked('bx1-static-friction', '静摩擦力的大小随拉力的变化', '必修第一册', '第三章 相互作用——力', '2D', 'B1', 'F-t 曲线与最大静摩擦'),
-  locked('bx1-action-reaction', '探究作用力和反作用力的关系', '必修第一册', '第四章 运动和力的关系', '2.5D', 'B2', '牛顿第三定律双力传感器'),
-  locked('bx1-conical-pendulum', '用圆锥摆粗略验证向心力公式', '必修第一册', '第六章 圆周运动', '2.5D', 'B2', '圆锥摆 F=mrω² 验证'),
+    {
+    id: 'bx1-action-reaction',
+    name: '探究作用力和反作用力的关系',
+    book: '必修第一册', chapter: '第四章 运动和力的关系', dimension: '2.5D',
+    summary: 'F₁=-F₂，m₁v₁+m₂v₂=0',
+    available: true, batch: 'B2', component: ExpActionReaction as unknown as Component,
+    steps: panelSteps('调 m₁/m₂/冲量 → 记录验证'),
+  },
+    {
+    id: 'bx1-conical-pendulum',
+    name: '用圆锥摆粗略验证向心力公式',
+    book: '必修第一册', chapter: '第六章 圆周运动', dimension: '2.5D',
+    summary: 'T=2π√(Lcosθ/g)',
+    available: true, batch: 'B2', component: ExpConicalPend as unknown as Component,
+    steps: panelSteps('调 L/θ → 计算 → 记录'),
+  },
   locked('bx3-coulomb-balance', '库仑扭秤实验（定量探究）', '必修第三册', '第九章 静电场及其应用', '2D', 'B1', 'F∝q₁q₂/r² 控制变量数据表'),
   locked('bx3-induction-condition', '探究感应电流产生的条件', '必修第三册', '第十三章 电磁感应与电磁波初步', '3D', 'B3', '磁通变化 → 感应电流条件'),
   locked('bx3-emf-factors', '探究影响感应电动势大小的因素', '必修第三册', '第十三章 电磁感应与电磁波初步', '3D', 'B3', '磁通变化率与电动势'),
   locked('bx3-lenz-law', '探究楞次定律', '必修第三册', '第十三章 电磁感应与电磁波初步', '3D', 'B3', '感应电流方向与磁通变化'),
+  {
+    id: 'xb1-momentum-conservation',
+    name: '验证动量守恒定律',
+    book: '选择性必修第一册', chapter: '第一章 动量守恒定律', dimension: '2.5D',
+    summary: '碰撞前后 m1v1+m2v2 = 常量。',
+    available: true, batch: 'B2',
+    preset: p([
+      { id: 'car1', type: 'cube', position: { x: -3, y: 0.5 }, color: '#4A90D9',
+        properties: { mass: 1, friction: 0, restitution: 0.5 },
+        initialState: { velocity: { x: 4, y: 0 } } },
+      { id: 'car2', type: 'cube', position: { x: 3, y: 0.5 }, color: '#E05555',
+        properties: { mass: 2, friction: 0, restitution: 0.5 },
+        initialState: { velocity: { x: -2, y: 0 } } },
+      { id: 'ground', type: 'wall', position: { x: 0, y: -0.1 }, scale: { x: 30, y: 0.2 },
+        color: '#8a8aa0' },
+    ], { gravity: { x: 0, y: 0 }, maxDuration: 5 }),
+    steps: simSteps(),
+  },
   locked('xb1-wave-interference', '观察波的干涉、衍射现象', '选择性必修第一册', '第三章 机械波', '2D', 'B5', '波场叠加渲染'),
   locked('xb1-light-phenomena', '观察光的干涉、衍射、偏振现象', '选择性必修第一册', '第四章 光', '2D', 'B5', '条纹/偏振可视化'),
   locked('xb2-ampere-force', '观察安培力方向', '选择性必修第二册', '第一章 安培力与洛伦兹力', '3D', 'B3', 'B/I/F 右手定则三维演示'),
