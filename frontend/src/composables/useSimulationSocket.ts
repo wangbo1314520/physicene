@@ -1,5 +1,6 @@
 import { reactive, ref } from 'vue'
 import { http } from '../api/http'
+import { getAuthToken } from '../api/auth'
 
 export interface SubjectState {
   id: string
@@ -78,7 +79,7 @@ export function useSimulationSocket() {
       }
       state.simId = resp.simId
       state.recordId = resp.recordId
-      const token = localStorage.getItem('ps_token') ?? ''
+      const token = getAuthToken() ?? ''
       const proto = location.protocol === 'https:' ? 'wss' : 'ws'
       ws = new WebSocket(
         `${proto}://${location.host}${resp.wsUrl}?token=${encodeURIComponent(token)}`)
@@ -159,7 +160,7 @@ export function useSimulationSocket() {
       recordId,
     })
     state.simId = simId
-    const token = localStorage.getItem('ps_token') ?? ''
+    const token = getAuthToken() ?? ''
     const proto = location.protocol === 'https:' ? 'wss' : 'ws'
     ws = new WebSocket(`${proto}://${location.host}${wsUrl}?token=${encodeURIComponent(token)}`)
     ws.onopen = () => (state.status = 'running')

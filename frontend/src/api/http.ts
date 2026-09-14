@@ -1,14 +1,15 @@
 import axios from 'axios'
+import { getAuthToken } from './auth'
 
 /**
  * 统一 HTTP 客户端：经 Vite 代理 /api → Java 8080。
- * 自动附带 JWT；响应拦截器解包 {code, message, data}；
+ * 自动附带 JWT（正式登录或演示页内存 token）；响应拦截器解包 {code, message, data}；
  * 1002 鉴权失败自动跳登录页（SRS §6.4 前端处理约定）。
  */
 export const http = axios.create({ baseURL: '/api', timeout: 15_000 })
 
 http.interceptors.request.use((config) => {
-  const token = localStorage.getItem('ps_token')
+  const token = getAuthToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }

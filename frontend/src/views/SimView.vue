@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import * as echarts from 'echarts'
 import { createSimRenderer, type SimRenderer } from '../sim/threeScene'
-import { getToken, login, register } from '../api/auth'
+import { ensureDemoLogin } from '../api/auth'
 import {
   useSimulationSocket,
   type PhysicsElementInput,
@@ -261,19 +261,8 @@ watch(
 )
 
 onMounted(async () => {
-  // 演示页免登录：自动以演示账号进入（答辩演示友好；登录接口失败不触发跳转）
-  if (!getToken()) {
-    try {
-      await login('demo', 'demo1234')
-    } catch {
-      try {
-        await register('demo', 'demo1234', 'student', '演示账号')
-        await login('demo', 'demo1234')
-      } catch {
-        // 后端不可用时演示页照常展示预设
-      }
-    }
-  }
+  // 演示页免登录：demo token 只存内存，不触发路由守卫放行（实验台仍需正式登录）
+  await ensureDemoLogin()
   if (canvasRef.value) {
     renderer = createSimRenderer(canvasRef.value)
     renderer.syncElements(presets[selected.value].elements)

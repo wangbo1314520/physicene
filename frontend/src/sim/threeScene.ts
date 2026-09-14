@@ -148,61 +148,68 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     return mesh
   }
 
-  /** 电场箭头 / 磁场⊙⊗ 符号（MeshBasicMaterial 不受光照，始终清晰） */
+  /** 场分布可视化（教材标准画法）：
+   *  电场 = 等距平行箭头线（方向 = E 方向，长度∝场强，教材匀强电场画法）
+   *  磁场 = 点阵 •（垂直纸面向外）/ 叉阵 ×（向内） */
   function buildFieldSymbols(el: PhysicsElementInput): THREE.Group {
     const group = new THREE.Group()
     const sx = Math.max(0.1, el.scale?.x ?? 1)
     const sy = Math.max(0.1, el.scale?.y ?? 1)
-    const spacing = Math.max(2.2, Math.min(sx, sy) / 4.5)
-    const cols = Math.max(1, Math.floor((sx - 1.2) / spacing))
-    const rows = Math.max(1, Math.floor((sy - 1.2) / spacing))
-    const x0 = -((cols - 1) * spacing) / 2
-    const y0 = -((rows - 1) * spacing) / 2
 
     if (el.type === 'e_field') {
       const ex = el.properties?.eFieldX ?? 0
       const ey = el.properties?.eFieldY ?? 0
       const mag = Math.hypot(ex, ey)
       if (mag < 1e-6) return group
-      const len = Math.min(2.2, Math.max(0.8, mag * 0.35))
       const dir = new THREE.Vector3(ex / mag, ey / mag, 0)
+      const perp = new THREE.Vector3(-dir.y, dir.x, 0)
+      // 矩形在"场方向/垂直方向"上的投影跨度
+      const alongSpan = Math.abs(dir.x) * sx + Math.abs(dir.y) * sy
+      const perpSpan = Math.abs(dir.y) * sx + Math.abs(dir.x) * sy
+      const len = Math.max(1.5, Math.min(6, alongSpan * 0.7))
+      const count = Math.max(2, Math.min(9, Math.floor(perpSpan / 2.6)))
+      const gap = perpSpan / (count + 1)
       const color = 0x3ecf8e
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const arrow = new THREE.ArrowHelper(
-            dir, new THREE.Vector3(x0 + c * spacing, y0 + r * spacing, 0.15),
-            len, color, Math.min(0.45, len * 0.35), Math.min(0.3, len * 0.22))
-          group.add(arrow)
-        }
+      for (let i = 1; i <= count; i++) {
+        const offset = -perpSpan / 2 + i * gap
+        const origin = new THREE.Vector3(
+          -dir.x * len / 2 + perp.x * offset,
+          -dir.y * len / 2 + perp.y * offset, 0.15)
+        group.add(new THREE.ArrowHelper(
+          dir, origin, len, color, Math.min(0.5, len * 0.22), Math.min(0.32, len * 0.14)))
       }
     } else {
       const isIn = el.properties?.bDirection === 'in'
       const color = isIn ? 0x6cd9e8 : 0xb06ce6
-      const ringMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 })
-      const dotMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 })
-      materials.push(ringMat, dotMat)
-      const ringGeo = new THREE.RingGeometry(0.22, 0.3, 20)
-      const dotGeo = new THREE.CircleGeometry(0.09, 10)
-      const barGeo = new THREE.PlaneGeometry(0.5, 0.07)
-      geometries.push(ringGeo, dotGeo, barGeo)
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 })
+      materials.push(mat)
+      const spacing = Math.max(2.4, Math.min(sx, sy) / 6)
+      // 符号尺寸随网格间距缩放（大场区远看也清晰）
+      const dotR = Math.min(0.5, Math.max(0.11, spacing * 0.09))
+      const barLen = Math.min(2.2, Math.max(0.52, spacing * 0.42))
+      const barW = barLen * 0.16
+      const dotGeo = new THREE.CircleGeometry(dotR, 12)
+      const barGeo = new THREE.PlaneGeometry(barLen, barW)
+      geometries.push(dotGeo, barGeo)
+      const cols = Math.max(1, Math.floor((sx - 1) / spacing))
+      const rows = Math.max(1, Math.floor((sy - 1) / spacing))
+      const x0 = -((cols - 1) * spacing) / 2
+      const y0 = -((rows - 1) * spacing) / 2
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const cx = x0 + c * spacing
           const cy = y0 + r * spacing
-          const ring = new THREE.Mesh(ringGeo, ringMat)
-          ring.position.set(cx, cy, 0.15)
-          group.add(ring)
           if (isIn) {
-            // ⊗ 向内：环 + 45° 交叉短线
+            // × 叉阵：向内
             for (const rot of [Math.PI / 4, -Math.PI / 4]) {
-              const bar = new THREE.Mesh(barGeo, ringMat)
+              const bar = new THREE.Mesh(barGeo, mat)
               bar.position.set(cx, cy, 0.15)
               bar.rotation.z = rot
               group.add(bar)
             }
           } else {
-            // ⊙ 向外：环 + 中心点
-            const dot = new THREE.Mesh(dotGeo, dotMat)
+            // • 点阵：向外
+            const dot = new THREE.Mesh(dotGeo, mat)
             dot.position.set(cx, cy, 0.15)
             group.add(dot)
           }
