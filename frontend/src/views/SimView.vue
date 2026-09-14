@@ -159,6 +159,13 @@ const presets = reactive<Record<string, { name: string; elements: PhysicsElement
   },
 })
 const selected = ref<keyof typeof presets>('collision')
+const viewMode = ref<'front' | 'iso'>((localStorage.getItem('ps_view') as 'front' | 'iso') || 'front')
+const viewLabel = computed(() => (viewMode.value === 'front' ? '正视' : '立体'))
+function toggleView() {
+  viewMode.value = viewMode.value === 'front' ? 'iso' : 'front'
+  localStorage.setItem('ps_view', viewMode.value)
+  renderer?.setViewMode(viewMode.value)
+}
 const showParams = ref(true)
 
 // 规范化：所有可动元件补齐 properties/initialState（预设数据缺字段时参数面板不崩）
@@ -265,6 +272,7 @@ onMounted(async () => {
   await ensureDemoLogin()
   if (canvasRef.value) {
     renderer = createSimRenderer(canvasRef.value)
+    renderer.setViewMode(viewMode.value)
     renderer.syncElements(presets[selected.value].elements)
   }
   if (chartRef.value) {
@@ -307,6 +315,7 @@ onUnmounted(() => {
       <button :disabled="state.status !== 'paused'" @click="step">⏭ 单步</button>
       <button :disabled="state.status === 'ended' || state.status === 'idle'" @click="end">■ 停止</button>
       <span class="status">{{ statusText() }}</span>
+      <button class="ghost" @click="toggleView" title="正视=课本插图视角；立体=等距 2.5D">📐 {{ viewLabel }}</button>
       <button class="ghost" @click="showParams = !showParams">
         {{ showParams ? '收起参数' : '展开参数' }}
       </button>

@@ -86,6 +86,14 @@ const scene = reactive({
   } as Record<string, any>,
 })
 const selectedId = ref<string | null>(null)
+
+const viewMode = ref<'front' | 'iso'>((localStorage.getItem('ps_view') as 'front' | 'iso') || 'front')
+const viewLabel = computed(() => (viewMode.value === 'front' ? '正视' : '立体'))
+function toggleView() {
+  viewMode.value = viewMode.value === 'front' ? 'iso' : 'front'
+  localStorage.setItem('ps_view', viewMode.value)
+  renderer?.setViewMode(viewMode.value)
+}
 const selected = computed(() => scene.elements.find((e) => e.id === selectedId.value) ?? null)
 const busy = computed(() => ['running', 'paused', 'connecting'].includes(state.status))
 
@@ -480,6 +488,7 @@ watch(() => state.status, (status) => {
 onMounted(async () => {
   if (canvasRef.value) {
     renderer = createSimRenderer(canvasRef.value)
+    renderer.setViewMode(viewMode.value)
   }
   if (chartRef.value) {
     chart = echarts.init(chartRef.value)
@@ -544,6 +553,7 @@ onUnmounted(() => {
       <button :disabled="state.status !== 'paused'" @click="step">⏭</button>
       <button :disabled="state.status === 'ended' || state.status === 'idle'" @click="end">■</button>
       <span class="status">{{ state.status === 'running' ? `运行中 t=${state.currentT.toFixed(2)}s` : state.status }}</span>
+      <button class="ghost" @click="toggleView" title="正视=课本插图视角；立体=等距 2.5D">📐 {{ viewLabel }}</button>
     </section>
 
     <p v-if="error" class="error">{{ error }}</p>

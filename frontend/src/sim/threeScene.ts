@@ -14,6 +14,7 @@ export interface SimRenderer {
   pickElement(clientX: number, clientY: number): string | null
   setSelected(id: string | null): void
   setGhost(ids: string[]): void
+  setViewMode(mode: 'front' | 'iso'): void
   dispose(): void
 }
 
@@ -53,27 +54,45 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
   let selectedId: string | null = null
   let ghostIds = new Set<string>()
 
+  /** 视角模式：front=正视图（物理教辅标准，正对纸面）；iso=等距 2.5D */
+  let viewMode: 'front' | 'iso' = 'front'
+
   /** 自动取景：按场景包围盒调整相机（塔高 25m 的自由落体也能全看到） */
   function frameAll() {
     if (meshes.size === 0) {
-      camera.position.set(14, 10, 14)
-      camera.lookAt(0, 2, 0)
+      if (viewMode === 'front') {
+        camera.position.set(0, 2, 30)
+        camera.lookAt(0, 2, 0)
+      } else {
+        camera.position.set(14, 10, 14)
+        camera.lookAt(0, 2, 0)
+      }
       return
     }
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
     for (const mesh of meshes.values()) {
       const p = mesh.position
-      minX = Math.min(minX, p.x - 1)
-      maxX = Math.max(maxX, p.x + 1)
-      minY = Math.min(minY, p.y - 1)
-      maxY = Math.max(maxY, p.y + 1)
+      const hw = (mesh.userData.halfW as number) ?? 1
+      const hh = (mesh.userData.halfH as number) ?? 1
+      minX = Math.min(minX, p.x - hw)
+      maxX = Math.max(maxX, p.x + hw)
+      minY = Math.min(minY, p.y - hh)
+      maxY = Math.max(maxY, p.y + hh)
     }
     const cx = (minX + maxX) / 2
     const cy = (minY + maxY) / 2
-    const span = Math.max(maxX - minX, (maxY - minY) * 1.35) + 4
-    const dist = span * 1.05
-    camera.position.set(cx + dist * 0.62, cy + dist * 0.5, dist * 0.62)
-    camera.lookAt(cx, cy, 0)
+    const aspect = canvas.clientWidth / Math.max(1, canvas.clientHeight)
+    if (viewMode === 'front') {
+      // 正视图：正对 xy 平面。fov45° 垂直可视高 = 0.828d，按宽高各算所需距离取大
+      const dist = Math.max((maxY - minY) * 1.3, (maxX - minX) * 1.3 / aspect) + 3
+      camera.position.set(cx, cy, dist)
+      camera.lookAt(cx, cy, 0)
+    } else {
+      const span = Math.max(maxX - minX, (maxY - minY) * 1.35) + 4
+      const dist = span * 1.05
+      camera.position.set(cx + dist * 0.62, cy + dist * 0.5, dist * 0.62)
+      camera.lookAt(cx, cy, 0)
+    }
   }
 
   function buildMesh(el: PhysicsElementInput): THREE.Mesh {
@@ -139,6 +158,14 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     const mesh = new THREE.Mesh(geometry, material)
     mesh.userData.baseOpacity = isField ? opacity : el.type === 'wall' ? 0.55 : 1
     mesh.userData.baseTransparent = isField || el.type === 'wall'
+    // 自动取景用的大致半尺寸（元件几何跨度，非仅中心点）
+    if (el.type === 'slope') {
+      mesh.userData.halfW = sx; mesh.userData.halfH = sy / 2
+    } else if (isField || el.type === 'wall') {
+      mesh.userData.halfW = sx / 2; mesh.userData.halfH = sy / 2
+    } else {
+      mesh.userData.halfW = Math.max(0.5, sx / 2); mesh.userData.halfH = Math.max(0.5, sy / 2)
+    }
     mesh.position.set(el.position.x, el.position.y, 0)
     mesh.rotation.z = el.angle ?? 0
     // 场分布可视化（教材标准画法）：电场=方向箭头阵列，磁场=⊙/⊗ 符号阵列
@@ -314,6 +341,11 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     setGhost(ids) {
       ghostIds = new Set(ids)
       applySelection()
+    },
+    setViewMode(mode) {
+      if (viewMode === mode) return
+      viewMode = mode
+      frameAll()
     },
     dispose() {
       cancelAnimationFrame(raf)
