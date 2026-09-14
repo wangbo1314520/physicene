@@ -20,6 +20,18 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     { path: '/sim', name: 'sim', component: () => import('../views/SimView.vue') },
+    {
+      path: '/exp',
+      name: 'exp-catalog',
+      component: () => import('../views/ExpCatalogView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/exp/:id',
+      name: 'exp-runner',
+      component: () => import('../experiments/framework/ExperimentShell.vue'),
+      meta: { requiresAuth: true },
+    },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })

@@ -66,7 +66,8 @@ CREATE TABLE IF NOT EXISTS experiment_record (
 -- 4. 实验报告（1:1 记录，乐观锁）
 CREATE TABLE IF NOT EXISTS report (
     id              BIGINT          NOT NULL AUTO_INCREMENT,
-    record_id       BIGINT          NOT NULL,
+    record_id       BIGINT          NULL COMMENT '实验记录(第六周)或实验会话(见 session_id)二选一',
+    session_id      BIGINT          NULL COMMENT '实验会话挂接（实验库 B0）',
     content         JSON            NULL COMMENT '6 章节',
     export_path     VARCHAR(255)    NULL,
     version         INT             NOT NULL DEFAULT 1 COMMENT '乐观锁',
@@ -74,6 +75,7 @@ CREATE TABLE IF NOT EXISTS report (
     updated_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     UNIQUE KEY uk_record_id (record_id),
+    KEY idx_session_id (session_id),
     CONSTRAINT fk_report_record FOREIGN KEY (record_id) REFERENCES experiment_record(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -168,7 +170,8 @@ CREATE TABLE IF NOT EXISTS system_token_usage (
 -- 11. 操作日志（级联删除）
 CREATE TABLE IF NOT EXISTS operation_log (
     id              BIGINT          NOT NULL AUTO_INCREMENT,
-    record_id       BIGINT          NOT NULL,
+    record_id       BIGINT          NULL COMMENT '实验记录(第六周)或实验会话(见 session_id)二选一',
+    session_id      BIGINT          NULL COMMENT '实验会话挂接（实验库 B0）',
     action          ENUM('start','pause','step','param_change','screenshot','export','report_generate') NOT NULL,
     action_detail   JSON            NULL,
     created_at      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -191,6 +194,27 @@ CREATE TABLE IF NOT EXISTS audit_log (
     KEY idx_actor_id (actor_id),
     KEY idx_target (target_type, target_id),
     KEY idx_timestamp (timestamp)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 14. 实验会话（实验库 B0：步骤状态/原始数据/处理数据/AI反馈/乐观锁）
+CREATE TABLE IF NOT EXISTS experiment_session (
+    id              BIGINT      NOT NULL AUTO_INCREMENT,
+    student_id      BIGINT      NOT NULL,
+    experiment_id   VARCHAR(64) NOT NULL COMMENT '实验注册键，如 em-coulomb-repulsion',
+    status          ENUM('draft','submitted') NOT NULL DEFAULT 'draft',
+    step_state      JSON        NULL COMMENT '步骤状态机快照 {current,completed[],records{},mode}',
+    raw_data        JSON        NULL COMMENT '原始读数（表格行/纸带点/极值采集）',
+    processed_data  JSON        NULL COMMENT '处理数据（描点/拟合/图像配置）',
+    conclusion      TEXT        NULL COMMENT '学生结论',
+    ai_feedback     TEXT        NULL COMMENT 'AI 助教反馈（B7 回填）',
+    version         INT         NOT NULL DEFAULT 1 COMMENT '乐观锁·多端同步',
+    created_at      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_student_exp (student_id, experiment_id),
+    KEY idx_student_status (student_id, status),
+    KEY idx_exp_status (experiment_id, status),
+    KEY idx_version (version)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 13. OCR 题型映射（admin 维护）
