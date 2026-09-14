@@ -16,8 +16,9 @@ let chart: echarts.ECharts | null = null
 const { state, error, run, pause, play, step, end } = useSimulationSocket()
 
 // 预置实验场景（斜面：方块贴斜面顶端静止下滑，倾角 30°）
-const presets = reactive<Record<string, { name: string; elements: PhysicsElementInput[]; config: Record<string, any> }>>({
+const presets = reactive<Record<string, { group?: string; name: string; elements: PhysicsElementInput[]; config: Record<string, any> }>>({
   collision: {
+    group: '选择性必修一 · 动量守恒',
     name: '两车弹性碰撞（e=1 速度交换）',
     elements: [
       { id: 'car1', type: 'cube', position: { x: -3, y: 0.5 }, color: '#4A90D9',
@@ -32,6 +33,7 @@ const presets = reactive<Record<string, { name: string; elements: PhysicsElement
     config: { gravity: { x: 0, y: 0 }, maxDuration: 3.0 },
   },
   inelastic: {
+    group: '选择性必修一 · 动量守恒',
     name: '两车非弹性碰撞（e=0.3 动能有损）',
     elements: [
       { id: 'car1', type: 'cube', position: { x: -3, y: 0.5 }, color: '#4A90D9',
@@ -46,6 +48,7 @@ const presets = reactive<Record<string, { name: string; elements: PhysicsElement
     config: { gravity: { x: 0, y: 0 }, maxDuration: 3.0 },
   },
   freefall: {
+    group: '必修一 · 匀变速直线运动',
     name: '自由落体（1s 下落 ≈4.9m）',
     elements: [
       { id: 'ball', type: 'sphere', position: { x: 0, y: 10 }, color: '#F5C542',
@@ -56,6 +59,7 @@ const presets = reactive<Record<string, { name: string; elements: PhysicsElement
     config: { gravity: { x: 0, y: -9.8 }, maxDuration: 3.0 },
   },
   slope_real: {
+    group: '必修一 · 相互作用与牛顿定律',
     name: '斜面滑块 · 现实（滑离底部有磕碰）',
     elements: [
       // 斜面：scale(2, 2.3) → 底 4 × 高 2.3，tan θ = 2.3/4 ≈ 30°，直角在左下
@@ -73,6 +77,7 @@ const presets = reactive<Record<string, { name: string; elements: PhysicsElement
     config: { gravity: { x: 0, y: -9.8 }, maxDuration: 4.0 },
   },
   slope_ideal: {
+    group: '必修一 · 相互作用与牛顿定律',
     name: '斜面滑块 · 理想（球模型，平滑过渡无弹跳）',
     elements: [
       { id: 'slope1', type: 'slope', position: { x: -2, y: 0 }, scale: { x: 2, y: 2.3 },
@@ -89,6 +94,7 @@ const presets = reactive<Record<string, { name: string; elements: PhysicsElement
     config: { gravity: { x: 0, y: -9.8 }, maxDuration: 4.0 },
   },
   projectile_h: {
+    group: '必修二 · 抛体运动',
     name: '平抛运动（水平初速 + 重力）',
     elements: [
       { id: 'ball', type: 'sphere', position: { x: -10, y: 10 }, color: '#F5C542',
@@ -100,6 +106,7 @@ const presets = reactive<Record<string, { name: string; elements: PhysicsElement
     config: { gravity: { x: 0, y: -9.8 }, maxDuration: 4 },
   },
   projectile_45: {
+    group: '必修二 · 抛体运动',
     name: '斜抛运动 45°（v0=20，射程 40m）',
     elements: [
       { id: 'ball', type: 'cube', position: { x: -15, y: 0.5 }, color: '#F5C542',
@@ -111,6 +118,7 @@ const presets = reactive<Record<string, { name: string; elements: PhysicsElement
     config: { gravity: { x: 0, y: -9.8 }, maxDuration: 5 },
   },
   recoil: {
+    group: '选择性必修一 · 动量守恒',
     name: '反冲运动（静止分离，动量守恒 p=0）',
     elements: [
       { id: 'car1', type: 'cube', position: { x: -0.6, y: 0.5 }, color: '#4A90D9',
@@ -125,6 +133,7 @@ const presets = reactive<Record<string, { name: string; elements: PhysicsElement
     config: { gravity: { x: 0, y: 0 }, maxDuration: 5 },
   },
   friction_decel: {
+    group: '必修一 · 相互作用与牛顿定律',
     name: '摩擦减速（μ=0.3 滑块减速到停止）',
     elements: [
       { id: 'cube_a', type: 'cube', position: { x: -8, y: 0.5 }, color: '#4A90D9',
@@ -136,6 +145,7 @@ const presets = reactive<Record<string, { name: string; elements: PhysicsElement
     config: { gravity: { x: 0, y: -9.8 }, maxDuration: 5 },
   },
   e_deflect: {
+    group: '必修三 · 静电场',
     name: '电场偏转（示波器模型，电荷抛物线）',
     elements: [
       { id: 'pc', type: 'point_charge', position: { x: -10, y: 0 }, color: '#F5C542',
@@ -147,6 +157,7 @@ const presets = reactive<Record<string, { name: string; elements: PhysicsElement
     config: { gravity: { x: 0, y: 0 }, maxDuration: 5 },
   },
   b_circle: {
+    group: '选择性必修二 · 磁场',
     name: '磁场圆周运动（洛伦兹力，r=mv/qB）',
     elements: [
       { id: 'pc', type: 'point_charge', position: { x: -5, y: 0 }, color: '#F5C542',
@@ -156,6 +167,90 @@ const presets = reactive<Record<string, { name: string; elements: PhysicsElement
         properties: { bField: 1, bDirection: 'out' } },
     ],
     config: { gravity: { x: 0, y: 0 }, maxDuration: 8 },
+  },
+  inertia: {
+    group: '必修一 · 相互作用与牛顿定律',
+    name: '惯性：光滑冰面匀速直线（牛顿第一定律）',
+    elements: [
+      { id: 'cube_a', type: 'cube', position: { x: -8, y: 0.5 }, color: '#4A90D9',
+        properties: { mass: 1, friction: 0, restitution: 0 },
+        initialState: { velocity: { x: 6, y: 0 } } },
+      { id: 'ground', type: 'wall', position: { x: 0, y: -0.1 }, scale: { x: 40, y: 0.2 },
+        color: '#8a8aa0', properties: { friction: 0 } },
+    ],
+    config: { gravity: { x: 0, y: -9.8 }, maxDuration: 6 },
+  },
+  f_equals_ma: {
+    group: '必修一 · 相互作用与牛顿定律',
+    name: '探究 a=F/m：同电场力下不同质量的加速度（牛顿第二定律）',
+    elements: [
+      { id: 'q_light', type: 'point_charge', position: { x: -6, y: 1.5 }, color: '#F5C542',
+        properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 0, y: 0 } } },
+      { id: 'q_heavy', type: 'point_charge', position: { x: -6, y: -1.5 }, color: '#E05555',
+        properties: { mass: 2, charge: 1 }, initialState: { velocity: { x: 0, y: 0 } } },
+      { id: 'ef', type: 'e_field', position: { x: 0, y: 0 }, scale: { x: 24, y: 10 },
+        properties: { eFieldX: 1, eFieldY: 0 } },
+    ],
+    config: { gravity: { x: 0, y: 0 }, maxDuration: 5 },
+  },
+  energy_conserve: {
+    group: '必修二 · 机械能守恒',
+    name: '机械能守恒：20m 高落差自由落体（Ep→Ek 转化）',
+    elements: [
+      { id: 'ball', type: 'sphere', position: { x: 0, y: 20 }, color: '#F5C542',
+        properties: { mass: 1, friction: 0, restitution: 0.3 } },
+      { id: 'ground', type: 'wall', position: { x: 0, y: -0.1 }, scale: { x: 20, y: 0.2 },
+        color: '#8a8aa0' },
+    ],
+    config: { gravity: { x: 0, y: -9.8 }, maxDuration: 4 },
+  },
+  coulomb_repulse: {
+    group: '必修三 · 静电场',
+    name: '库仑力：同种电荷相互排斥（F=Kq₁q₂/r²）',
+    elements: [
+      { id: 'q1', type: 'point_charge', position: { x: -2, y: 0 }, color: '#E05555',
+        properties: { mass: 1, charge: 2 }, initialState: { velocity: { x: 0, y: 0 } } },
+      { id: 'q2', type: 'point_charge', position: { x: 2, y: 0 }, color: '#E05555',
+        properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 0, y: 0 } } },
+    ],
+    config: { gravity: { x: 0, y: 0 }, maxDuration: 6 },
+  },
+  coulomb_attract: {
+    group: '必修三 · 静电场',
+    name: '库仑力：异种电荷相互吸引（碰后弹开的振荡）',
+    elements: [
+      { id: 'q1', type: 'point_charge', position: { x: -5, y: 0 }, color: '#E05555',
+        properties: { mass: 2, charge: 2, restitution: 0.4 }, initialState: { velocity: { x: 0, y: 0 } } },
+      { id: 'q2', type: 'point_charge', position: { x: 5, y: 0 }, color: '#4A90D9',
+        properties: { mass: 1, charge: -1, restitution: 0.4 }, initialState: { velocity: { x: 0, y: 0 } } },
+    ],
+    config: { gravity: { x: 0, y: 0 }, maxDuration: 8 },
+  },
+  mass_spec: {
+    group: '选择性必修二 · 磁场',
+    name: '质谱仪原理：不同速率的电荷在磁场中偏转半径不同（r=mv/qB）',
+    elements: [
+      { id: 'fast', type: 'point_charge', position: { x: -8, y: 0 }, color: '#F5C542',
+        properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 0, y: 4 } } },
+      { id: 'slow', type: 'point_charge', position: { x: 8, y: 0 }, color: '#3ecf8e',
+        properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 0, y: 2 } } },
+      { id: 'bf', type: 'b_field', position: { x: 0, y: 0 }, scale: { x: 30, y: 30 },
+        properties: { bField: 1, bDirection: 'out' } },
+    ],
+    config: { gravity: { x: 0, y: 0 }, maxDuration: 9 },
+  },
+  alpha_scatter: {
+    group: '选择性必修三 · 原子物理',
+    name: 'α粒子散射（卢瑟福）：瞄准距离越小偏转角越大',
+    elements: [
+      { id: 'nucleus', type: 'point_charge', position: { x: 0, y: 0 }, color: '#E05555',
+        properties: { mass: 1000, charge: 8 }, initialState: { velocity: { x: 0, y: 0 } }, isFixed: true },
+      { id: 'a_top', type: 'point_charge', position: { x: -12, y: 3 }, color: '#F5C542',
+        properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 6, y: 0 } } },
+      { id: 'a_mid', type: 'point_charge', position: { x: -12, y: 0.9 }, color: '#3ecf8e',
+        properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 6, y: 0 } } },
+    ],
+    config: { gravity: { x: 0, y: 0 }, maxDuration: 6 },
   },
 })
 const selected = ref<keyof typeof presets>('collision')
@@ -193,6 +288,15 @@ function toggleMassUnit(el: PhysicsElementInput) {
   el.properties!.mass = next === 'g' ? m * 1000 : m / 1000
   massUnit[el.id] = next
 }
+
+const groupedPresets = computed(() => {
+  const groups: Record<string, { key: string; name: string }[]> = {}
+  for (const [key, preset] of Object.entries(presets)) {
+    const g = (preset as any).group || '其他'
+    ;(groups[g] ??= []).push({ key, name: preset.name })
+  }
+  return groups
+})
 
 const LINE_COLORS = ['#4A90D9', '#E05555', '#F5C542', '#3ecf8e', '#b06ce6', '#6cd9e8']
 
@@ -310,7 +414,9 @@ onUnmounted(() => {
   <main class="sim-page">
     <section class="toolbar">
       <select v-model="selected" :disabled="state.status === 'running' || state.status === 'paused'">
-        <option v-for="(p, k) in presets" :key="k" :value="k">{{ p.name }}</option>
+        <optgroup v-for="(grp, gname) in groupedPresets" :key="gname" :label="gname">
+          <option v-for="p in grp" :key="p.key" :value="p.key">{{ p.name }}</option>
+        </optgroup>
       </select>
       <button class="primary" :disabled="state.status === 'running' || state.status === 'connecting'"
               @click="startRun">▶ 运行</button>

@@ -279,4 +279,37 @@ class PhysicsEngineTest {
         instance.runToEndSync();
         assertTrue(instance.isEnded());
     }
+    /**
+     * 电磁实验③：库仑力——同种电荷相斥、异种相吸（必修三 静电场）。
+     */
+    @Test
+    void coulombForceRepulsionAndAttraction() {
+        Scene scene = new Scene();
+        scene.setElements(List.of(
+                charge("q1", -2, 0, 0, 0, 1, 2),
+                charge("q2", 2, 0, 0, 0, 1, 1)));
+        SimulationConfig cfg = new SimulationConfig();
+        cfg.setGravity(Vector2D.ZERO);
+        cfg.setMaxDuration(3.0);
+        scene.setConfig(cfg);
+
+        SimulationInstance instance = new SimulationInstance("test-coulomb", scene, registry());
+        instance.step();
+        FullSnapshot snap = (FullSnapshot) instance.latestFrame().getSnapshot();
+        SubjectState s1 = snap.getElements().get(0);
+        SubjectState s2 = snap.getElements().get(1);
+        assertTrue(s1.vx() < -0.01, "q1 应向左远离（实际 vx=" + s1.vx() + "）");
+        assertTrue(s2.vx() > 0.01, "q2 应向右远离（实际 vx=" + s2.vx() + "）");
+
+        Scene scene2 = new Scene();
+        scene2.setElements(List.of(
+                charge("q1", -3, 0, 0, 0, 1, 2),
+                charge("q2", 3, 0, 0, 0, 1, -1)));
+        scene2.setConfig(cfg);
+        SimulationInstance instance2 = new SimulationInstance("test-coulomb2", scene2, registry());
+        instance2.step();
+        FullSnapshot snap2 = (FullSnapshot) instance2.latestFrame().getSnapshot();
+        assertTrue(snap2.getElements().get(0).vx() > 0.01, "异种电荷 q1 应向右靠近");
+        assertTrue(snap2.getElements().get(1).vx() < -0.01, "异种电荷 q2 应向左靠近");
+    }
 }
