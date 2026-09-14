@@ -15,6 +15,7 @@ export interface SimRenderer {
   setSelected(id: string | null): void
   setGhost(ids: string[]): void
   setViewMode(mode: 'front' | 'iso'): void
+  resetView(): void
   dispose(): void
 }
 
@@ -57,9 +58,17 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
   /** 视角模式：front=正视图（物理教辅标准，正对纸面）；iso=等距 2.5D */
   let viewMode: 'front' | 'iso' = 'front'
 
+  // 用户手动视角（滚轮缩放/右键平移后不再自动取景，双击或复位按钮恢复）
+  let userControlled = false
+  const viewTarget = new THREE.Vector3(0, 2, 0)
+
   /** 自动取景：按场景包围盒调整相机（塔高 25m 的自由落体也能全看到） */
   function frameAll() {
+    if (userControlled) {
+      return
+    }
     if (meshes.size === 0) {
+      viewTarget.set(0, 2, 0)
       if (viewMode === 'front') {
         camera.position.set(0, 2, 30)
         camera.lookAt(0, 2, 0)
@@ -85,11 +94,13 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     if (viewMode === 'front') {
       // 正视图：正对 xy 平面。fov45° 垂直可视高 = 0.828d，按宽高各算所需距离取大
       const dist = Math.max((maxY - minY) * 1.3, (maxX - minX) * 1.3 / aspect) + 3
+      viewTarget.set(cx, cy, 0)
       camera.position.set(cx, cy, dist)
       camera.lookAt(cx, cy, 0)
     } else {
       const span = Math.max(maxX - minX, (maxY - minY) * 1.35) + 4
       const dist = span * 1.05
+      viewTarget.set(cx, cy, 0)
       camera.position.set(cx + dist * 0.62, cy + dist * 0.5, dist * 0.62)
       camera.lookAt(cx, cy, 0)
     }
@@ -283,6 +294,53 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     return [(v.x * 0.5 + 0.5) * canvas.clientWidth, (-v.y * 0.5 + 0.5) * canvas.clientHeight]
   }
 
+  // ===== 视角交互：滚轮缩放 / 右键或中键拖拽平移 / 双击复位 =====
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault()
+    userControlled = true
+    const factor = e.deltaY > 0 ? 1.12 : 1 / 1.12
+    const dir = camera.position.clone().sub(viewTarget)
+    const len = THREE.MathUtils.clamp(dir.length() * factor, 3, 400)
+    camera.position.copy(viewTarget).add(dir.setLength(len))
+  }, { passive: false })
+
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault())
+
+  let panning = false
+  let panX = 0
+  let panY = 0
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.button === 2 || e.button === 1) {
+      panning = true
+      userControlled = true
+      panX = e.clientX
+      panY = e.clientY
+      canvas.setPointerCapture(e.pointerId)
+    }
+  })
+  canvas.addEventListener('pointermove', (e) => {
+    if (!panning) return
+    const dx = e.clientX - panX
+    const dy = e.clientY - panY
+    panX = e.clientX
+    panY = e.clientY
+    // 屏幕像素 → 世界距离（按当前视距与 fov 换算）
+    const dist = camera.position.distanceTo(viewTarget)
+    const worldPerPx = (2 * dist * Math.tan(THREE.MathUtils.degToRad(22.5))) / canvas.clientHeight
+    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0)
+    const up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1)
+    const move = right.multiplyScalar(-dx * worldPerPx).add(up.multiplyScalar(dy * worldPerPx))
+    camera.position.add(move)
+    viewTarget.add(move)
+  })
+  const endPan = () => (panning = false)
+  canvas.addEventListener('pointerup', endPan)
+  canvas.addEventListener('pointercancel', endPan)
+  canvas.addEventListener('dblclick', () => {
+    userControlled = false
+    frameAll()
+  })
+
   return {
     syncElements(elements) {
       // 释放旧网格的 GPU 资源（参数编辑触发频繁重建，不释放会持续泄漏显存；含场符号子对象）
@@ -345,6 +403,11 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     setViewMode(mode) {
       if (viewMode === mode) return
       viewMode = mode
+      userControlled = false
+      frameAll()
+    },
+    resetView() {
+      userControlled = false
       frameAll()
     },
     dispose() {

@@ -89,6 +89,10 @@ const selectedId = ref<string | null>(null)
 
 const viewMode = ref<'front' | 'iso'>((localStorage.getItem('ps_view') as 'front' | 'iso') || 'front')
 const viewLabel = computed(() => (viewMode.value === 'front' ? '正视' : '立体'))
+function resetCamera() {
+  renderer?.resetView()
+}
+
 function toggleView() {
   viewMode.value = viewMode.value === 'front' ? 'iso' : 'front'
   localStorage.setItem('ps_view', viewMode.value)
@@ -232,7 +236,7 @@ function onDrop(ev: DragEvent) {
 let dragging = false
 
 function onPointerDown(ev: PointerEvent) {
-  if (busy.value) return
+  if (busy.value || ev.button !== 0) return  // 右/中键留给视角平移
   const hit = renderer?.pickElement(ev.clientX, ev.clientY) ?? null
   selectedId.value = hit
   renderer?.setSelected(hit)
@@ -554,6 +558,7 @@ onUnmounted(() => {
       <button :disabled="state.status === 'ended' || state.status === 'idle'" @click="end">■</button>
       <span class="status">{{ state.status === 'running' ? `运行中 t=${state.currentT.toFixed(2)}s` : state.status }}</span>
       <button class="ghost" @click="toggleView" title="正视=课本插图视角；立体=等距 2.5D">📐 {{ viewLabel }}</button>
+      <button class="ghost" @click="resetCamera()" title="滚轮缩放 / 右键拖动平移 / 双击复位">⟲ 复位视角</button>
     </section>
 
     <p v-if="error" class="error">{{ error }}</p>

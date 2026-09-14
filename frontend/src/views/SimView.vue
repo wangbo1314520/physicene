@@ -161,6 +161,10 @@ const presets = reactive<Record<string, { name: string; elements: PhysicsElement
 const selected = ref<keyof typeof presets>('collision')
 const viewMode = ref<'front' | 'iso'>((localStorage.getItem('ps_view') as 'front' | 'iso') || 'front')
 const viewLabel = computed(() => (viewMode.value === 'front' ? '正视' : '立体'))
+function resetCamera() {
+  renderer?.resetView()
+}
+
 function toggleView() {
   viewMode.value = viewMode.value === 'front' ? 'iso' : 'front'
   localStorage.setItem('ps_view', viewMode.value)
@@ -316,6 +320,7 @@ onUnmounted(() => {
       <button :disabled="state.status === 'ended' || state.status === 'idle'" @click="end">■ 停止</button>
       <span class="status">{{ statusText() }}</span>
       <button class="ghost" @click="toggleView" title="正视=课本插图视角；立体=等距 2.5D">📐 {{ viewLabel }}</button>
+      <button class="ghost" @click="resetCamera()" title="滚轮缩放 / 右键拖动平移 / 双击复位">⟲ 复位视角</button>
       <button class="ghost" @click="showParams = !showParams">
         {{ showParams ? '收起参数' : '展开参数' }}
       </button>
