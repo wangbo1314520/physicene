@@ -141,7 +141,75 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     mesh.userData.baseTransparent = isField || el.type === 'wall'
     mesh.position.set(el.position.x, el.position.y, 0)
     mesh.rotation.z = el.angle ?? 0
+    // 场分布可视化（教材标准画法）：电场=方向箭头阵列，磁场=⊙/⊗ 符号阵列
+    if (isField) {
+      mesh.add(buildFieldSymbols(el))
+    }
     return mesh
+  }
+
+  /** 电场箭头 / 磁场⊙⊗ 符号（MeshBasicMaterial 不受光照，始终清晰） */
+  function buildFieldSymbols(el: PhysicsElementInput): THREE.Group {
+    const group = new THREE.Group()
+    const sx = Math.max(0.1, el.scale?.x ?? 1)
+    const sy = Math.max(0.1, el.scale?.y ?? 1)
+    const spacing = Math.max(2.2, Math.min(sx, sy) / 4.5)
+    const cols = Math.max(1, Math.floor((sx - 1.2) / spacing))
+    const rows = Math.max(1, Math.floor((sy - 1.2) / spacing))
+    const x0 = -((cols - 1) * spacing) / 2
+    const y0 = -((rows - 1) * spacing) / 2
+
+    if (el.type === 'e_field') {
+      const ex = el.properties?.eFieldX ?? 0
+      const ey = el.properties?.eFieldY ?? 0
+      const mag = Math.hypot(ex, ey)
+      if (mag < 1e-6) return group
+      const len = Math.min(2.2, Math.max(0.8, mag * 0.35))
+      const dir = new THREE.Vector3(ex / mag, ey / mag, 0)
+      const color = 0x3ecf8e
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const arrow = new THREE.ArrowHelper(
+            dir, new THREE.Vector3(x0 + c * spacing, y0 + r * spacing, 0.15),
+            len, color, Math.min(0.45, len * 0.35), Math.min(0.3, len * 0.22))
+          group.add(arrow)
+        }
+      }
+    } else {
+      const isIn = el.properties?.bDirection === 'in'
+      const color = isIn ? 0x6cd9e8 : 0xb06ce6
+      const ringMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 })
+      const dotMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.95 })
+      materials.push(ringMat, dotMat)
+      const ringGeo = new THREE.RingGeometry(0.22, 0.3, 20)
+      const dotGeo = new THREE.CircleGeometry(0.09, 10)
+      const barGeo = new THREE.PlaneGeometry(0.5, 0.07)
+      geometries.push(ringGeo, dotGeo, barGeo)
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const cx = x0 + c * spacing
+          const cy = y0 + r * spacing
+          const ring = new THREE.Mesh(ringGeo, ringMat)
+          ring.position.set(cx, cy, 0.15)
+          group.add(ring)
+          if (isIn) {
+            // ⊗ 向内：环 + 45° 交叉短线
+            for (const rot of [Math.PI / 4, -Math.PI / 4]) {
+              const bar = new THREE.Mesh(barGeo, ringMat)
+              bar.position.set(cx, cy, 0.15)
+              bar.rotation.z = rot
+              group.add(bar)
+            }
+          } else {
+            // ⊙ 向外：环 + 中心点
+            const dot = new THREE.Mesh(dotGeo, dotMat)
+            dot.position.set(cx, cy, 0.15)
+            group.add(dot)
+          }
+        }
+      }
+    }
+    return group
   }
 
   function applySelection() {
@@ -183,11 +251,15 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
 
   return {
     syncElements(elements) {
-      // 释放旧网格的 GPU 资源（参数编辑触发频繁重建，不释放会持续泄漏显存）
+      // 释放旧网格的 GPU 资源（参数编辑触发频繁重建，不释放会持续泄漏显存；含场符号子对象）
       for (const mesh of meshes.values()) {
         scene.remove(mesh)
-        mesh.geometry.dispose()
-        ;(mesh.material as THREE.Material).dispose()
+        mesh.traverse((child: any) => {
+          child.geometry?.dispose?.()
+          const m = child.material
+          if (Array.isArray(m)) m.forEach((x: THREE.Material) => x.dispose())
+          else m?.dispose?.()
+        })
       }
       meshes.clear()
       for (const el of elements) {
