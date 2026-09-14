@@ -51,7 +51,8 @@ public class OcrController {
     /** previewToken 存储（SD-2 契约 15 分钟有效期；Week 6 换 Redis SETEX） */
     private final Map<String, TokenEntry> previewTokens = new ConcurrentHashMap<>();
 
-    private record TokenEntry(long expireAt, List<PhysicsElement> elements) {
+    private record TokenEntry(long expireAt, List<PhysicsElement> elements,
+                              SimulationConfig config) {
     }
 
     public OcrController(AiServiceClient aiServiceClient, SceneValidator validator,
@@ -122,7 +123,7 @@ public class OcrController {
                 });
         Scene scene = new Scene();
         scene.setElements(elements != null ? elements : new ArrayList<>());
-        scene.setConfig(defaultConfig(String.valueOf(parsed.getOrDefault("simType", "collision"))));
+        scene.setConfig(configFromParse(parsed)); // LLM 按题意给出的重力/时长，兜底默认
         var errors = validator.validate(scene);
         if (!errors.isValid()) {
             throw new BusinessException(ErrorCode.DEGRADED,
@@ -132,7 +133,8 @@ public class OcrController {
 
         // ⑤ previewToken（15 分钟）
         String token = UUID.randomUUID().toString().replace("-", "");
-        previewTokens.put(token, new TokenEntry(System.currentTimeMillis() + 15 * 60_000L, scene.getElements()));
+        previewTokens.put(token, new TokenEntry(System.currentTimeMillis() + 15 * 60_000L,
+                scene.getElements(), scene.getConfig()));
         previewTokens.entrySet().removeIf(e -> e.getValue().expireAt() < System.currentTimeMillis());
 
         Map<String, Object> data = new LinkedHashMap<>();
@@ -161,17 +163,35 @@ public class OcrController {
                         });
         previewTokens.remove(token);
         return ApiResponse.ok(sceneService.create(UserContext.userId(),
-                adjusted != null ? adjusted : elements, defaultConfig("collision"), null, "ocr"));
+                adjusted != null ? adjusted : elements, entry.config(), null, "ocr"));
     }
 
     private static SimulationConfig defaultConfig(String simType) {
         SimulationConfig config = new SimulationConfig();
-        if ("projectile".equals(simType)) {
+        if ("projectile".equals(simType) || "freefall".equals(simType)) {
             config.setGravity(new com.physicene.backend.physics.model.Vector2D(0, -9.8));
             config.setMaxDuration(30.0);
         } else {
             config.setGravity(com.physicene.backend.physics.model.Vector2D.ZERO);
             config.setMaxDuration(10.0);
+        }
+        return config;
+    }
+
+    /** 优先用解析 LLM 给出的物理配置（自由落体→重力 -9.8 等），缺失时按题型兜底 */
+    @SuppressWarnings("unchecked")
+    private static SimulationConfig configFromParse(Map<String, Object> parsed) {
+        SimulationConfig config = defaultConfig(String.valueOf(parsed.getOrDefault("simType", "collision")));
+        Object raw = parsed.get("config");
+        if (raw instanceof Map<?, ?> cfg) {
+            Object gravityY = cfg.get("gravityY");
+            if (gravityY instanceof Number g && !Double.isNaN(g.doubleValue())) {
+                config.setGravity(new com.physicene.backend.physics.model.Vector2D(0, g.doubleValue()));
+            }
+            Object duration = cfg.get("maxDuration");
+            if (duration instanceof Number d && d.doubleValue() > 0 && d.doubleValue() <= 60) {
+                config.setMaxDuration(d.doubleValue());
+            }
         }
         return config;
     }

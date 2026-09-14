@@ -10,19 +10,21 @@ from physicene_ai.utils.logger import logger
 
 PARSE_SYSTEM_PROMPT = """你是高中物理实验题目解析器。把 OCR 识别出的物理题文本解析为结构化实验场景。
 只输出 JSON：
-{"simType":"collision|projectile","recommendedElements":[{"id":"...","type":"cube|sphere|slope|wall","position":{"x":0,"y":0},"properties":{"mass":1,"friction":0,"restitution":0.5},"initialState":{"velocity":{"x":0,"y":0}},"scale":{"x":1,"y":1},"isFixed":false}],"confidence":0.0~1.0,"fallbackHint":null}
+{"simType":"collision|projectile|freefall","config":{"gravityY":-9.8或0,"maxDuration":10},"recommendedElements":[{"id":"...","type":"cube|sphere|slope|wall","position":{"x":0,"y":0},"properties":{"mass":1,"friction":0,"restitution":0.5},"initialState":{"velocity":{"x":0,"y":0}},"scale":{"x":1,"y":1},"isFixed":false}],"confidence":0.0~1.0,"fallbackHint":null}
 
 规则：
 - 小车/滑块/物块 → type "cube"；小球 → "sphere"；斜面 → "slope"；地面 → "wall"（isFixed true，scale x 设 20）
-- 两物相向/追及碰撞 → simType "collision"，两 cube 分别给初速
-- 抛出/投掷/斜抛/平抛 → simType "projectile"，初速按题意分解（45° 时 x=y=0.707×v0）
+- 两物相向/追及碰撞 → simType "collision"，两 cube 分别给初速；**水平光滑面碰撞 gravityY=0**
+- 抛出/投掷/斜抛/平抛 → simType "projectile"，初速按题意分解（45° 时 x=y=0.707×v0），**gravityY=-9.8**
+- 自由下落/自由落体/从高处落下/竖直下抛 → simType "freefall"，物体放题目高度处 v0 按题意（自由落体 v0=0），**gravityY=-9.8，maxDuration 按√(2h/g)×1.5 估**
+- config.maxDuration：按题目运动时长估计再放宽 50%（秒）
 - 质量/摩擦/弹性按题目数值填 properties；没说的用默认值
-- 题目不属于这两类（如电路、光学）→ confidence 设 0.2，fallbackHint 写"暂不支持该题型，建议手动搭建"
-- 坐标系：x 向右 y 向上，地面顶面取 y=0，物体放在地面上方
+- 题目不属于这几类（如电路、光学）→ confidence 设 0.2，fallbackHint 写"暂不支持该题型，建议手动搭建"
+- 坐标系：x 向右 y 向上，地面顶面取 y=0，物体放在地面上方，下落物体 y=高度
 - 元件 id 用 "car1"/"car2"/"ball" 等简名
 
-示例输入："质量分别为1kg和2kg的两辆小车在光滑水平面上相向运动，速度大小均为3m/s，发生碰撞"
-示例输出：{"simType":"collision","recommendedElements":[{"id":"car1","type":"cube","position":{"x":-3,"y":0.5},"properties":{"mass":1,"friction":0,"restitution":0.5},"initialState":{"velocity":{"x":3,"y":0}},"scale":{"x":1,"y":1}},{"id":"car2","type":"cube","position":{"x":3,"y":0.5},"properties":{"mass":2,"friction":0,"restitution":0.5},"initialState":{"velocity":{"x":-3,"y":0}},"scale":{"x":1,"y":1}},{"id":"ground","type":"wall","position":{"x":0,"y":-0.1},"scale":{"x":20,"y":0.2},"isFixed":true}],"confidence":0.92,"fallbackHint":null}"""
+示例输入："质量为1kg的小球从离地面20m高处自由下落，求落地时的速度（g取10m/s²）"
+示例输出：{"simType":"freefall","config":{"gravityY":-9.8,"maxDuration":5},"recommendedElements":[{"id":"ball","type":"sphere","position":{"x":0,"y":20},"properties":{"mass":1,"friction":0,"restitution":0.3},"initialState":{"velocity":{"x":0,"y":0}},"scale":{"x":1,"y":1}},{"id":"ground","type":"wall","position":{"x":0,"y":-0.1},"scale":{"x":20,"y":0.2},"isFixed":true}],"confidence":0.95,"fallbackHint":null}"""
 
 KEYWORDS = [("碰撞", "collision"), ("小车", "collision"), ("动量", "collision"), ("相向", "collision"),
             ("斜抛", "projectile"), ("平抛", "projectile"), ("抛出", "projectile"), ("投掷", "projectile")]
@@ -54,8 +56,14 @@ def parse_question(ocr_text: str) -> dict:
             max_tokens=1500, temperature=0.1).content
         data = json.loads(_extract_json(raw))
         confidence = float(data.get("confidence", 0))
+        # 物理配置透传（LLM 按题意给出重力/时长，Java 侧兜底默认值）
+        cfg = data.get("config") or {}
         result = {
             "simType": data.get("simType", "collision"),
+            "config": {
+                "gravityY": cfg.get("gravityY"),
+                "maxDuration": cfg.get("maxDuration"),
+            },
             "recommendedElements": data.get("recommendedElements") or [],
             "confidence": confidence,
             "fallbackHint": data.get("fallbackHint"),
