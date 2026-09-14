@@ -155,15 +155,43 @@ def _handle_modify(request: ChatRequest, entities: dict) -> ChatResponse:
 
 
 def _handle_question(request: ChatRequest, entities: dict) -> ChatResponse:
-    """问原理：Week 4 直连 LLM；第五周接 RAG（bge-m3 + Chroma + 教材引用）。"""
-    if llm_client.mock:
-        return ChatResponse(reply="【mock 模式】知识问答需要接入 DeepSeek 后使用。")
+    """问原理：RAG 教材检索（SRS F3.1）→ 带引用回答；未命中 → 通用回答 +【非教材引用】标注。"""
+    from physicene_ai.core.rag_retriever import rag_retriever
+
     history = [{"role": m.role, "content": m.content} for m in request.history[-10:]]
-    result = llm_client.chat(
-        [{"role": "system", "content": QUESTION_SYSTEM_PROMPT}, *history,
-         {"role": "user", "content": request.message}],
-        max_tokens=2000, temperature=0.7)
-    return ChatResponse(reply=result.content + "\n\n<sub>（教材知识库将于第五周接入，当前为通用回答）</sub>")
+    try:
+        context, hits = rag_retriever.build_context(request.message)
+    except Exception as e:  # noqa: BLE001 检索失败降级（SRS：两级降级）
+        logger.warning("RAG 检索失败，降级通用回答: {}", str(e)[:120])
+        context, hits = "", []
+
+    if hits:
+        system = QUESTION_SYSTEM_PROMPT + f"""
+
+你检索到了以下教材片段（回答时以它们为主要依据，并可引用出处）：
+{context[:6000]}"""
+    else:
+        system = QUESTION_SYSTEM_PROMPT + "\n\n（未检索到相关教材片段：基于通用物理知识回答，回答末尾标注【非教材引用】）"
+
+    try:
+        result = llm_client.chat(
+            [{"role": "system", "content": system}, *history,
+             {"role": "user", "content": request.message}],
+            max_tokens=2000, temperature=0.7)
+        reply = result.content
+    except Exception:  # noqa: BLE001 LLM 失败 + 有检索结果 → 直接展示教材片段
+        if hits:
+            lines = [f"📖 {h['source']} {h['chapter']} P{h['page']}：\n{h['content'][:200]}…" for h in hits[:3]]
+            return ChatResponse(reply="AI 暂时繁忙，先给你找到了教材相关片段：\n\n" + "\n\n".join(lines))
+        raise
+
+    if hits:
+        refs = "\n".join(f"📖 {h['source']} {h['chapter']} 第{h['page']}页"
+                         for h in hits[:5])
+        reply = f"{reply}\n\n── 教材出处 ──\n{refs}"
+    else:
+        reply = f"{reply}\n\n【非教材引用】"
+    return ChatResponse(reply=reply)
 
 
 def _handle_history(request: ChatRequest, entities: dict) -> ChatResponse:

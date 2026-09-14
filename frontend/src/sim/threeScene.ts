@@ -13,6 +13,7 @@ export interface SimRenderer {
   screenToWorld(clientX: number, clientY: number): { x: number; y: number } | null
   pickElement(clientX: number, clientY: number): string | null
   setSelected(id: string | null): void
+  setGhost(ids: string[]): void
   dispose(): void
 }
 
@@ -46,6 +47,7 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
   const materials: THREE.Material[] = []
   const geometries: THREE.BufferGeometry[] = []
   let selectedId: string | null = null
+  let ghostIds = new Set<string>()
 
   function buildMesh(el: PhysicsElementInput): THREE.Mesh {
     let geometry: THREE.BufferGeometry
@@ -85,6 +87,8 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     geometries.push(geometry)
     materials.push(material)
     const mesh = new THREE.Mesh(geometry, material)
+    mesh.userData.baseOpacity = el.type === 'wall' ? 0.55 : 1
+    mesh.userData.baseTransparent = el.type === 'wall'
     mesh.position.set(el.position.x, el.position.y, 0)
     mesh.rotation.z = el.angle ?? 0
     return mesh
@@ -94,6 +98,8 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     for (const [id, mesh] of meshes) {
       const mat = mesh.material as THREE.MeshStandardMaterial
       mat.emissive = new THREE.Color(id === selectedId ? 0x2a5c8f : 0x000000)
+      mat.opacity = ghostIds.has(id) ? 0.45 : (mesh.userData.baseOpacity ?? 1)
+      mat.transparent = ghostIds.has(id) || (mesh.userData.baseTransparent ?? false)
     }
   }
 
@@ -160,6 +166,10 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     },
     setSelected(id) {
       selectedId = id
+      applySelection()
+    },
+    setGhost(ids) {
+      ghostIds = new Set(ids)
       applySelection()
     },
     dispose() {

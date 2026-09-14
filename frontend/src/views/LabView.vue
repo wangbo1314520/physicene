@@ -88,7 +88,83 @@ const selectedId = ref<string | null>(null)
 const selected = computed(() => scene.elements.find((e) => e.id === selectedId.value) ?? null)
 const busy = computed(() => ['running', 'paused', 'connecting'].includes(state.status))
 
-// ===== 元件库（SRS F2.5 六元件，spring/track 第四周后补）=====
+// ===== OCR 拍照识题（第五周：半自动建场景）=====
+const fileInput = ref<HTMLInputElement | null>(null)
+const ocr = reactive({
+  previewing: false,
+  previewToken: '',
+  elements: [] as PhysicsElementInput[],
+  confidence: 0,
+  rawText: '',
+})
+
+function pickImage() {
+  if (busy.value) return
+  fileInput.value?.click()
+}
+
+async function onImageChosen(ev: Event) {
+  const input = ev.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  toast.value = '正在识别题目…（OCR + 解析约需 10-15 秒）'
+  try {
+    const form = new FormData()
+    form.append('file', file)
+    const resp = (await http.post('/ocr/upload', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60_000,
+    })) as {
+      degraded?: boolean
+      fallbackHint?: string
+      simType?: string
+      recommendedElements?: PhysicsElementInput[]
+      confidence?: number
+      previewToken?: string
+      rawText?: string
+    }
+    if (resp.degraded) {
+      toast.value = `识别未成功：${resp.fallbackHint ?? '建议手动搭建'}`
+      return
+    }
+    ocr.previewing = true
+    ocr.previewToken = resp.previewToken ?? ''
+    ocr.elements = resp.recommendedElements ?? []
+    ocr.confidence = resp.confidence ?? 0
+    ocr.rawText = resp.rawText ?? ''
+    // 半透明预览：推荐元件以幽灵形态叠加显示
+    const all = [...scene.elements, ...ocr.elements]
+    renderer?.syncElements(JSON.parse(JSON.stringify(all)))
+    renderer?.setGhost(ocr.elements.map((e) => e.id))
+    toast.value = `AI 推荐场景已预览（置信度 ${(ocr.confidence * 100).toFixed(0)}%）——确认搭建或取消`
+  } catch (e) {
+    toast.value = '识题失败：' + String(e).replace('Error: ', '')
+  }
+}
+
+async function confirmOcrPreview() {
+  if (!ocr.previewToken) return
+  try {
+    const created = (await http.post('/scenarios/from-preview', {
+      previewToken: ocr.previewToken,
+    })) as { id: number }
+    cancelOcrPreview()
+    await loadScene(created.id)
+    toast.value = `拍照建场景完成 #${created.id}，可直接运行实验`
+  } catch (e) {
+    toast.value = '确认失败：' + String(e).replace('Error: ', '')
+  }
+}
+
+function cancelOcrPreview() {
+  ocr.previewing = false
+  ocr.previewToken = ''
+  ocr.elements = []
+  renderer?.setGhost([])
+  syncRenderer()
+}
+// ===== 元件库（SRS F2.5 六元件，spring/track 后续周补）=====
 const palette = [
   { type: 'cube', label: '方块', icon: '▣', color: '#4A90D9' },
   { type: 'sphere', label: '小球', icon: '●', color: '#F5C542' },
@@ -424,6 +500,12 @@ onUnmounted(() => {
       </select>
       <button :disabled="busy" @click="saveScene">💾 保存</button>
       <button class="primary" :disabled="busy" @click="startRun">▶ 运行实验</button>
+      <button :disabled="busy" @click="pickImage">📷 拍照识题</button>
+      <input ref="fileInput" type="file" accept="image/jpeg,image/png" style="display:none" @change="onImageChosen">
+      <template v-if="ocr.previewing">
+        <button class="ok" @click="confirmOcrPreview">✓ 确认搭建</button>
+        <button @click="cancelOcrPreview">✗ 取消</button>
+      </template>
       <button :disabled="state.status !== 'running'" @click="pause">⏸</button>
       <button :disabled="state.status !== 'paused'" @click="play">▶</button>
       <button :disabled="state.status !== 'paused'" @click="step">⏭</button>

@@ -22,4 +22,12 @@ public interface AiServiceClient {
     /** Agent 对话（30s 超时在 feign 配置；请求体契约 ChatRequest camelCase） */
     @PostMapping("/agent/chat")
     Map<String, Object> agentChat(@RequestBody Map<String, Object> request);
+
+    /** OCR 图片识别（20s；低置信度 422 → Java 层降级 2004） */
+    @PostMapping("/ocr/recognize")
+    Map<String, Object> recognize(@RequestBody Map<String, Object> request);
+
+    /** OCR 文本两步解析 → simType + recommendedElements（20s） */
+    @PostMapping("/agent/parse-question")
+    Map<String, Object> parseQuestion(@RequestBody Map<String, Object> request);
 }
