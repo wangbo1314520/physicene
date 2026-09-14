@@ -149,9 +149,18 @@ async function confirmOcrPreview() {
     const created = (await http.post('/scenarios/from-preview', {
       previewToken: ocr.previewToken,
     })) as { id: number }
-    cancelOcrPreview()
-    await loadScene(created.id)
-    toast.value = `拍照建场景完成 #${created.id}，可直接运行实验`
+    ocr.previewing = false
+    ocr.previewToken = ''
+    ocr.elements = []
+    renderer?.setGhost([])
+    // 先告知成功（数据库已落库），再刷新画布；画布刷新失败给出打开入口
+    toast.value = `拍照建场景完成 #${created.id}，正在载入…`
+    try {
+      await loadScene(created.id)
+      toast.value = `拍照建场景完成 #${created.id}，可直接运行实验`
+    } catch {
+      toast.value = `场景 #${created.id} 已创建，请到「我的场景」打开`
+    }
   } catch (e) {
     toast.value = '确认失败：' + String(e).replace('Error: ', '')
   }
