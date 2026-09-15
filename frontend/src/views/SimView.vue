@@ -380,14 +380,23 @@ const presets = reactive<Record<string, Preset>>({
     name: 'α粒子散射（卢瑟福）：瞄准距离越小偏转角越大',
     dimension: '3D',
     elements: [
+      // 金核固定；5 颗 α 粒子瞄准距离 b = 5 / 3 / 0.9 / 0.35 / 0.05，
+      // 对应偏转角约 5° / 8.5° / 28° / 65° / 155°（tan(θ/2)=KQq/(mv²b)）。
+      // x 错开发射：避开 α 粒子之间的库仑斥力互相干扰（同 x 时近距对会明显互斥）
       { id: 'nucleus', type: 'point_charge', position: { x: 0, y: 0 }, color: '#E05555',
         properties: { mass: 1000, charge: 8 }, initialState: { velocity: { x: 0, y: 0 } }, isFixed: true },
-      { id: 'a_top', type: 'point_charge', position: { x: -12, y: 3 }, color: '#F5C542',
+      { id: 'a_far', type: 'point_charge', position: { x: -12, y: 5 }, color: '#b0b0cc',
         properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 6, y: 0 } } },
-      { id: 'a_mid', type: 'point_charge', position: { x: -12, y: 0.9 }, color: '#3ecf8e',
+      { id: 'a_top', type: 'point_charge', position: { x: -13, y: 3 }, color: '#4A90D9',
+        properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 6, y: 0 } } },
+      { id: 'a_mid', type: 'point_charge', position: { x: -14, y: 0.9 }, color: '#3ecf8e',
+        properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 6, y: 0 } } },
+      { id: 'a_near', type: 'point_charge', position: { x: -15, y: 0.35 }, color: '#F5C542',
+        properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 6, y: 0 } } },
+      { id: 'a_head', type: 'point_charge', position: { x: -16, y: 0.05 }, color: '#E07B39',
         properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 6, y: 0 } } },
     ],
-    config: { gravity: { x: 0, y: 0 }, maxDuration: 6 },
+    config: { gravity: { x: 0, y: 0 }, maxDuration: 8 },
   },
 })
 const selected = ref<keyof typeof presets | string>('collision')
@@ -405,6 +414,58 @@ const dimensionHint = computed(() => ({
   '2.5D': '2D 物理 + 等距立体渲染（滚轮缩放 / 右键平移）',
   '3D': '左键拖拽旋转 / 滚轮缩放 / 右键平移，双击复位',
 } as Record<string, string>)[currentDimension.value])
+
+// ===== 可折叠分组实验选择器 =====
+const pickerOpen = ref(false)
+const filterText = ref('')
+const collapsed = reactive<Record<string, boolean>>({})
+const currentLabel = computed(() => currentPreset.value?.name ?? currentExp3d.value?.name ?? '选择实验')
+const pickerGroups = computed(() => {
+  const groups: { name: string; items: { key: string; name: string; dim: SimDimension }[] }[] = []
+  for (const [gname, list] of Object.entries(groupedPresets.value)) {
+    groups.push({
+      name: gname,
+      items: list.map((p: { key: string; name: string }) =>
+        ({ key: p.key, name: p.name, dim: presets[p.key].dimension })),
+    })
+  }
+  if (exp3dList.value.length) {
+    groups.push({
+      name: '实验库 · 3D 引擎实验（演示模式）',
+      items: exp3dList.value.map((e) => ({ key: e.key, name: e.name, dim: '3D' as SimDimension })),
+    })
+  }
+  const kw = filterText.value.trim().toLowerCase()
+  if (!kw) return groups
+  return groups
+    .map((g) => ({ name: g.name, items: g.items.filter((i) => i.name.toLowerCase().includes(kw)) }))
+    .filter((g) => g.items.length > 0)
+})
+function currentGroupName(): string | null {
+  for (const g of pickerGroups.value) {
+    if (g.items.some((i) => i.key === selected.value)) return g.name
+  }
+  return null
+}
+function openPicker() {
+  pickerOpen.value = true
+  filterText.value = ''
+  // 默认只展开当前实验所在分组，其余收起
+  const cur = currentGroupName()
+  for (const g of pickerGroups.value) collapsed[g.name] = g.name !== cur
+}
+function toggleGroup(name: string) {
+  collapsed[name] = !collapsed[name]
+}
+function isGroupOpen(name: string): boolean {
+  return filterText.value.trim() !== '' ? true : !collapsed[name]
+}
+function pickExperiment(key: string) {
+  selected.value = key
+  pickerOpen.value = false
+  filterText.value = ''
+}
+const dimClassOf = (d: SimDimension) => ({ '2D': 'd2', '2.5D': 'd25', '3D': 'd3' })[d]
 
 function resetCamera() {
   if (currentExp3d.value) exp3dKey.value++
@@ -573,14 +634,36 @@ onUnmounted(() => {
 <template>
   <main class="sim-page">
     <section class="toolbar">
-      <select v-model="selected" :disabled="state.status === 'running' || state.status === 'paused'">
-        <optgroup v-for="(grp, gname) in groupedPresets" :key="gname" :label="gname">
-          <option v-for="p in grp" :key="p.key" :value="p.key">{{ p.name }}</option>
-        </optgroup>
-        <optgroup v-if="exp3dList.length" label="实验库 · 3D 引擎实验（演示模式）">
-          <option v-for="e in exp3dList" :key="e.key" :value="e.key">{{ e.name }}</option>
-        </optgroup>
-      </select>
+      <div class="picker">
+        <button class="picker-trigger" :disabled="state.status === 'running' || state.status === 'paused'"
+                @keydown.esc="pickerOpen = false" @click="pickerOpen ? (pickerOpen = false) : openPicker()">
+          <span class="dim-chip" :class="dimClass">{{ currentDimension }}</span>
+          <span class="picker-label">{{ currentLabel }}</span>
+          <span class="caret" :class="{ open: pickerOpen }">▾</span>
+        </button>
+        <template v-if="pickerOpen">
+          <div class="picker-backdrop" @click="pickerOpen = false"></div>
+          <div class="picker-pop">
+            <input class="picker-search" v-model="filterText" placeholder="🔍 筛选实验…"
+                   @keydown.esc="pickerOpen = false">
+            <div v-for="g in pickerGroups" :key="g.name" class="picker-group">
+              <button class="picker-group-header" @click="toggleGroup(g.name)">
+                <span class="caret" :class="{ open: isGroupOpen(g.name) }">▸</span>
+                <span class="gname">{{ g.name }}</span>
+                <span class="gcount">{{ g.items.length }}</span>
+              </button>
+              <div v-show="isGroupOpen(g.name)" class="picker-items">
+                <button v-for="it in g.items" :key="it.key" class="picker-item"
+                        :class="{ active: it.key === selected }" @click="pickExperiment(it.key)">
+                  <span class="dim-chip" :class="dimClassOf(it.dim)">{{ it.dim }}</span>
+                  <span class="iname">{{ it.name }}</span>
+                </button>
+              </div>
+            </div>
+            <p v-if="pickerGroups.length === 0" class="picker-empty">无匹配实验</p>
+          </div>
+        </template>
+      </div>
       <span class="dim-badge" :class="dimClass" :title="dimensionHint">{{ currentDimension }}</span>
       <button class="primary" :disabled="state.status === 'running' || state.status === 'connecting' || !!currentExp3d"
               @click="startRun">▶ 运行</button>
@@ -715,6 +798,58 @@ onUnmounted(() => {
 .dim-badge.d2 { color: #6cd9e8; border-color: #2a5c6c; background: rgba(108, 217, 232, 0.08); }
 .dim-badge.d25 { color: #7fe3b3; border-color: #2a6c4a; background: rgba(62, 207, 142, 0.08); }
 .dim-badge.d3 { color: #d9a1f0; border-color: #5c2a6c; background: rgba(176, 108, 230, 0.1); }
+
+/* 可折叠分组实验选择器 */
+.picker { position: relative; }
+.picker-trigger {
+  display: flex; align-items: center; gap: 8px; max-width: 380px;
+  background: #23233a; color: #e8e8f0; border: 1px solid #2f2f4a;
+  border-radius: 6px; padding: 7px 12px; font-size: 13px; cursor: pointer;
+}
+.picker-trigger:disabled { opacity: 0.45; cursor: not-allowed; }
+.picker-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.caret { color: #8a8aa0; transition: transform 0.15s; font-size: 11px; }
+.caret.open { transform: rotate(90deg); }
+.picker-trigger .caret.open { transform: rotate(180deg); }
+.picker-backdrop { position: fixed; inset: 0; z-index: 20; }
+.picker-pop {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 21;
+  width: 460px; max-width: 92vw; max-height: 430px; overflow-y: auto;
+  background: #1d1d33; border: 1px solid #2f2f4a; border-radius: 10px;
+  padding: 8px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.picker-search {
+  width: 100%; background: #23233a; border: 1px solid #2f2f4a; border-radius: 6px;
+  color: #e8e8f0; padding: 7px 10px; font-size: 12px; margin-bottom: 6px;
+}
+.picker-search:focus { outline: 1px solid #4a90d9; }
+.picker-group-header {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  background: transparent; border: none; color: #b0b0cc; font-size: 12px;
+  font-weight: 600; padding: 7px 6px; cursor: pointer; border-radius: 6px;
+}
+.picker-group-header:hover { background: #23233a; }
+.picker-group-header .gname { flex: 1; text-align: left; }
+.picker-group-header .gcount {
+  font-size: 10px; color: #6c6c85; background: #23233a;
+  border-radius: 999px; padding: 1px 7px;
+}
+.picker-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: transparent; border: none; color: #8a8aa0; font-size: 12px;
+  padding: 6px 8px 6px 22px; cursor: pointer; border-radius: 6px; text-align: left;
+}
+.picker-item:hover { background: #23233a; color: #e8e8f0; }
+.picker-item.active { background: #2b3a55; color: #e8e8f0; }
+.picker-item .iname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dim-chip {
+  flex-shrink: 0; font-size: 10px; font-weight: 700; padding: 1px 6px;
+  border-radius: 999px; border: 1px solid #2f2f4a; letter-spacing: 0.3px;
+}
+.dim-chip.d2 { color: #6cd9e8; border-color: #2a5c6c; }
+.dim-chip.d25 { color: #7fe3b3; border-color: #2a6c4a; }
+.dim-chip.d3 { color: #d9a1f0; border-color: #5c2a6c; }
+.picker-empty { color: #6c6c85; font-size: 12px; text-align: center; padding: 14px 0; }
 .exp3d-wrap {
   grid-column: 1 / -1;
   background: #14142a; border: 1px solid #2f2f4a; border-radius: 10px;

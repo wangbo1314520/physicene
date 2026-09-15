@@ -234,6 +234,7 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 | 类型检查 | — | ✅ 0 错 | `pnpm exec vue-tsc --noEmit`（typescript 须 5.9.x，7.x 与 vue-tsc 3.3 不兼容） |
 | B0-B8 E2E | 每批次 | ✅ 0 控制台错误 | Playwright（浏览器在 E:\Program\playwright-browsers） |
 | 55 卡逐卡 E2E | 55 | ✅ 55/55 | 同上 |
+| 演示页无头 E2E | 14 项 | ✅ 全过，0 控制台错误 | `set PLAYWRIGHT_BROWSERS_PATH=E:\Program\playwright-browsers && python frontend/e2e/sim-demo-check.py`（需 Vite 在 5174） |
 
 > 2026-09-15 上线评审复核：此前 56 个前端单测仅在会话内临时运行、未入库；本日以 vitest 正式落盘为 4 个 `*.test.ts`，
 > 数量口径不变，可 `pnpm test` 复现。
@@ -269,7 +270,7 @@ B4（电路引擎）和 B5（光学引擎）未独立开工，相关实验已用
 2. **Vite 缓存**：已在 vite.config.ts 开启 `usePolling: true`（根治 E 盘文件监听丢失）
 3. **MySQL 备份**：`scripts/backup-db.bat`（保留最近 30 份），建议定期运行
 4. **DeepSeek API Key**：已存 `.env`（gitignore 保护），不在代码中
-5. **实验台零改动原则**：LabView 功能未因实验库而改变。例外：SimView（演示实验）2026-09-15 按"唯一维度口径"升级——每个演示自动按 纯2D/纯2.5D/纯3D 分档渲染（2D=正交平面图、2.5D=等距立体、3D=左键旋转+XYZ 轴+带箭头场线），并新增 7 个 dyn4j 演示（竖直上抛/牛顿管/篮球反弹/完全非弹性/轻碰重/电场加速/速度选择器，共 25 个）与实验库 9 个 3D 实验的演示模式接入（无步骤评分，完整版仍在 /exp）
+5. **实验台零改动原则**：LabView 功能未因实验库而改变。例外：SimView（演示实验）2026-09-15 按"唯一维度口径"升级——每个演示自动按 纯2D/纯2.5D/纯3D 分档渲染（2D=正交平面图、2.5D=等距立体、3D=左键旋转+XYZ 轴+带箭头场线），实验选择器改为可折叠分组菜单（搜索筛选+维度徽标），新增 7 个 dyn4j 演示（竖直上抛/牛顿管/篮球反弹/完全非弹性/轻碰重/电场加速/速度选择器，共 25 个；α散射为 5 粒子扇面）；实验库 9 个 3D 实验组件（Exp3D）重写为逐帧动画（播放/暂停/重置 + 真实元件：磁棒/线圈/导轨/探测器环/灯泡），以演示模式接入 /sim（无步骤评分，完整版仍在 /exp）。演示页无头 E2E：`frontend/e2e/sim-demo-check.py`（Playwright，14 项断言 + 控制台错误检查）
 6. **磁盘约束（硬性）**：所有新增安装、下载的资源一律放在 `E:\Program` 下，不得写入其他盘。现有落点：Python `E:\Program\Python312`、bge-m3 `E:\Program\models\bge-m3`、Playwright 浏览器 `E:\Program\playwright-browsers`、pnpm 内容仓库 `E:\.pnpm-store`（E 盘）。已知例外：pnpm 元数据缓存默认在 `C:\Users\wangbo\AppData\Local\pnpm-cache`（约 295M，用户级全局配置；项目级 .npmrc 的 cache-dir 不被 pnpm 识别，2026-09-15 实测无效已删）。按第 8 条不动全局配置；日后若要迁到 E 盘：`pnpm config set cache-dir --global E:\Program\.pnpm-cache`（须先征得同意）
 7. **外部路径一律走环境变量**：bge-m3 模型路径由 `BGE_M3_PATH` 指定（默认 `E:\Program\models\bge-m3`），禁止在代码里硬编码绝对路径
 8. **环境变量与配置文件不随意改动（硬性）**：`.env`、`application.properties`、`vite.config.ts`、`.npmrc` 等一律不得未经用户同意修改。需要新增可配置项时，只在代码里加带默认值的 Settings 字段并更新 `.env.example` 文档，本机 `.env` 保持原样；默认值须与原行为一致

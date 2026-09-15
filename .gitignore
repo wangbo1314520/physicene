@@ -47,3 +47,6 @@ data/
 .token*
 .sceneid
 .tmplscene
+
+# E2E 截图产物
+frontend/e2e/out/
