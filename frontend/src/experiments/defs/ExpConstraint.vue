@@ -5,16 +5,21 @@
  */
 import { computed, ref } from 'vue'
 import GraphPaper from '../framework/GraphPaper.vue'
+import ConstraintStage from './apparatus/ConstraintStage.vue'
 import { springOscillation, pendulum, conicalPendulum, newtonTube, gasIsotherm, workVelocity, actionReaction } from '../renderers/sim25d/simulators'
 
 const props = defineProps<{ mode: 'spring' | 'pendulum' | 'conical' | 'newtonTube' | 'gas' | 'workV' | 'actionR' }>()
 const emit = defineEmits<{ (e: 'record', data: unknown): void }>()
 const gp = ref<InstanceType<typeof GraphPaper> | null>(null)
+// 仪器动画舞台：trigger 递增即重播；pendRunning 驱动单摆随秒表摆动
+const trigger = ref(0)
+const pendRunning = ref(false)
 
 // ── 弹簧振子 ──
 const springM = ref(0.1), springK = ref(20), springA = ref(0.05)
 const springData = ref<ReturnType<typeof springOscillation> | null>(null)
 function runSpring() {
+  trigger.value++
   springData.value = springOscillation(springM.value, springK.value, springA.value, 2)
   gp.value?.loadPoints(springData.value.points.filter((_, i) => i % 10 === 0).map((p) => ({ x: +p.t.toFixed(3), y: +p.x.toFixed(5) })))
 }
@@ -27,6 +32,8 @@ const pendData = ref<ReturnType<typeof pendulum> | null>(null)
 const pendStopwatch = ref(0)
 let pendTimer = 0
 function runPendulum() {
+  trigger.value++
+  pendRunning.value = true
   pendData.value = pendulum(pendL.value, pendTheta.value, 10)
   gp.value?.loadPoints(pendData.value.points.filter((_, i) => i % 20 === 0).map((p) => ({ x: +p.t.toFixed(3), y: +((p.x / pendL.value) * 180 / Math.PI).toFixed(2) })))
   pendStopwatch.value = 0
@@ -36,6 +43,7 @@ function runPendulum() {
 const pendPeriodTheory = computed(() => 2 * Math.PI * Math.sqrt(pendL.value / 9.8))
 function pendMeasure() {
   clearInterval(pendTimer)
+  pendRunning.value = false
   const measuredT = pendStopwatch.value
   const nOsc = Math.floor(measuredT / pendPeriodTheory.value)
   const gMeas = nOsc > 0 ? 4 * Math.PI ** 2 * pendL.value / (measuredT / nOsc) ** 2 : null
@@ -47,6 +55,7 @@ function pendMeasure() {
 const conL = ref(0.5), conTheta = ref(30)
 const conData = ref<ReturnType<typeof conicalPendulum> | null>(null)
 function runConical() {
+  trigger.value++
   conData.value = conicalPendulum(conL.value, conTheta.value)
 }
 function recordConical() {
@@ -59,9 +68,9 @@ function recordConical() {
 const airFrac = ref(1.0)
 const tubeData = ref<ReturnType<typeof newtonTube> | null>(null)
 function runTube() {
+  trigger.value++
   tubeData.value = newtonTube(airFrac.value, 1.0)
   const coin = tubeData.value.coin.filter((_, i) => i % 5 === 0)
-  const feather = tubeData.value.feather.filter((_, i) => i % 5 === 0)
   gp.value?.loadPoints(coin.map((p) => ({ x: +p.t.toFixed(3), y: +p.y.toFixed(4) })))
 }
 const tubeResult = computed(() => {
@@ -75,6 +84,7 @@ const tubeResult = computed(() => {
 // ── 气体等温 ──
 const gasData = ref<ReturnType<typeof gasIsotherm> | null>(null)
 function runGas() {
+  trigger.value++
   gasData.value = gasIsotherm()
   gp.value?.loadPoints(gasData.value.data.map((d) => ({ x: +(d.V * 1000).toFixed(1), y: +d.p.toFixed(2) })))
 }
@@ -82,6 +92,7 @@ function runGas() {
 // ── 功与速度 ──
 const wvData = ref<ReturnType<typeof workVelocity> | null>(null)
 function runWV() {
+  trigger.value++
   wvData.value = workVelocity(0.1, 50, [0.02, 0.04, 0.06, 0.08, 0.10, 0.12])
   gp.value?.loadPoints(wvData.value.map((d) => ({ x: +d.work.toFixed(4), y: +d.vSquared.toFixed(4) })))
 }
@@ -100,6 +111,19 @@ function recordAR() {
   emit('record', { ...arResult.value, m1: arM1.value, m2: arM2.value,
     formula: 'F₁=-F₂ → m₁v₁+m₂v₂=0' })
 }
+
+/** 传给仪器舞台的实时参数（随滑杆即时变化） */
+const stageParams = computed<Record<string, number>>(() => {
+  const p: Record<string, number> = {}
+  switch (props.mode) {
+    case 'spring': p.m = springM.value; p.k = springK.value; p.A = springA.value; break
+    case 'pendulum': p.L = pendL.value; p.theta0 = pendTheta.value; break
+    case 'conical': p.L = conL.value; p.theta = conTheta.value; break
+    case 'newtonTube': p.airFrac = airFrac.value; break
+    case 'actionR': p.m1 = arM1.value; p.m2 = arM2.value; p.J = arImpulse.value; break
+  }
+  return p
+})
 </script>
 
 <template>
@@ -199,6 +223,7 @@ function recordAR() {
         </div>
       </template>
     </div>
+    <ConstraintStage :mode="mode" :params="stageParams" :running="pendRunning" :trigger="trigger" />
     <GraphPaper v-if="mode !== 'actionR' && mode !== 'conical'" ref="gp"
       :series-name="mode === 'spring' ? 'x-t' : mode === 'pendulum' ? 'θ-t' : mode === 'gas' ? 'p-V' : mode === 'workV' ? 'v²-W' : 'y-t'"
       :series-color="mode === 'spring' ? '#4A90D9' : '#F5C542'"
@@ -209,15 +234,13 @@ function recordAR() {
              : { xLabel: 't', yLabel: 'θ', xUnit: 's', yUnit: '°' },
         series: [{ id: 's1', name: '数据', color: '#4A90D9', points: [] }],
         fits: [], showFitLine: true, showResiduals: false, showErrorBars: false, showFormula: true }" />
-    <div v-else class="placeholder">
-      <p>本实验无坐标纸，直接从仪器面板记录数据。</p>
-    </div>
   </div>
 </template>
 
 <style scoped>
-.exp { display: grid; grid-template-columns: 320px 1fr; gap: 10px; min-height: 440px; }
-.panel { background: #1d1d33; border: 1px solid #2f2f4a; border-radius: 10px; padding: 14px; }
+/* 左：控制面板（跨两行）；右上：仪器动画；右下：坐标纸（无坐标纸的实验仅一行） */
+.exp { display: grid; grid-template-columns: 320px minmax(0, 1fr); grid-template-rows: auto auto; gap: 10px; }
+.panel { grid-row: 1 / span 2; background: #1d1d33; border: 1px solid #2f2f4a; border-radius: 10px; padding: 14px; }
 h3 { font-size: 14px; color: #b0b0cc; margin-bottom: 10px; }
 .desc { font-size: 12px; color: #6c6c85; margin-bottom: 12px; line-height: 1.5; }
 label { display: block; font-size: 12px; color: #8a8aa0; margin-bottom: 10px; }

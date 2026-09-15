@@ -70,13 +70,13 @@ def main() -> int:
             page.wait_for_timeout(700)
             canvases = page.locator(".lab canvas, .exp canvas, .alt-stage canvas").count()
             # 主动作按钮（第一个非 alt/ghost 的 .btn 或 .run）
-            main_btn = page.locator(".panel .btn:not(.alt):not(.ghost), .panel .run").first
+            main_btn = page.locator(".panel .btn:not(.alt):not(.ghost), .panel .run, .panel > button:not(.rec):not(.btn)").first
             clicked_main = False
             if main_btn.count() and main_btn.is_enabled():
                 main_btn.click()
                 clicked_main = True
                 page.wait_for_timeout(1200)
-            rec_btn = page.locator(".panel .btn.alt").first
+            rec_btn = page.locator(".panel .btn.alt, .panel .rec").first
             clicked_rec = False
             if rec_btn.count() and rec_btn.is_enabled():
                 rec_btn.click()

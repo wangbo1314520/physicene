@@ -5,6 +5,7 @@
  */
 import { computed, ref } from 'vue'
 import GraphPaper from '../framework/GraphPaper.vue'
+import HookePhotoStage from './apparatus/HookePhotoStage.vue'
 
 const props = defineProps<{
   mode: 'hooke' | 'photo'
@@ -79,6 +80,7 @@ const fit = computed(() => gp.value?.state.fits[0])
         <p>R² = {{ fit.r2.toFixed(5) }}</p>
       </div>
     </div>
+    <HookePhotoStage :mode="mode" :value="current" :reading="isHooke ? preview.x : preview.y" />
     <GraphPaper ref="gp" :series-name="isHooke ? 'F-x' : 'Uc-ν'" :series-color="isHooke ? '#F5C542' : '#E05555'"
       :initial-state="{ mode: 'auto', locked: false,
         axes: isHooke ? { xLabel: 'x', yLabel: 'F', xUnit: 'm', yUnit: 'N' }
@@ -89,8 +91,8 @@ const fit = computed(() => gp.value?.state.fits[0])
 </template>
 
 <style scoped>
-.exp { display: grid; grid-template-columns: 300px 1fr; gap: 10px; min-height: 420px; }
-.panel { background: #1d1d33; border: 1px solid #2f2f4a; border-radius: 10px; padding: 14px; }
+.exp { display: grid; grid-template-columns: 300px minmax(0, 1fr); grid-template-rows: auto auto; gap: 10px; }
+.panel { grid-row: 1 / span 2; background: #1d1d33; border: 1px solid #2f2f4a; border-radius: 10px; padding: 14px; }
 h3 { font-size: 13px; color: #b0b0cc; margin-bottom: 12px; }
 .big { font-size: 14px; color: #e8e8f0; margin-bottom: 8px; }
 .big b { color: #4a90d9; }
