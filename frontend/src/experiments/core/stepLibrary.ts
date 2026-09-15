@@ -107,6 +107,17 @@ const STEP_CONFIG: Record<string, { topic: string; method: string; formula: stri
   'xb1-total-reflection': { topic: '全反射', method: '调入射角', formula: 'sinC=1/n', dataDesc: '大于临界角' },
   'xb2-em-oscillation': { topic: '电磁振荡', method: '调LC', formula: 'T=2pi根号LC', dataDesc: '周期变化' },
   'xb2-sensor-control': { topic: '传感器', method: '调光照', formula: '光强电阻反比', dataDesc: '自动路灯' },
+  // B8 补做 10 个
+  'bx1-tape-velocity': { topic: '纸带速度', method: '读计数点位置', formula: 'v=dx/dt', dataDesc: '平均速度与瞬时速度' },
+  'bx3-capacitor-charge': { topic: '电容器充放电', method: '调RC记录U-t', formula: 'U=E(1-e^{-t/RC})', dataDesc: '充电曲线' },
+  'bx3-resistivity': { topic: '电阻率', method: '调L记录R', formula: 'rho=RS/L', dataDesc: 'R-L 线性' },
+  'xb1-refraction': { topic: '折射率', method: '调入射角', formula: 'n=sin(theta1)/sin(theta2)', dataDesc: '约1.5' },
+  'bx1-static-friction': { topic: '静摩擦', method: '调拉力', formula: 'f=F 直到 f_max', dataDesc: '线性后突降' },
+  'bx3-coulomb-balance': { topic: '库仑扭秤', method: '调距离', formula: 'F=kq1q2/r2', dataDesc: 'F与1/r2成正比' },
+  'xb1-wave-interference': { topic: '波干涉', method: '调波长/缝距', formula: 'dy=lambda*L/d', dataDesc: '条纹间距' },
+  'xb1-light-phenomena': { topic: '光现象', method: '调波长', formula: 'dy=lambda*L/d', dataDesc: '条纹与波长' },
+  'xb2-self-induction': { topic: '自感', method: '调匝数', formula: 'tau=L/R, L正比N2', dataDesc: '延迟与匝数' },
+  'xb2-lc-ac': { topic: 'LC对交流', method: '调频率', formula: 'XL=2pi*f*L, XC=1/(2pi*f*C)', dataDesc: '感抗容抗' },
 }
 
 /** 获取实验步骤（有定制则用定制，否则用通用模板） */

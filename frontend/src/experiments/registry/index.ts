@@ -33,6 +33,16 @@ import ExpTransformer from '../defs/ExpTransformer.vue'
 import ExpBrownian from '../defs/ExpBrownian.vue'
 import ExpAlphaScatter3D from '../defs/ExpAlphaScatter3D.vue'
 import ExpAlt from '../defs/ExpAlt.vue'
+import ExpTapeVelocity from '../defs/ExpTapeVelocity.vue'
+import ExpCapacitorCharge from '../defs/ExpCapacitorCharge.vue'
+import ExpResistivity from '../defs/ExpResistivity.vue'
+import ExpRefraction from '../defs/ExpRefraction.vue'
+import ExpStaticFriction from '../defs/ExpStaticFriction.vue'
+import ExpCoulombBalance from '../defs/ExpCoulombBalance.vue'
+import ExpWaveInterference from '../defs/ExpWaveInterference.vue'
+import ExpLightPhenomena from '../defs/ExpLightPhenomena.vue'
+import ExpSelfInduction from '../defs/ExpSelfInduction.vue'
+import ExpLcAc from '../defs/ExpLcAc.vue'
 
 /** 通用四步流程（2.5D 仿真实验共用骨架，B0 7 个实验的步骤） */
 function simSteps(extra: { goal: string; hint: string }[] = []): ExperimentModule['steps'] {
@@ -227,7 +237,14 @@ const LOCKED: ExperimentModule[] = [
     available: true, batch: 'B2', component: ExpTapePractice as unknown as Component,
     steps: panelSteps('点击「打出纸带」→ 观察计数点 → 记录逐差法分析'),
   },
-  locked('bx1-tape-velocity', '测量纸带的平均速度和瞬时速度', '必修第一册', '第二章 匀变速直线运动的研究', '2D', 'B1', '纸带读数 → 平均/瞬时速度 → 描点作图'),
+    {
+    id: 'bx1-tape-velocity',
+    name: '测量纸带的平均速度和瞬时速度',
+    book: '必修第一册', chapter: '第二章 匀变速直线运动的研究', dimension: '2D',
+    summary: '纸带读数→速度计算',
+    available: true, batch: 'B8', component: ExpTapeVelocity as unknown as Component,
+    steps: panelSteps('调节参数 → 记录读数 → 坐标纸拟合'),
+  },
     {
     id: 'bx1-trolley-vt',
     name: '探究小车速度随时间变化的规律',
@@ -260,8 +277,22 @@ const LOCKED: ExperimentModule[] = [
     available: true, batch: 'B2', component: ExpWorkVelocity as unknown as Component,
     steps: panelSteps('采集 W-v² 数据 → 记录'),
   },
-  locked('bx3-capacitor-charge', '观察电容器的充、放电现象', '必修第三册', '第十章 静电场中的能量', '2D', 'B4', 'RC 充放电曲线与时间常数'),
-  locked('bx3-resistivity', '导体电阻率的测量', '必修第三册', '第十一章 电路及其应用', '2D', 'B4', '伏安法 + 游标卡尺 + R=ρL/S'),
+    {
+    id: 'bx3-capacitor-charge',
+    name: '观察电容器的充、放电现象',
+    book: '必修第三册', chapter: '第十章 静电场中的能量', dimension: '2D',
+    summary: 'RC 充放电曲线',
+    available: true, batch: 'B8', component: ExpCapacitorCharge as unknown as Component,
+    steps: panelSteps('调节参数 → 记录读数 → 坐标纸拟合'),
+  },
+    {
+    id: 'bx3-resistivity',
+    name: '导体电阻率的测量',
+    book: '必修第三册', chapter: '第十一章 电路及其应用', dimension: '2D',
+    summary: '伏安法+R=ρL/S',
+    available: true, batch: 'B8', component: ExpResistivity as unknown as Component,
+    steps: panelSteps('调节参数 → 记录读数 → 坐标纸拟合'),
+  },
     {
     id: 'bx3-multimeter',
     name: '练习使用多用电表（虚拟仪表）',
@@ -278,7 +309,14 @@ const LOCKED: ExperimentModule[] = [
     available: true, batch: 'B2', component: ExpPendulumG as unknown as Component,
     steps: panelSteps('调节摆长/摆角 → 启动计时 → 停止测 g'),
   },
-  locked('xb1-refraction', '测量玻璃的折射率', '选择性必修第一册', '第四章 光', '2D', 'B5', '插针法光路 + 折射定律'),
+    {
+    id: 'xb1-refraction',
+    name: '测量玻璃的折射率',
+    book: '选择性必修第一册', chapter: '第四章 光', dimension: '2D',
+    summary: 'n=sinθ₁/sinθ₂',
+    available: true, batch: 'B8', component: ExpRefraction as unknown as Component,
+    steps: panelSteps('调节参数 → 记录读数 → 坐标纸拟合'),
+  },
     {
     id: 'xb3-gas-isotherm',
     name: '探究气体等温变化的规律',
@@ -296,7 +334,14 @@ const LOCKED: ExperimentModule[] = [
     available: true, batch: 'B2', component: ExpNewtonTube as unknown as Component,
     steps: panelSteps('调气压 → 释放 → 记录'),
   },
-  locked('bx1-static-friction', '静摩擦力的大小随拉力的变化', '必修第一册', '第三章 相互作用——力', '2D', 'B1', 'F-t 曲线与最大静摩擦'),
+    {
+    id: 'bx1-static-friction',
+    name: '静摩擦力的大小随拉力的变化',
+    book: '必修第一册', chapter: '第三章 相互作用——力', dimension: '2D',
+    summary: 'F-t 曲线与最大静摩擦',
+    available: true, batch: 'B8', component: ExpStaticFriction as unknown as Component,
+    steps: panelSteps('调节参数 → 记录读数 → 坐标纸拟合'),
+  },
     {
     id: 'bx1-action-reaction',
     name: '探究作用力和反作用力的关系',
@@ -313,7 +358,14 @@ const LOCKED: ExperimentModule[] = [
     available: true, batch: 'B2', component: ExpConicalPend as unknown as Component,
     steps: panelSteps('调 L/θ → 计算 → 记录'),
   },
-  locked('bx3-coulomb-balance', '库仑扭秤实验（定量探究）', '必修第三册', '第九章 静电场及其应用', '2D', 'B1', 'F∝q₁q₂/r² 控制变量数据表'),
+    {
+    id: 'bx3-coulomb-balance',
+    name: '库仑扭秤实验（定量探究）',
+    book: '必修第三册', chapter: '第九章 静电场及其应用', dimension: '2D',
+    summary: 'F∝q₁q₂/r²',
+    available: true, batch: 'B8', component: ExpCoulombBalance as unknown as Component,
+    steps: panelSteps('调节参数 → 记录读数 → 坐标纸拟合'),
+  },
     {
     id: 'bx3-induction-condition',
     name: '探究感应电流产生的条件（3D）',
@@ -356,8 +408,22 @@ const LOCKED: ExperimentModule[] = [
     ], { gravity: { x: 0, y: 0 }, maxDuration: 5 }),
     steps: simSteps(),
   },
-  locked('xb1-wave-interference', '观察波的干涉、衍射现象', '选择性必修第一册', '第三章 机械波', '2D', 'B5', '波场叠加渲染'),
-  locked('xb1-light-phenomena', '观察光的干涉、衍射、偏振现象', '选择性必修第一册', '第四章 光', '2D', 'B5', '条纹/偏振可视化'),
+    {
+    id: 'xb1-wave-interference',
+    name: '观察波的干涉、衍射现象',
+    book: '选择性必修第一册', chapter: '第三章 机械波', dimension: '2D',
+    summary: '波场叠加',
+    available: true, batch: 'B8', component: ExpWaveInterference as unknown as Component,
+    steps: panelSteps('调节参数 → 记录读数 → 坐标纸拟合'),
+  },
+    {
+    id: 'xb1-light-phenomena',
+    name: '观察光的干涉、衍射、偏振现象',
+    book: '选择性必修第一册', chapter: '第四章 光', dimension: '2D',
+    summary: '条纹/偏振',
+    available: true, batch: 'B8', component: ExpLightPhenomena as unknown as Component,
+    steps: panelSteps('调节参数 → 记录读数 → 坐标纸拟合'),
+  },
     {
     id: 'xb2-ampere-force',
     name: '观察安培力方向（3D 右手定则）',
@@ -390,8 +456,22 @@ const LOCKED: ExperimentModule[] = [
     available: true, batch: 'B3', component: ExpTransformer as unknown as Component,
     steps: panelSteps('调节匝数 → 验证电压比'),
   },
-  locked('xb2-self-induction', '探究自感现象', '选择性必修第二册', '第二章 电磁感应', '2D', 'B4', '通断电自感电路与曲线'),
-  locked('xb2-lc-ac', '探究电感器和电容器对交流电的影响', '选择性必修第二册', '第三章 交变电流', '2D', 'B4', '感抗/容抗与频率'),
+    {
+    id: 'xb2-self-induction',
+    name: '探究自感现象',
+    book: '选择性必修第二册', chapter: '第二章 电磁感应', dimension: '2D',
+    summary: '通电/断电自感',
+    available: true, batch: 'B8', component: ExpSelfInduction as unknown as Component,
+    steps: panelSteps('调节参数 → 记录读数 → 坐标纸拟合'),
+  },
+    {
+    id: 'xb2-lc-ac',
+    name: '探究电感器和电容器对交流电的影响',
+    book: '选择性必修第二册', chapter: '第三章 交变电流', dimension: '2D',
+    summary: '感抗/容抗与频率',
+    available: true, batch: 'B8', component: ExpLcAc as unknown as Component,
+    steps: panelSteps('调节参数 → 记录读数 → 坐标纸拟合'),
+  },
     {
     id: 'xb3-brownian',
     name: '观察布朗运动（3D）',

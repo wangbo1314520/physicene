@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import ExpCanvasPanels from './ExpCanvasPanels.vue'
+import ExpCurvePanel from './ExpCurvePanel.vue'
 </script>
 <template>
-  <ExpCanvasPanels mode="optical" />
+  <ExpCurvePanel mode="refraction" />
 </template>
