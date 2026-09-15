@@ -23,6 +23,15 @@ import ExpGasIsotherm from '../defs/ExpGasIsotherm.vue'
 import ExpWorkVelocity from '../defs/ExpWorkVelocity.vue'
 import ExpActionReaction from '../defs/ExpActionReaction.vue'
 import ExpMultimeter from '../defs/ExpMultimeter.vue'
+import ExpInduction from '../defs/ExpInduction.vue'
+import ExpEmfFactors from '../defs/ExpEmfFactors.vue'
+import ExpLenzLaw from '../defs/ExpLenzLaw.vue'
+import ExpAmpereForce from '../defs/ExpAmpereForce.vue'
+import ExpLorentzDemo from '../defs/ExpLorentzDemo.vue'
+import ExpParticleBField from '../defs/ExpParticleBField.vue'
+import ExpTransformer from '../defs/ExpTransformer.vue'
+import ExpBrownian from '../defs/ExpBrownian.vue'
+import ExpAlphaScatter3D from '../defs/ExpAlphaScatter3D.vue'
 
 /** 通用四步流程（2.5D 仿真实验共用骨架，B0 7 个实验的步骤） */
 function simSteps(extra: { goal: string; hint: string }[] = []): ExperimentModule['steps'] {
@@ -328,9 +337,30 @@ const LOCKED: ExperimentModule[] = [
     steps: panelSteps('调 L/θ → 计算 → 记录'),
   },
   locked('bx3-coulomb-balance', '库仑扭秤实验（定量探究）', '必修第三册', '第九章 静电场及其应用', '2D', 'B1', 'F∝q₁q₂/r² 控制变量数据表'),
-  locked('bx3-induction-condition', '探究感应电流产生的条件', '必修第三册', '第十三章 电磁感应与电磁波初步', '3D', 'B3', '磁通变化 → 感应电流条件'),
-  locked('bx3-emf-factors', '探究影响感应电动势大小的因素', '必修第三册', '第十三章 电磁感应与电磁波初步', '3D', 'B3', '磁通变化率与电动势'),
-  locked('bx3-lenz-law', '探究楞次定律', '必修第三册', '第十三章 电磁感应与电磁波初步', '3D', 'B3', '感应电流方向与磁通变化'),
+    {
+    id: 'bx3-induction-condition',
+    name: '探究感应电流产生的条件（3D）',
+    book: '必修第三册', chapter: '第十三章 电磁感应与电磁波初步', dimension: '3D',
+    summary: '磁通变化 → 感应电流产生条件',
+    available: true, batch: 'B3', component: ExpInduction as unknown as Component,
+    steps: panelSteps('调节 B/角度 → 观察磁通变化与感应电流'),
+  },
+    {
+    id: 'bx3-emf-factors',
+    name: '探究影响感应电动势大小的因素（3D）',
+    book: '必修第三册', chapter: '第十三章 电磁感应与电磁波初步', dimension: '3D',
+    summary: 'ε = N·dΦ/dt',
+    available: true, batch: 'B3', component: ExpEmfFactors as unknown as Component,
+    steps: panelSteps('调节参数 → 观察感应电动势大小变化'),
+  },
+    {
+    id: 'bx3-lenz-law',
+    name: '探究楞次定律（3D）',
+    book: '必修第三册', chapter: '第十三章 电磁感应与电磁波初步', dimension: '3D',
+    summary: '感应电流方向阻碍磁通变化',
+    available: true, batch: 'B3', component: ExpLenzLaw as unknown as Component,
+    steps: panelSteps('调节磁通变化 → 观察感应电流方向'),
+  },
   {
     id: 'xb1-momentum-conservation',
     name: '验证动量守恒定律',
@@ -351,14 +381,98 @@ const LOCKED: ExperimentModule[] = [
   },
   locked('xb1-wave-interference', '观察波的干涉、衍射现象', '选择性必修第一册', '第三章 机械波', '2D', 'B5', '波场叠加渲染'),
   locked('xb1-light-phenomena', '观察光的干涉、衍射、偏振现象', '选择性必修第一册', '第四章 光', '2D', 'B5', '条纹/偏振可视化'),
-  locked('xb2-ampere-force', '观察安培力方向', '选择性必修第二册', '第一章 安培力与洛伦兹力', '3D', 'B3', 'B/I/F 右手定则三维演示'),
-  locked('xb2-lorentz-demo', '洛伦兹力演示', '选择性必修第二册', '第一章 安培力与洛伦兹力', '3D', 'B3', '电子束三维磁场偏转'),
-  locked('xb2-particle-bfield', '带电粒子在匀强磁场中的运动（模型）', '选择性必修第二册', '第一章 安培力与洛伦兹力', '3D', 'B3', '三维螺旋线/圆周运动'),
-  locked('xb2-transformer', '探究变压器电压与匝数的关系', '选择性必修第二册', '第三章 交变电流', '3D', 'B3', 'U₁/U₂=N₁/N₂ 三维结构'),
+    {
+    id: 'xb2-ampere-force',
+    name: '观察安培力方向（3D 右手定则）',
+    book: '选择性必修第二册', chapter: '第一章 安培力与洛伦兹力', dimension: '3D',
+    summary: 'F = I·L×B',
+    available: true, batch: 'B3', component: ExpAmpereForce as unknown as Component,
+    steps: panelSteps('调节 B → 观察安培力方向'),
+  },
+    {
+    id: 'xb2-lorentz-demo',
+    name: '洛伦兹力演示（3D）',
+    book: '选择性必修第二册', chapter: '第一章 安培力与洛伦兹力', dimension: '3D',
+    summary: 'F = qv×B',
+    available: true, batch: 'B3', component: ExpLorentzDemo as unknown as Component,
+    steps: panelSteps('调节 B/v/q → 观察洛伦兹力方向'),
+  },
+    {
+    id: 'xb2-particle-bfield',
+    name: '带电粒子在匀强磁场中的运动（3D）',
+    book: '选择性必修第二册', chapter: '第一章 安培力与洛伦兹力', dimension: '3D',
+    summary: 'r = mv/qB',
+    available: true, batch: 'B3', component: ExpParticleBField as unknown as Component,
+    steps: panelSteps('调节 B/v → 观察圆周/螺旋运动'),
+  },
+    {
+    id: 'xb2-transformer',
+    name: '探究变压器电压与匝数的关系（3D）',
+    book: '选择性必修第二册', chapter: '第三章 交变电流', dimension: '3D',
+    summary: 'U₁/U₂ = N₁/N₂',
+    available: true, batch: 'B3', component: ExpTransformer as unknown as Component,
+    steps: panelSteps('调节匝数 → 验证电压比'),
+  },
   locked('xb2-self-induction', '探究自感现象', '选择性必修第二册', '第二章 电磁感应', '2D', 'B4', '通断电自感电路与曲线'),
   locked('xb2-lc-ac', '探究电感器和电容器对交流电的影响', '选择性必修第二册', '第三章 交变电流', '2D', 'B4', '感抗/容抗与频率'),
-  locked('xb3-brownian', '观察布朗运动', '选择性必修第三册', '第一章 分子动理论', '3D', 'B3', '三维随机行走与分子热运动'),
+    {
+    id: 'xb3-brownian',
+    name: '观察布朗运动（3D）',
+    book: '选择性必修第三册', chapter: '第一章 分子动理论', dimension: '3D',
+    summary: '三维微粒无规则热运动',
+    available: true, batch: 'B3', component: ExpBrownian as unknown as Component,
+    steps: panelSteps('调温度 → 观察三维随机运动'),
+  },
 ]
+
+
+function get3d_name(eid: string) {
+  const m: Record<string, string> = {
+    'bx3-induction-condition': '探究感应电流产生的条件（3D）',
+    'bx3-emf-factors': '探究影响感应电动势大小的因素（3D）',
+    'bx3-lenz-law': '探究楞次定律（3D）',
+    'xb2-ampere-force': '观察安培力方向（3D 右手定则）',
+    'xb2-lorentz-demo': '洛伦兹力演示（3D）',
+    'xb2-particle-bfield': '带电粒子在匀强磁场中的运动（3D 模型）',
+    'xb2-transformer': '探究变压器电压与匝数的关系（3D）',
+    'xb3-brownian': '观察布朗运动（3D）',
+    'xb3-alpha-scatter3d': 'α粒子散射实验（3D）',
+  }
+  return m[eid] ?? eid
+}
+function get3d_book(eid: string) {
+  if (eid.startsWith('bx3')) return '必修第三册'
+  if (eid.startsWith('xb2')) return '选择性必修第二册'
+  return '选择性必修第三册'
+}
+function get3d_chapter(eid: string) {
+  const m: Record<string, string> = {
+    'bx3-induction-condition': '第十三章 电磁感应与电磁波初步',
+    'bx3-emf-factors': '第十三章 电磁感应与电磁波初步',
+    'bx3-lenz-law': '第十三章 电磁感应与电磁波初步',
+    'xb2-ampere-force': '第一章 安培力与洛伦兹力',
+    'xb2-lorentz-demo': '第一章 安培力与洛伦兹力',
+    'xb2-particle-bfield': '第一章 安培力与洛伦兹力',
+    'xb2-transformer': '第三章 交变电流',
+    'xb3-brownian': '第一章 分子动理论',
+    'xb3-alpha-scatter3d': '第四章 原子结构和波粒二象性',
+  }
+  return m[eid] ?? ''
+}
+function get3d_summary(eid: string) {
+  const m: Record<string, string> = {
+    'bx3-induction-condition': '磁通变化 → 感应电流产生条件',
+    'bx3-emf-factors': 'ε = N·dΦ/dt，影响电动势大小的因素',
+    'bx3-lenz-law': '感应电流方向阻碍磁通变化',
+    'xb2-ampere-force': 'F = I·L×B，右手定则三维演示',
+    'xb2-lorentz-demo': 'F = qv×B，洛伦兹力三维演示',
+    'xb2-particle-bfield': 'r = mv/qB，三维圆周/螺旋运动',
+    'xb2-transformer': 'U₁/U₂ = N₁/N₂，三维铁芯线圈',
+    'xb3-brownian': '三维微粒无规则热运动',
+    'xb3-alpha-scatter3d': '瞄准距离→偏转角，卢瑟福核式结构',
+  }
+  return m[eid] ?? ''
+}
 
 export const EXPERIMENTS: ExperimentModule[] = [...AVAILABLE, ...LOCKED]
 
