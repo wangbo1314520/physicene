@@ -232,7 +232,8 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 | 937a191 | 质量 | 内容一致性核查：E2E 标题↔内容断言+修 bx1-hooke 错位+作用反作用力箭头+snap-stage 工具 |
 | 64aa94c | P0-2 | CircuitEditor 自由搭建编辑器 + 高考 6 电路实验接入 + 电路正确性 E2E |
 | 07348cd | P0-2 | 继电器/感应线圈元件 + 电磁振荡/光控路灯/电磁感应接线舞台 + 静电装置操作 |
-| （本轮） | P0-3+ | α散射 7 元件 + 有界磁场 + 贴紧提示 + 高考层/板块模型 + 方案书 v3.0 |
+| 030c0a3 | P0-3+ | α散射 7 元件 + 有界磁场 + 贴紧提示 + 高考层/板块模型 + 方案书 v3.0 |
+| （本轮） | B9-B11 | 多过程引擎 + AI 解题讲解器 + 场景 2/9 |
 | 9c9eeba | 实验台 | 三维度元件体系：2D/2.5D/3D 分段 + 7 元件按维度过滤 + 11 模板 + lab-check E2E |
 
 ### 实验库之前的里程碑
@@ -259,7 +260,7 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 | B0-B8 E2E | 每批次 | ✅ 0 控制台错误 | Playwright（浏览器在 E:\Program\playwright-browsers） |
 | 55 卡逐卡 E2E | 55 | ✅ 55/55 | 同上 |
 | 演示页无头 E2E | 14 项 | ✅ 全过，0 控制台错误 | `set PLAYWRIGHT_BROWSERS_PATH=E:\Program\playwright-browsers && python frontend/e2e/sim-demo-check.py`（需 Vite 在 5174） |
-| 实验库逐实验无头 E2E | 56（教材 55 + 高考层 1） | ✅ 56/56，内容一致，动画多帧，专项断言（α散射 7 元件对账+轨迹数；板块共速事件），0 控制台错误 | `python -u frontend/e2e/exp-lib-check.py [--ids a,b] [--url http://localhost:5173]`（API 登录 demo 账号后逐个打开 /exp/:id，断言仪器画布、**面板标题含该实验专属关键词（标题↔内容一致）**、**21 个应动实验点主按钮后间隔 400ms 两帧必须不同（动画正确性）**、点主按钮与记录按钮、收集控制台错误；需 Java 8080）。抓动画时间窗口帧用 `frontend/e2e/snap-stage.py --id <id> --click-main --at 600,1500,2600`（输出 ANIMATED/STATIC 判定） |
+| 实验库逐实验无头 E2E | 58（教材 55 + 高考层 3） | ✅ 58/58，内容一致，动画多帧，专项断言（α散射 7 元件对账+轨迹数；板块共速事件），0 控制台错误 | `python -u frontend/e2e/exp-lib-check.py [--ids a,b] [--url http://localhost:5173]`（API 登录 demo 账号后逐个打开 /exp/:id，断言仪器画布、**面板标题含该实验专属关键词（标题↔内容一致）**、**21 个应动实验点主按钮后间隔 400ms 两帧必须不同（动画正确性）**、点主按钮与记录按钮、收集控制台错误；需 Java 8080）。抓动画时间窗口帧用 `frontend/e2e/snap-stage.py --id <id> --click-main --at 600,1500,2600`（输出 ANIMATED/STATIC 判定） |
 | **电路正确性 E2E**（P0-2 验收项） | 11 实验 / 45 断言 | ✅ 11/11 | `python -u frontend/e2e/circuit-check.py [--ids a,b]`：经 DEV 钩子 `window.__circuitEditor` 脚本化搭电路，断言正确接法读数与理论一致（伏安法拟合 E/r、外接法 R、欧姆挡读数、RC τ、自感 τ、感抗）、判分通过、典型错接被故障检测抓住（电流表并联/带电测电阻）、暂态回放两帧不同；截图归档 `e2e/out/circuit-*.png` |
 | **实验台三维度 E2E** | 3 维度 / 16 断言（含贴紧提示） | ✅ 16/16 | `python -u frontend/e2e/lab-check.py [--no-run]`：登录后 /lab 逐维度切换，断言托盘元件集、模板数、模板载入后场景元件数、画布存在；2D「平抛运动」真实经 Java dyn4j 运行到 ended；截图 `e2e/out/lab-*.png` |
 
@@ -281,6 +282,7 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 - ✅ **实验台三维度元件体系（2026-09-16）**：/lab 2D/2.5D/3D 分段切换、7 元件按维度过滤、11 个实验设计模板、画布随维度切换（见 §六 实验台）
 - ✅ **P0-3 α散射 7 类元件补全（2026-09-16）**：独立 3D 组件，26 条轨迹逐个发射、荧光屏 72 片闪烁计数、量角器、散射角直方图叠卢瑟福曲线；共享底座 `renderers/canvas3d/three-kit.ts`
 - ✅ **用户三点（2026-09-16）**：Exp3D 洛伦兹/粒子磁场实验加“磁场区域半径”（有界磁场，r>R 出界直线）；实验台自由搭建**贴紧提示**（相邻实体空隙/重叠 ≤0.6 m 询问是否贴紧，一键消除）；**高考/竞赛题层**（`layer:'gaokao'`，目录 /gaokao，导航“高考竞赛”，不计入教材 55 卡）首个场景 **板块模型**（滑块冲上木板/子弹撞入/木板获初速，多过程时间轴、共速/脱离临界、能量条、v–t 双曲线）
+- ✅ **B9/B10/B11 首批（2026-09-16）**：多过程引擎模块 `engine/multiProcess.ts`、AI 解题讲解器 `SolutionExplainer.vue`（提示/完整/变式）、高考场景 3/20（板块模型 · 平抛+竖直圆周 · 加速→筛选→磁场），每场景带时间轴、临界事件、能量条、十段讲解模板
 - 📘 **方案书 v3.0 已落盘** `docs/实验库完整修复与扩展方案书-v3.0.md`（三层架构、P0、B9–B12、20 场景、AI 讲解器规格、验收 v3.0）；**上线暂停至 B12 通过**
 - ⚠️ **2026-09-15 复盘发现 P0-2：自由电路搭建引擎（CircuitEngine）从未交付**——B1 开工令明确要求“自由拖元件搭电路，必须做”，B1–B8 全程缺席，上线评审未查；12 个电路类实验现为“固定电路图 + 调参 + 坐标纸”模板，自由搭建为零。已立项修复，缺陷报告/元件清单/引擎规格见 `frontend/src/experiments/docs/p0-circuit/defect-report.md`。P0-1（3D 静图）已于 ced7e22 修复并经 9/9 帧采样实证关闭
 

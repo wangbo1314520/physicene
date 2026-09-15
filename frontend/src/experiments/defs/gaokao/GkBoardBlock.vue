@@ -8,6 +8,8 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import LabPanel from '../apparatus/LabPanel.vue'
 import TransientScope from '../apparatus/TransientScope.vue'
+import SolutionExplainer from '../apparatus/SolutionExplainer.vue'
+import { fmt, type SolutionTemplate } from '../../engine/solution'
 import { fitCanvas, makeLoop, label } from '../apparatus/circuit'
 
 const emit = defineEmits<{ (e: 'record', data: unknown): void }>()
@@ -188,6 +190,25 @@ function draw() {
 
 onMounted(() => { init(); phase.value = 'idle'; loop = makeLoop((dt) => { if (running.value) step(dt); draw() }) })
 onUnmounted(() => loop?.stop())
+const solution = computed<SolutionTemplate>(() => {
+  const th = theory.value
+  const me = mode.value === 'bullet' ? m.value + mb.value : m.value
+  return {
+    problemType: '板块模型：滑块与木板相对滑动（动量守恒 + 摩擦生热 + 临界板长）',
+    hints: ['先判断相对滑动方向：滑块相对木板向哪边滑？摩擦力就与之反向', '地面光滑 → 系统外力为零 → 动量守恒，先算共速', '分别对滑块、木板用牛顿第二定律求加速度，再用相对运动求时间和相对位移', '热量只与“相对位移”有关，不是木板位移'],
+    processes: [mode.value === 'bullet' ? '过程零：子弹嵌入滑块（完全非弹性碰撞，动量守恒、动能有损失）' : '过程零：给定初速（滑块 v₀ 或木板 V₀）', '过程一：滑块与木板相对滑动，滑动摩擦力等大反向', '过程二：达到共速后一起匀速（地面光滑）；若板长不够，滑块在共速前滑出板端做平抛'],
+    forces: ['滑块：滑动摩擦力 f = μmg，方向与滑块相对木板的速度相反', '木板：受滑块给的摩擦力 f′ = f（反作用），地面光滑无其他水平力', '共速后：无相对滑动，摩擦力消失'],
+    laws: ['系统（滑块+木板）水平方向动量守恒', '牛顿第二定律：a_滑 = μg，a_板 = μmg/M', '运动学：相对加速度 a_相 = μg(1 + m/M)', '能量守恒：Q = f·Δs_相 = 系统动能减少量'],
+    critical: ['共速判据：v_滑 = v_板，之后不再相对滑动', `板长临界：滑块相对板向${th.dir}滑 Δs，需要 ${th.dir === '前' ? 'L ≥ s₀ + Δs' : 's₀ ≥ Δs'}`, '若 L 不足：滑块在共速前离开板端，之后做平抛'],
+    derivation: ['共速：mv₀ + MV₀ = (m+M)v_c → v_c = (mv₀ + MV₀)/(m+M)', 't_c = |v₀ − V₀| / [μg(1 + m/M)]', 'Δs = |v₀ − V₀|² / [2μg(1 + m/M)] = M(v₀−V₀)²/[2μg(m+M)]', 'Q = μmg·Δs = ½·mM/(m+M)·(v₀−V₀)²（= 动能损失）'],
+    numeric: [mode.value === 'bullet' ? `子弹嵌入后 v = m_b v_b/(m_b+m) = ${fmt(v0.value * mb.value / me, 3)} m/s` : `初速：${mode.value === 'slide' ? `滑块 v₀ = ${v0.value}` : `木板 V₀ = ${v0.value}`} m/s`,
+      `v_c = ${fmt(th.vc, 3)} m/s`, `t_c = ${fmt(th.tc, 3)} s`, `Δs = ${fmt(th.ds, 3)} m（相对板向${th.dir}）`, `Q = ${fmt(th.q, 3)} J`,
+      th.falls ? `板长 L=${L.value} m 不足，需 ${fmt(th.need)} m → 滑块会滑出` : `板长 L=${L.value} m 足够（需 ${fmt(th.need)} m）→ 共速`],
+    pitfalls: ['用木板位移或滑块位移代替相对位移算热量', '忘记判断地面是否光滑：地面有摩擦时系统动量不守恒', '共速后仍按相对滑动列式', '子弹嵌入过程动能不守恒，只能用动量守恒'],
+    similar: ['子弹打木块（嵌入/穿出）', '滑块滑上传送带（对比：传送带速度恒定）', '人船模型（内力作用下的位移分配）'],
+    competition: ['地面有摩擦：木板“先动后停”三阶段讨论', '多滑块叠放：逐层判断相对滑动', '摩擦因数随位置变化：微元积分求 Δs'],
+  }
+})
 const series = computed(() => [
   { name: '滑块 v', color: '#F5C542', values: vBlock.value, unit: 'm/s' },
   { name: '木板 V', color: '#3ecf8e', values: vBoard.value, unit: 'm/s' },
@@ -218,6 +239,7 @@ const series = computed(() => [
       <button class="btn alt" :disabled="phase === 'idle'" @click="recordNow">📏 记录当前数据</button>
       <div v-if="events.length" class="readout" style="color:#b0b0cc"><div v-for="(e, i) in events" :key="i">• {{ e }}</div></div>
       <p class="hint">改 μ、M/m 或 v₀ 再做：共速时间、相对位移怎样变？把 L 调小于临界值观察滑块滑出。</p>
+      <SolutionExplainer :template="solution" title="板块模型" />
     </template>
     <div class="stack">
       <canvas ref="canvasRef" class="scene"></canvas>

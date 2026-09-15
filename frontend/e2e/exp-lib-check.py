@@ -72,6 +72,8 @@ KEYWORDS = {
     "xb2-sensor-control": "光控路灯",
     # 高考/竞赛层（layer: gaokao，独立目录 /gaokao；不计入教材 55 卡）
     "gk-board-block": "板块模型",
+    "gk-projectile-loop": "竖直圆周",
+    "gk-accel-selector-b": "速度筛选器",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -82,7 +84,7 @@ ANIMATED_IDS = {
     "xb2-lorentz-demo", "xb2-particle-bfield", "xb2-transformer", "xb3-brownian", "xb3-alpha-scatter",
     "bx1-action-reaction", "bx1-conical-pendulum", "bx2-centripetal", "bx1-newton-tube",
     "bx2-work-velocity", "xb3-gas-isotherm", "bx1-galileo-ramp", "xb2-em-oscillation",
-    "bx2-circular-life", "bx2-motion-composition", "bx1-inertia", "bx2-energy", "gk-board-block",
+    "bx2-circular-life", "bx2-motion-composition", "bx1-inertia", "bx2-energy", "gk-board-block", "gk-projectile-loop", "gk-accel-selector-b",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 

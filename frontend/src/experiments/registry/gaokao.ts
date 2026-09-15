@@ -5,6 +5,8 @@
 import type { Component } from 'vue'
 import type { ExperimentModule } from '../core/types'
 import GkBoardBlock from '../defs/gaokao/GkBoardBlock.vue'
+import GkProjectileLoop from '../defs/gaokao/GkProjectileLoop.vue'
+import GkAccelSelectorB from '../defs/gaokao/GkAccelSelectorB.vue'
 
 function gkSteps(operateHint: string): ExperimentModule['steps'] {
   return [
@@ -40,14 +42,26 @@ export const GAOKAO: ExperimentModule[] = [
     component: GkBoardBlock as unknown as Component,
     steps: gkSteps('选起始方式（冲上/子弹/板获初速）→ 调 m、M、μ、v₀、L → ▶ 开始 → 看时间轴从“相对滑动”切到“共速”或“脱离”'),
   },
-  planned('gk-projectile-loop', '小球平抛 + 竖直圆周', '2 平抛 · 临界速度 √(gR) · 最高点条件', '2.5D', ['平抛', '机械能守恒', '最高点临界', '绳/内轨'], MECH),
+  {
+    id: 'gk-projectile-loop', name: '小球平抛 + 竖直圆周', book: MECH, chapter: '2 平抛 · 临界速度 √(gR) · 最高点条件', dimension: '2.5D',
+    summary: '平台平抛→落点切入竖直圆轨道→最高点临界（绳/内轨 N≥0，杆/外轨 v≥0）→脱离角与临界高度；含 AI 解题讲解。',
+    available: true, batch: 'B11', layer: 'gaokao', tags: ['平抛', '机械能守恒', '最高点临界', '绳/内轨 vs 杆/外轨', '脱离角'],
+    component: GkProjectileLoop as unknown as Component,
+    steps: gkSteps('选绳/杆模型 → 调 v₀、h、R → ▶ 开始 → 看时间轴上“过最高点 / 脱离 / 折返”事件 → 用讲解器核对 √(5gR) 与 2√(gR)'),
+  },
   planned('gk-slope-spring', '斜面 + 弹簧 + 滑块', '3 能量守恒 · 弹性势能 · 临界脱离', '2.5D', ['能量守恒', '弹性势能', '临界脱离'], MECH),
   planned('gk-conveyor', '传送带 + 物块', '4 摩擦力方向 · 相对运动 · 热量', '2.5D', ['摩擦力方向', '相对运动', '摩擦生热'], MECH),
   planned('gk-pulley-system', '连接体 + 滑轮', '5 牛顿定律 · 系统加速度 · 绳张力', '2.5D', ['牛顿第二定律', '整体隔离法', '绳张力'], MECH),
   planned('gk-collision-spring', '碰撞 + 弹簧', '6 动量守恒 · 弹性碰撞 · 最大压缩', '2.5D', ['动量守恒', '弹性碰撞', '最大压缩量'], MECH),
   planned('gk-circular-critical', '圆周运动 + 绳/杆临界', '7 绳临界 vs 杆临界', '2.5D', ['绳模型', '杆模型', '最高点临界'], MECH),
   planned('gk-collision-chain', '多体碰撞链', '8 动量守恒 · 能量分配', '2.5D', ['动量守恒', '能量分配', '多体'], MECH),
-  planned('gk-accel-selector-b', '加速电场 → 速度筛选器 → 磁场', '9 动能定理 · E/B 平衡 · 洛伦兹力', '3D', ['动能定理', 'v=E/B', '洛伦兹力'], EM),
+  {
+    id: 'gk-accel-selector-b', name: '加速电场 → 速度筛选器 → 磁场', book: EM, chapter: '9 动能定理 · E/B 平衡 · 洛伦兹力', dimension: '3D',
+    summary: '三区域多过程：qU=½mv² → v=E/B 才能直线通过筛选器 → 磁场中半圆 r=mv/(qB₃) 打到底片；含 AI 解题讲解。',
+    available: true, batch: 'B11', layer: 'gaokao', tags: ['动能定理', 'v=E/B', '洛伦兹力', '质谱仪', '多过程'],
+    component: GkAccelSelectorB as unknown as Component,
+    steps: gkSteps('调 U 使 v=√(2qU/m) 等于 E/B → ▶ 播放 → 看粒子能否直线通过筛选器、磁场中半径 → 改 B₃ 看落点 2r'),
+  },
   planned('gk-accel-deflect-screen', '加速电场 → 偏转电场 → 荧光屏', '10 类平抛 · 偏转角 · 侧移', '3D', ['类平抛', '偏转角', '侧移'], EM),
   planned('gk-b-then-e', '磁场 → 电场组合', '11 圆周 + 类平抛切换', '3D', ['圆周运动', '类平抛', '过程切换'], EM),
   planned('gk-cyclotron', '回旋加速器', '12 交变电场 · 最大动能 · 周期', '3D', ['交变电场', '最大动能', '周期'], EM),
