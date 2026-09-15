@@ -3,13 +3,15 @@
  * 实验页骨架（B0）：标题栏 + 渲染区 + 步骤条 + 结论 + 自动保存/提交 + AI 侧栏占位。
  * 串起：StepEngine（状态机）× AutosaveManager（2s 防抖）× expApi（5 接口）。
  */
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { findExperiment } from '../registry'
 import type { ExperimentModule, RunMode } from '../core/types'
 import { StepEngine } from '../runner/StepEngine'
 import { AutosaveManager, expApi, type ExpSession } from '../data/api'
 import SimRenderer2D5 from '../renderers/SimRenderer2D5.vue'
+import AiTutor from './AiTutor.vue'
+import { getSteps } from '../core/stepLibrary'
 import type { Component } from 'vue'
 
 const route = useRoute()
@@ -32,6 +34,25 @@ const doneList = computed(() => engine.value?.export().completed ?? [])
 const currentStep = computed(() => stepList.value[currentIdx.value] ?? null)
 const allDone = computed(() => stepList.value.length > 0 && currentIdx.value >= stepList.value.length)
 const mode = computed<RunMode>(() => engine.value?.mode ?? 'guided')
+
+const examTimer = ref(0)
+const examScore = ref<number | null>(null)
+let examInterval = 0
+
+watch(mode, (m) => {
+  if (m === 'exam') {
+    examTimer.value = 0
+    examInterval = window.setInterval(() => { examTimer.value++ }, 1)
+  } else {
+    window.clearInterval(examInterval)
+  }
+}, { immediate: true })
+
+function formatExamTime(): string {
+  const min = Math.floor(examTimer.value / 60)
+  const sec = examTimer.value % 60
+  return `${min}:${sec.toString().padStart(2, '0')}`
+}
 
 function setMode(m: RunMode) {
   engine.value?.setMode(m)
@@ -76,6 +97,10 @@ async function submitExperiment() {
     return
   }
   await autosave?.flush()
+  if (mode.value === 'exam') {
+    examScore.value = engine.value?.getScore() ?? null
+    window.clearInterval(examInterval)
+  }
   submitInfo.value = await expApi.submit(session.value.id, conclusion.value)
   submitted.value = true
 }
@@ -85,7 +110,8 @@ onMounted(async () => {
     return
   }
   session.value = await expApi.start(mod.id)
-  engine.value = StepEngine.from(mod, session.value.stepState)
+  const enrichedMod = { ...mod, steps: getSteps(mod.id).length >= mod.steps.length ? getSteps(mod.id).map((s, i) => ({ ...mod.steps[i], ...s })) : mod.steps }
+  engine.value = StepEngine.from(enrichedMod as ExperimentModule, session.value.stepState)
   conclusion.value = session.value.conclusion ?? ''
   if (session.value.status === 'submitted') {
     submitted.value = true
@@ -119,6 +145,10 @@ onUnmounted(() => {
         <button :class="{ active: mode === 'guided' }" @click="setMode('guided')">引导模式</button>
         <button :class="{ active: mode === 'free' }" @click="setMode('free')">自由模式</button>
         <button :class="{ active: mode === 'exam' }" @click="setMode('exam')">考试模式</button>
+      </div>
+      <div v-if="mode === 'exam' && !submitted" class="exam-info">
+        ⏱ {{ formatExamTime() }}
+        <span v-if="examScore !== null">| 得分 {{ (examScore * 100).toFixed(0) }}%</span>
       </div>
     </header>
 
@@ -168,10 +198,8 @@ onUnmounted(() => {
           <p>报告编号 #{{ submitInfo?.reportId ?? session?.id }}（Report 已挂接，AI 反馈将于批阅后生成）</p>
         </div>
 
-        <div class="ai-placeholder">
-          <h3>AI 助教</h3>
-          <p>B7 接入：按步骤提示 · 纠错引导 · 不跳步不给答案</p>
-        </div>
+        <AiTutor v-if="!submitted" :step="currentStep" :snapshot="engine?.export() ?? { current: 0, completed: [], records: {}, mode: 'guided' }"
+                 :experiment-name="mod.name" :raw-data="session?.rawData" />
       </aside>
     </section>
   </main>
@@ -233,4 +261,5 @@ h1 { font-size: 19px; }
 .locked .dim-note { color: #6c6c85; margin: 16px 0; }
 .locked a { color: #4a90d9; }
 @media (max-width: 960px) { .body { grid-template-columns: 1fr; } }
+.exam-info { margin-top: 6px; font: 14px Consolas; color: #F5C542; text-align: right; }
 </style>

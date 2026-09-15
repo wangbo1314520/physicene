@@ -28,6 +28,12 @@ export interface ExperimentStep {
   /** 纠错引导 {错误情形: 提示} */
   errorHints?: Record<string, string>
   scoreWeight?: number
+  /** B7 扩展：AI 阶梯提示（level 1=方法 → 2=公式 → 3=数值方向，不直接给答案） */
+  aiHints?: { level1?: string; level2?: string; level3?: string }
+  /** B7 扩展：步骤绑定的 processedData 字段（数据记录自动检查） */
+  dataBinding?: string
+  /** B7 扩展：错误分类标签 */
+  errorCategory?: 'operation' | 'reading' | 'calculation' | 'concept'
 }
 
 export interface ExperimentPreset {
