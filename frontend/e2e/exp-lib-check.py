@@ -61,16 +61,16 @@ def main() -> int:
             print(f"▶ {exp_id}")
             page.goto(f"{args.url}/exp/{exp_id}")
             try:
-                page.wait_for_selector(".lab canvas, .exp canvas, .alt-stage canvas", timeout=12000)
+                page.wait_for_selector(".lab canvas, .exp canvas, .alt-stage canvas, .sim25d canvas", timeout=12000)
             except Exception:
                 failures.append(f"{exp_id}: 未找到仪器画布")
                 page.screenshot(path=str(OUT / f"exp-{exp_id}.png"))
                 print("  ✗ 未找到仪器画布")
                 continue
             page.wait_for_timeout(700)
-            canvases = page.locator(".lab canvas, .exp canvas, .alt-stage canvas").count()
+            canvases = page.locator(".lab canvas, .exp canvas, .alt-stage canvas, .sim25d canvas").count()
             # 主动作按钮（第一个非 alt/ghost 的 .btn 或 .run）
-            main_btn = page.locator(".panel .btn:not(.alt):not(.ghost), .panel .run, .panel > button:not(.rec):not(.btn)").first
+            main_btn = page.locator(".panel .btn:not(.alt):not(.ghost), .panel .run, .panel > button:not(.rec):not(.btn), .sim25d .primary").first
             clicked_main = False
             if main_btn.count() and main_btn.is_enabled():
                 main_btn.click()
