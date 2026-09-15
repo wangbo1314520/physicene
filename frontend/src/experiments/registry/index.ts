@@ -32,7 +32,18 @@ import ExpParticleBField from '../defs/ExpParticleBField.vue'
 import ExpTransformer from '../defs/ExpTransformer.vue'
 import ExpBrownian from '../defs/ExpBrownian.vue'
 import ExpAlphaScatter3D from '../defs/ExpAlphaScatter3D.vue'
-import ExpAlt from '../defs/ExpAlt.vue'
+import ExpReactionTime from '../defs/ExpReactionTime.vue'
+import ExpGalileoRamp from '../defs/ExpGalileoRamp.vue'
+import ExpCenterOfGravity from '../defs/ExpCenterOfGravity.vue'
+import ExpMirrorDeformation from '../defs/ExpMirrorDeformation.vue'
+import ExpCircularLife from '../defs/ExpCircularLife.vue'
+import ExpMotionComposition from '../defs/ExpMotionComposition.vue'
+import ExpStaticPhenomena from '../defs/ExpStaticPhenomena.vue'
+import ExpFieldLinesModel from '../defs/ExpFieldLinesModel.vue'
+import ExpParticleAccel from '../defs/ExpParticleAccel.vue'
+import ExpTotalReflection from '../defs/ExpTotalReflection.vue'
+import ExpEmOscillation from '../defs/ExpEmOscillation.vue'
+import ExpSensorControl from '../defs/ExpSensorControl.vue'
 import ExpTapeVelocity from '../defs/ExpTapeVelocity.vue'
 import ExpCapacitorCharge from '../defs/ExpCapacitorCharge.vue'
 import ExpResistivity from '../defs/ExpResistivity.vue'
@@ -540,7 +551,7 @@ const ALT_EXPERIMENTS: ExperimentModule[] = [
     name: '测反应时间（第三阶段替代）',
     book: '必修第一册', chapter: '第一章 运动的描述', dimension: '2D',
     summary: '轻量交互计时器',
-    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    available: true, batch: 'B8', component: ExpReactionTime as unknown as Component,
     steps: panelSteps('按交互提示操作 → 记录实验数据'),
   },
   {
@@ -548,7 +559,7 @@ const ALT_EXPERIMENTS: ExperimentModule[] = [
     name: '伽利略斜面实验（第三阶段替代）',
     book: '必修第一册', chapter: '第四章 运动和力的关系', dimension: '2D',
     summary: '动画+理想化推理',
-    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    available: true, batch: 'B8', component: ExpGalileoRamp as unknown as Component,
     steps: panelSteps('按交互提示操作 → 记录实验数据'),
   },
   {
@@ -556,7 +567,7 @@ const ALT_EXPERIMENTS: ExperimentModule[] = [
     name: '悬挂法确定物体的重心（第三阶段替代）',
     book: '必修第一册', chapter: '第三章 相互作用——力', dimension: '2D',
     summary: '轻量交互+视频',
-    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    available: true, batch: 'B8', component: ExpCenterOfGravity as unknown as Component,
     steps: panelSteps('按交互提示操作 → 记录实验数据'),
   },
   {
@@ -564,7 +575,7 @@ const ALT_EXPERIMENTS: ExperimentModule[] = [
     name: '通过平面镜观察桌面的微小形变（第三阶段替代）',
     book: '必修第一册', chapter: '第三章 相互作用——力', dimension: '2D',
     summary: '动画+光路放大',
-    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    available: true, batch: 'B8', component: ExpMirrorDeformation as unknown as Component,
     steps: panelSteps('按交互提示操作 → 记录实验数据'),
   },
   {
@@ -572,7 +583,7 @@ const ALT_EXPERIMENTS: ExperimentModule[] = [
     name: '生活中的圆周运动（第三阶段替代）',
     book: '必修第二册', chapter: '第六章 圆周运动', dimension: '2D',
     summary: '动画+参数调节',
-    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    available: true, batch: 'B8', component: ExpCircularLife as unknown as Component,
     steps: panelSteps('按交互提示操作 → 记录实验数据'),
   },
   {
@@ -580,7 +591,7 @@ const ALT_EXPERIMENTS: ExperimentModule[] = [
     name: '运动的合成与分解（第三阶段替代）',
     book: '必修第二册', chapter: '第五章 抛体运动', dimension: '2D',
     summary: '轻量矢量交互',
-    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    available: true, batch: 'B8', component: ExpMotionComposition as unknown as Component,
     steps: panelSteps('按交互提示操作 → 记录实验数据'),
   },
   {
@@ -588,7 +599,7 @@ const ALT_EXPERIMENTS: ExperimentModule[] = [
     name: '观察静电现象（第三阶段替代）',
     book: '必修第三册', chapter: '第九章 静电场及其应用', dimension: '2D',
     summary: '视频+动画',
-    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    available: true, batch: 'B8', component: ExpStaticPhenomena as unknown as Component,
     steps: panelSteps('按交互提示操作 → 记录实验数据'),
   },
   {
@@ -596,7 +607,7 @@ const ALT_EXPERIMENTS: ExperimentModule[] = [
     name: '电场线、等势面（第三阶段替代）',
     book: '必修第三册', chapter: '第九章 静电场及其应用', dimension: '2D',
     summary: '轻量2D交互',
-    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    available: true, batch: 'B8', component: ExpFieldLinesModel as unknown as Component,
     steps: panelSteps('按交互提示操作 → 记录实验数据'),
   },
   {
@@ -604,7 +615,7 @@ const ALT_EXPERIMENTS: ExperimentModule[] = [
     name: '带电粒子在电场中的加速与偏转（第三阶段替代）',
     book: '必修第三册', chapter: '第十章 静电场中的能量', dimension: '2D',
     summary: '轻量2D交互',
-    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    available: true, batch: 'B8', component: ExpParticleAccel as unknown as Component,
     steps: panelSteps('按交互提示操作 → 记录实验数据'),
   },
   {
@@ -612,7 +623,7 @@ const ALT_EXPERIMENTS: ExperimentModule[] = [
     name: '观察全反射现象（第三阶段替代）',
     book: '选择性必修第一册', chapter: '第四章 光', dimension: '2D',
     summary: '动画+光路',
-    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    available: true, batch: 'B8', component: ExpTotalReflection as unknown as Component,
     steps: panelSteps('按交互提示操作 → 记录实验数据'),
   },
   {
@@ -620,7 +631,7 @@ const ALT_EXPERIMENTS: ExperimentModule[] = [
     name: '观察电磁振荡（第三阶段替代）',
     book: '选择性必修第二册', chapter: '第四章 电磁振荡与电磁波', dimension: '2D',
     summary: '动画+波形',
-    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    available: true, batch: 'B8', component: ExpEmOscillation as unknown as Component,
     steps: panelSteps('按交互提示操作 → 记录实验数据'),
   },
   {
@@ -628,7 +639,7 @@ const ALT_EXPERIMENTS: ExperimentModule[] = [
     name: '利用传感器制作简单的自动控制装置（第三阶段替代）',
     book: '选择性必修第二册', chapter: '第五章 传感器', dimension: '2D',
     summary: '轻量交互+接线',
-    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    available: true, batch: 'B8', component: ExpSensorControl as unknown as Component,
     steps: panelSteps('按交互提示操作 → 记录实验数据'),
   },
 ]
