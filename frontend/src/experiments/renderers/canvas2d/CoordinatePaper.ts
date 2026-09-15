@@ -103,14 +103,17 @@ export class CoordinatePaperLayer {
     const stepWorld = view.scale > 80 ? 0.5 : view.scale > 25 ? 1 : 5
     const x0 = Math.floor(this.toWorldX(view, 0) / stepWorld) * stepWorld
     const x1 = this.toWorldX(view, view.width)
+    const MAX_LINES = 4000
+    let guard = 0
     ctx.beginPath()
-    for (let x = x0; x <= x1; x += stepWorld) {
+    for (let x = x0; x <= x1 && guard++ < MAX_LINES; x += stepWorld) {
       const s = this.sx(view, x)
       ctx.moveTo(s, 0); ctx.lineTo(s, view.height)
     }
     const y0 = Math.floor(this.toWorldY(view, view.height) / stepWorld) * stepWorld
     const y1 = this.toWorldY(view, 0)
-    for (let y = y0; y <= y1; y += stepWorld) {
+    guard = 0
+    for (let y = y0; y <= y1 && guard++ < MAX_LINES; y += stepWorld) {
       const s = this.sy(view, y)
       ctx.moveTo(0, s); ctx.lineTo(view.width, s)
     }
@@ -130,10 +133,12 @@ export class CoordinatePaperLayer {
     ctx.font = '12px Consolas,monospace'
     ctx.fillText(`${a.xLabel}${a.xUnit ? ' / ' + a.xUnit : ''}`, view.width - 90, oy - 8)
     ctx.fillText(`${a.yLabel}${a.yUnit ? ' / ' + a.yUnit : ''}`, ox + 8, 14)
-    // 刻度
+    // 刻度（迭代上限防护：视口异常时 sx/sy 可能永不越界）
     const stepWorld = view.scale > 80 ? 0.5 : view.scale > 25 ? 1 : 5
+    const MAX_TICKS = 4000
     ctx.textAlign = 'center'
-    for (let x = Math.ceil(x0Tick(view, stepWorld) / stepWorld) * stepWorld; ; x += stepWorld) {
+    let guard = 0
+    for (let x = Math.ceil(x0Tick(view, stepWorld) / stepWorld) * stepWorld; guard++ < MAX_TICKS; x += stepWorld) {
       const s = this.sx(view, x)
       if (s > view.width) break
       if (Math.abs(x) < 1e-9) continue
@@ -141,7 +146,8 @@ export class CoordinatePaperLayer {
       ctx.fillText(fmtTick(x, stepWorld), s, oy + 16)
     }
     ctx.textAlign = 'right'
-    for (let y = 0; ; y += stepWorld) {
+    guard = 0
+    for (let y = 0; guard++ < MAX_TICKS; y += stepWorld) {
       const s = this.sy(view, y)
       if (s < 0) break
       if (y > 0) { ctx.fillRect(ox - 4, s - 0.5, 8, 1); ctx.fillText(fmtTick(y, stepWorld), ox - 8, s + 4) }

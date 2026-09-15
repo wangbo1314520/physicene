@@ -134,8 +134,12 @@ export class Canvas2DEngine {
   fitBounds(minX: number, maxX: number, minY: number, maxY: number, margin = 60) {
     const w = Math.max(1e-6, maxX - minX)
     const h = Math.max(1e-6, maxY - minY)
-    this.view.scale = Math.min((this.view.width - 2 * margin) / w,
-                               (this.view.height - 2 * margin) / h)
+    // 画布小于两倍边距时可用区取下限，否则缩放为负 → 刻度循环永不越界（曾致渲染进程崩溃）
+    const usableW = Math.max(40, this.view.width - 2 * margin)
+    const usableH = Math.max(40, this.view.height - 2 * margin)
+    let scale = Math.min(usableW / w, usableH / h)
+    if (!Number.isFinite(scale) || scale <= 0) scale = 40
+    this.view.scale = scale
     const cx = (minX + maxX) / 2
     const cy = (minY + maxY) / 2
     this.view.ox = this.view.width / 2 - cx * this.view.scale
