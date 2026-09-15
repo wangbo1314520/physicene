@@ -76,6 +76,18 @@ def main() -> int:
             log("画布存在", page.locator(".canvas-wrap canvas").count() == 1, "")
             page.screenshot(path=str(OUT / f"lab-{label.split()[0]}.png"))
 
+        print("▶ 贴紧提示（相邻元件空隙检测）")
+        page.locator(".dims .dim", has_text="2.5D 立体").click(); page.wait_for_timeout(200)
+        page.locator(".left .tpl").nth(1).click()   # 两球对心碰撞：球底与地面顶齐平
+        page.wait_for_timeout(300)
+        page.evaluate("() => { const L = window.__lab; const b = L.scene.elements.find(e => e.id === 'ball1'); b.position.y += 0.3; L.checkSnap('ball1') }")
+        page.wait_for_timeout(200)
+        bar = page.locator(".snapbar")
+        log("抬高小球 0.3 m 后出现“是否贴紧”提示", bar.count() == 1 and "空隙" in bar.inner_text(), bar.inner_text()[:60] if bar.count() else "无提示")
+        page.locator(".snapbar button.ok").click(); page.wait_for_timeout(200)
+        y_after = page.evaluate("() => window.__lab.scene.elements.find(e => e.id === 'ball1').position.y")
+        log("点「贴紧」后小球回到与地面贴合（y=0.5）", abs(y_after - 0.5) < 0.02, f"y={y_after}")
+
         if not args.no_run:
             print("▶ 2D 真实运行（dyn4j）")
             page.locator(".dims .dim", has_text="2D 平面").click(); page.wait_for_timeout(200)

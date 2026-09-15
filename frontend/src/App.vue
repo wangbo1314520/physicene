@@ -7,6 +7,7 @@
     <router-link to="/lab">实验台</router-link>
     <router-link to="/scenes">我的场景</router-link>
     <router-link to="/exp">实验库</router-link>
+    <router-link to="/gaokao">高考竞赛</router-link>
     <router-link to="/my-experiments">我的实验</router-link>
     <router-link to="/teacher-review">教师批阅</router-link>
     <router-link to="/sim">演示实验</router-link>

@@ -117,6 +117,7 @@ const STEP_CONFIG: Record<string, { topic: string; method: string; formula: stri
   'xb1-light-phenomena': { topic: '光现象', method: '调波长', formula: 'dy=lambda*L/d', dataDesc: '条纹与波长' },
   'xb2-self-induction': { topic: '自感', method: '调匝数', formula: 'tau=L/R, L正比N2', dataDesc: '延迟与匝数' },
   'xb2-lc-ac': { topic: 'LC对交流', method: '调频率', formula: 'XL=2pi*f*L, XC=1/(2pi*f*C)', dataDesc: '感抗容抗' },
+  'gk-board-block': { topic: '板块模型', method: '调 m/M/μ/v0/L 观察相对滑动到共速或脱离', formula: 'v_c=(mv0+MV0)/(m+M), Δs=M(v0-V0)²/[2μg(m+M)], Q=μmgΔs', dataDesc: '共速时间、相对位移、摩擦生热、临界板长' },
 }
 
 /** 获取实验步骤（有定制则用定制，否则用通用模板） */

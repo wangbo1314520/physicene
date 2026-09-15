@@ -20,6 +20,7 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     { path: '/sim', name: 'sim', component: () => import('../views/SimView.vue') },
+    { path: '/gaokao', name: 'gaokao-catalog', component: () => import('../views/GaokaoCatalogView.vue'), meta: { requiresAuth: true } },
     {
       path: '/exp',
       name: 'exp-catalog',

@@ -35,6 +35,7 @@ import ExpBrownian from '../defs/ExpBrownian.vue'
 import ExpAlphaScatter3D from '../defs/ExpAlphaScatter3D.vue'
 import ExpReactionTime from '../defs/ExpReactionTime.vue'
 import ExpGalileoRamp from '../defs/ExpGalileoRamp.vue'
+import { GAOKAO } from './gaokao'
 import ExpCenterOfGravity from '../defs/ExpCenterOfGravity.vue'
 import ExpMirrorDeformation from '../defs/ExpMirrorDeformation.vue'
 import ExpCircularLife from '../defs/ExpCircularLife.vue'
@@ -647,14 +648,18 @@ const ALT_EXPERIMENTS: ExperimentModule[] = [
 
 export const EXPERIMENTS: ExperimentModule[] = [...AVAILABLE, ...PLANNED_REST, ...ALT_EXPERIMENTS]
 
+/** 教材 55 卡 + 高考/竞赛层（layer: gaokao，独立目录 /gaokao）；运行器按 id 在全量中查找 */
+export { GAOKAO }
+export const ALL_EXPERIMENTS: ExperimentModule[] = [...EXPERIMENTS, ...GAOKAO]
+
 export function findExperiment(id: string): ExperimentModule | undefined {
-  return EXPERIMENTS.find((e) => e.id === id)
+  return ALL_EXPERIMENTS.find((e) => e.id === id)
 }
 
-/** 目录分组：书 → 章节 → 实验 */
-export function groupedByChapter(): Record<string, Record<string, ExperimentModule[]>> {
+/** 目录分组：书 → 章节 → 实验（默认教材层） */
+export function groupedByChapter(list: ExperimentModule[] = EXPERIMENTS): Record<string, Record<string, ExperimentModule[]>> {
   const books: Record<string, Record<string, ExperimentModule[]>> = {}
-  for (const exp of EXPERIMENTS) {
+  for (const exp of list) {
     const chapters = (books[exp.book] ??= {})
     const list = (chapters[exp.chapter] ??= [])
     list.push(exp)

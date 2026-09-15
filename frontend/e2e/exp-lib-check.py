@@ -70,6 +70,8 @@ KEYWORDS = {
     "xb1-total-reflection": "全反射",
     "xb2-em-oscillation": "电磁振荡",
     "xb2-sensor-control": "光控路灯",
+    # 高考/竞赛层（layer: gaokao，独立目录 /gaokao；不计入教材 55 卡）
+    "gk-board-block": "板块模型",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -80,9 +82,39 @@ ANIMATED_IDS = {
     "xb2-lorentz-demo", "xb2-particle-bfield", "xb2-transformer", "xb3-brownian", "xb3-alpha-scatter",
     "bx1-action-reaction", "bx1-conical-pendulum", "bx2-centripetal", "bx1-newton-tube",
     "bx2-work-velocity", "xb3-gas-isotherm", "bx1-galileo-ramp", "xb2-em-oscillation",
-    "bx2-circular-life", "bx2-motion-composition", "bx1-inertia", "bx2-energy",
+    "bx2-circular-life", "bx2-motion-composition", "bx1-inertia", "bx2-energy", "gk-board-block",
 }
-STAGE_SEL = ".lab canvas, .exp canvas, .alt-stage canvas, .sim25d canvas, .clab canvas"
+STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
+
+ALPHA_ELEMENTS = ["① α粒子源", "② 准直狭缝", "③ 金箔", "④ 环形荧光屏", "⑤ 散射轨迹", "⑥ 散射角量角器", "⑦ 原子核"]
+
+
+def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
+    """按实验的专项断言（元件对账 / 物理量），返回描述行"""
+    import re
+    lines: list[str] = []
+    if exp_id == "xb3-alpha-scatter":
+        body = page.locator("body").inner_text()
+        missing = [e for e in ALPHA_ELEMENTS if e not in body]
+        ok = not missing
+        lines.append(f"  {'✓' if ok else '✗'} α散射 7 类元件对账 {'齐全' if ok else '缺 ' + str(missing)}")
+        if not ok:
+            failures.append(f"{exp_id}: 元件缺失 {missing}")
+        page.wait_for_timeout(3500)
+        m = re.search(r"已发射 (\d+)/(\d+)", page.locator(".panel .result").inner_text())
+        emitted, total = (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+        ok2 = total > 10 and emitted > 10
+        lines.append(f"  {'✓' if ok2 else '✗'} 轨迹数 > 10 且已逐个发射（{emitted}/{total}）")
+        if not ok2:
+            failures.append(f"{exp_id}: 轨迹/发射数不足 {emitted}/{total}")
+    if exp_id == "gk-board-block":
+        page.wait_for_timeout(2500)
+        txt = page.locator(".panel").inner_text()
+        ok = "共速" in txt and "相对位移" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 板块模型：运行后出现共速事件与理论对照")
+        if not ok:
+            failures.append(f"{exp_id}: 未出现共速事件")
+    return lines
 
 
 def login(api_base: str) -> dict:
@@ -124,14 +156,14 @@ def main() -> int:
             print(f"▶ {exp_id}")
             page.goto(f"{args.url}/exp/{exp_id}")
             try:
-                page.wait_for_selector(".lab canvas, .exp canvas, .alt-stage canvas, .sim25d canvas, .clab canvas", timeout=12000)
+                page.wait_for_selector(".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas", timeout=12000)
             except Exception:
                 failures.append(f"{exp_id}: 未找到仪器画布")
                 page.screenshot(path=str(OUT / f"exp-{exp_id}.png"))
                 print("  ✗ 未找到仪器画布")
                 continue
             page.wait_for_timeout(700)
-            canvases = page.locator(".lab canvas, .exp canvas, .alt-stage canvas, .sim25d canvas, .clab canvas").count()
+            canvases = page.locator(".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas").count()
             # 内容一致性：面板 h3 标题必须包含本实验关键词
             headings = page.evaluate(
                 "Array.from(document.querySelectorAll('h3'))"
@@ -167,6 +199,8 @@ def main() -> int:
                 clicked_rec = True
                 page.wait_for_timeout(300)
             page.screenshot(path=str(OUT / f"exp-{exp_id}.png"))
+            for line in extra_checks(exp_id, page, failures):
+                print(line)
             real_errors = [e for e in errors if "favicon" not in e]
             ok = canvases >= 1 and not real_errors and content_ok and anim_ok
             anim_txt = ("动画✓" if anim_ok else "动画静止!") if exp_id in ANIMATED_IDS else "动画n/a"

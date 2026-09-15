@@ -6,7 +6,7 @@ import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { fitCanvas } from './circuit'
 
 export interface ScopeSeries { name: string; color: string; values: number[]; unit?: string }
-const props = withDefaults(defineProps<{ t: number[]; series: ScopeSeries[]; title?: string; height?: number }>(), { height: 300 })
+const props = withDefaults(defineProps<{ t: number[]; series: ScopeSeries[]; title?: string; height?: number; shared?: boolean; xUnit?: string }>(), { height: 300, shared: false, xUnit: 's' })
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 
 function fmt(v: number, unit = ''): string {
@@ -34,11 +34,12 @@ function draw() {
   if (props.title) { ctx.textAlign = 'left'; ctx.fillStyle = '#b0b0cc'; ctx.fillText(props.title, L, 14) }
   const tmax = props.t.at(-1) ?? 1
   ctx.textAlign = 'center'; ctx.fillStyle = '#6c6c85'
-  for (let i = 0; i <= 5; i++) ctx.fillText(`${((tmax * i) / 5).toFixed(tmax < 1 ? 2 : 1)} s`, L + (pw * i) / 5, T + ph + 16)
-  // 曲线（各自归一化，双极性：0 在中线）
+  for (let i = 0; i <= 5; i++) ctx.fillText(`${((tmax * i) / 5).toFixed(tmax < 1 ? 2 : 1)} ${props.xUnit}`, L + (pw * i) / 5, T + ph + 16)
+  // 曲线（各自归一化或共享标尺；双极性：0 在中线）
+  const globalPeak = Math.max(1e-12, ...props.series.flatMap((s) => s.values.map((v) => Math.abs(v))))
   let lx = L
   for (const s of props.series) {
-    const peak = Math.max(1e-12, ...s.values.map((v) => Math.abs(v)))
+    const peak = props.shared ? globalPeak : Math.max(1e-12, ...s.values.map((v) => Math.abs(v)))
     ctx.strokeStyle = s.color; ctx.lineWidth = 2; ctx.beginPath()
     const n = Math.min(s.values.length, props.t.length)
     const step = Math.max(1, Math.floor(n / pw))

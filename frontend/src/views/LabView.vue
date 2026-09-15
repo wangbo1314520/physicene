@@ -322,6 +322,61 @@ function onDrop(ev: DragEvent) {
   scene.elements.push(defaultElement(type, world.x, world.y))
   syncRenderer()
   selectedId.value = scene.elements[scene.elements.length - 1].id
+  checkSnap(selectedId.value)
+}
+
+// ===== 贴紧提示：两实体元件相邻（空隙或轻微重叠 ≤ 0.6 m）时询问是否贴紧，防止“看着挨着、其实有缝” =====
+interface SnapSuggestion { id: string; otherId: string; axis: 'x' | 'y'; delta: number; gap: number; label: string; otherLabel: string }
+const snap = ref<SnapSuggestion | null>(null)
+const SOLID = new Set(['cube', 'sphere', 'slope', 'wall', 'point_charge'])
+function aabb(e: PhysicsElementInput) {
+  const sx = e.scale?.x ?? 1, sy = e.scale?.y ?? 1
+  if (e.type === 'slope') return { xmin: e.position.x - sx, xmax: e.position.x + sx, ymin: e.position.y, ymax: e.position.y + sy }
+  return { xmin: e.position.x - sx / 2, xmax: e.position.x + sx / 2, ymin: e.position.y - sy / 2, ymax: e.position.y + sy / 2 }
+}
+function checkSnap(id: string | null) {
+  snap.value = null
+  if (!id) return
+  const e = scene.elements.find((x) => x.id === id)
+  if (!e || !SOLID.has(e.type)) return
+  const A = aabb(e)
+  let best: SnapSuggestion | null = null
+  const consider = (otherId: string, axis: 'x' | 'y', gap: number, delta: number) => {
+    if (Math.abs(gap) < 0.005 || Math.abs(gap) > 0.6) return
+    if (!best || Math.abs(gap) < Math.abs(best.gap)) {
+      const name = (t: string) => PALETTE.find((p) => p.type === t)?.label ?? t
+      const other = scene.elements.find((x) => x.id === otherId)!
+      best = { id, otherId, axis, gap, delta, label: name(e.type), otherLabel: name(other.type) }
+    }
+  }
+  for (const o of scene.elements) {
+    if (o.id === id || !SOLID.has(o.type)) continue
+    const B = aabb(o)
+    const overlapX = Math.min(A.xmax, B.xmax) - Math.max(A.xmin, B.xmin) > 0.05
+    const overlapY = Math.min(A.ymax, B.ymax) - Math.max(A.ymin, B.ymin) > 0.05
+    if (overlapX) {
+      const gTop = A.ymin - B.ymax   // A 在 B 上方：>0 空隙，<0 重叠
+      const gBot = B.ymin - A.ymax   // A 在 B 下方
+      if (Math.abs(gTop) < Math.abs(gBot)) consider(o.id, 'y', gTop, -gTop); else consider(o.id, 'y', gBot, gBot)
+    }
+    if (overlapY) {
+      const gRight = A.xmin - B.xmax // A 在 B 右侧
+      const gLeft = B.xmin - A.xmax  // A 在 B 左侧
+      if (Math.abs(gRight) < Math.abs(gLeft)) consider(o.id, 'x', gRight, -gRight); else consider(o.id, 'x', gLeft, gLeft)
+    }
+  }
+  snap.value = best
+}
+function applySnap() {
+  const s = snap.value
+  if (!s) return
+  const e = scene.elements.find((x) => x.id === s.id)
+  if (e) {
+    e.position = { ...e.position, [s.axis]: +(e.position[s.axis] + s.delta).toFixed(3) }
+    renderer?.updateElement(e.id, { position: e.position })
+    toast.value = `已把「${s.label}」贴紧「${s.otherLabel}」（消除 ${Math.abs(s.gap).toFixed(2)} m ${s.gap > 0 ? '空隙' : '重叠'}）`
+  }
+  snap.value = null
 }
 
 let dragging = false
@@ -347,6 +402,7 @@ function onPointerMove(ev: PointerEvent) {
 }
 
 function onPointerUp() {
+  if (dragging && selectedId.value) checkSnap(selectedId.value)
   dragging = false
 }
 
@@ -581,6 +637,7 @@ watch(() => state.status, (status) => {
 })
 
 onMounted(async () => {
+  if (import.meta.env.DEV) (window as unknown as { __lab?: unknown }).__lab = { scene, checkSnap, applySnap, snap, setDim, applyDimTemplate, templates: TEMPLATES }
   if (canvasRef.value) {
     renderer = createSimRenderer(canvasRef.value)
     renderer.setDimension(dim.value)
@@ -656,6 +713,11 @@ onUnmounted(() => {
 
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="toast" class="toast" @click="toast = ''">{{ toast }}</p>
+    <div v-if="snap" class="snapbar">
+      <span>📐 检测到「{{ snap.label }}」与「{{ snap.otherLabel }}」之间{{ snap.gap > 0 ? `有 ${snap.gap.toFixed(2)} m 空隙` : `重叠 ${(-snap.gap).toFixed(2)} m` }}——是否贴紧放置？</span>
+      <button class="ok" @click="applySnap">贴紧</button>
+      <button @click="snap = null">保持原位</button>
+    </div>
 
     <section class="workspace">
       <aside class="left">
@@ -823,6 +885,9 @@ h3 { font-size: 13px; color: #b0b0cc; margin-bottom: 10px; }
 .tpl:hover:not(:disabled) { border-color: #3ecf8e; color: #7fe3b3; }
 .tpl:disabled { opacity: 0.45; cursor: not-allowed; }
 .chk { display: flex !important; align-items: center; gap: 6px; }
+.snapbar { display: flex; align-items: center; gap: 10px; margin: 6px 0; padding: 8px 12px; background: #2a2618; border: 1px solid #5a4d2f; border-radius: 8px; color: #f5d78a; font-size: 12px; }
+.snapbar button { padding: 4px 12px; border-radius: 6px; border: 1px solid #5a4d2f; background: #14142a; color: #b0b0cc; cursor: pointer; }
+.snapbar button.ok { background: #F5C542; color: #1a1a2e; border-color: #F5C542; font-weight: 600; }
 .hint { color: #565675; font-size: 11px; margin: 8px 0; }
 .chat {
   margin-top: 12px; flex: 1; display: flex; flex-direction: column; min-height: 180px;

@@ -27,6 +27,7 @@ let animId = 0
 const B = ref(1.0)
 const v0 = ref(2)
 const q = ref(1)
+const fieldR = ref(6)   // 磁场区域半径（有界磁场：区域外无场，粒子出界后直线飞出）
 const N1 = ref(200)
 const N2 = ref(50)
 const U1 = ref(220)
@@ -147,30 +148,41 @@ class TrackPlayer {
 
 // ══════════ 各实验实现 ══════════
 
-/** 洛伦兹力 / 带电粒子在匀强磁场中：粒子沿圆周运动、轨迹生长；particleB 加第二粒子对比半径 */
+/** 洛伦兹力 / 带电粒子在匀强磁场中：有界圆形磁场区域（半径可调），区域内圆周运动、出界后直线；particleB 加第二粒子对比半径 */
 function buildLorentz(): Anim {
   const two = props.mode === 'particleB'
   let players: TrackPlayer[] = []
   return {
     build() {
       clearTracked()
-      track(bFieldYGrid(3, 3.2, 5))
-      const accel = lorentzAccel({ x: 0, y: 0, z: 0 }, { x: 0, y: B.value, z: 0 }, q.value, 1)
+      const R = fieldR.value
+      // 磁场区域：边界环 + 区域内 B 箭头阵列
+      const ring = track(mkMesh(new THREE.TorusGeometry(R, 0.05, 8, 96), 0xb06ce6, { basic: true, opacity: 0.8 }))
+      ring.rotation.x = Math.PI / 2
+      const n = Math.max(3, Math.min(7, Math.round(R / 1.2)))
+      const grid = bFieldYGrid(n, (2 * R * 0.85) / (n - 1), 5)
+      grid.children.forEach((a) => { if (Math.hypot(a.position.x, a.position.z) > R) a.visible = false })
+      track(grid)
+      const inside = lorentzAccel({ x: 0, y: 0, z: 0 }, { x: 0, y: B.value, z: 0 }, q.value, 1)
+      const accel = (p: Vec3, v: Vec3, t: number) => (Math.hypot(p.x, p.z) <= R ? inside(p, v, t) : { x: 0, y: 0, z: 0 })
       const T = 2 * Math.PI / (Math.abs(q.value) * B.value)
       const speeds = two ? [v0.value, v0.value * 0.6] : [v0.value]
       const colors = [0xF5C542, 0x4A90D9]
       players = speeds.map((v, i) => {
-        const pts = rk4Trajectory({ x: v / (Math.abs(q.value) * B.value), y: 0, z: 0 },
-          { x: 0, y: 0, z: v }, 0.005, 3 * T, accel)
+        const r = v / (Math.abs(q.value) * B.value)
+        // 从区域左边界处沿 +z 射入（半径 r 的圆心在原点右侧 r 处）；r > R 时粒子走一段圆弧后出界
+        const pts = rk4Trajectory({ x: Math.min(r, R * 0.999), y: 0, z: r > R ? -Math.sqrt(Math.max(0, R * R - Math.min(r, R * 0.999) ** 2)) : 0 },
+          { x: 0, y: 0, z: v }, 0.005, 3 * T, accel, (p) => norm(p) > R + 8)
         const trail = new GrowingTrail(colors[i], 8000)
         track(trail.line)
         const particle = track(mkMesh(new THREE.SphereGeometry(0.14, 16, 16), colors[i], { emissive: 0.6 }))
         return new TrackPlayer(pts, 0.005, trail, particle, 1.4)
       })
       const r = v0.value / (Math.abs(q.value) * B.value)
-      resultText.value = `r = mv/(qB) = ${r.toFixed(3)} m　T = 2πm/(qB) = ${T.toFixed(3)} s`
-        + (two ? `　（蓝粒子 v′=0.6v → r′=${(r * 0.6).toFixed(3)} m，半径与速度成正比）` : '')
-      emit('record', { r, T, B: B.value, v: v0.value, q: q.value })
+      resultText.value = `r = mv/(qB) = ${r.toFixed(3)} m　T = 2πm/(qB) = ${T.toFixed(3)} s　磁场区域 R = ${R.toFixed(1)} m`
+        + (r > R ? '　→ r > R：粒子转过一段圆弧后出界直线飞出（有界磁场）' : '　→ r ≤ R：在区域内做完整圆周')
+        + (two ? `　（蓝粒子 v′=0.6v → r′=${(r * 0.6).toFixed(3)} m）` : '')
+      emit('record', { r, T, B: B.value, v: v0.value, q: q.value, fieldR: R, exits: r > R })
     },
     tick(dt) { players.forEach((p) => p.tick(dt)) },
   }
@@ -548,7 +560,8 @@ onUnmounted(() => {
         <label>磁感应强度 B = {{ B.toFixed(1) }} T<input type="range" min="0.5" max="3" step="0.1" v-model.number="B"></label>
         <label>初速度 v = {{ v0 }} m/s<input type="range" min="0.5" max="4" step="0.5" v-model.number="v0"></label>
         <label>电荷量 q = {{ q }} C<input type="range" min="0.5" max="2" step="0.5" v-model.number="q"></label>
-        <p class="desc">调参后按「重置」按新参数重建轨迹</p>
+        <label>磁场区域半径 R = {{ fieldR.toFixed(1) }} m（有界磁场，出界后直线）<input type="range" min="1" max="10" step="0.5" v-model.number="fieldR"></label>
+        <p class="desc">调参后按「重置」按新参数重建轨迹；r = mv/(qB) 大于 R 时粒子走一段圆弧后飞出</p>
       </template>
       <template v-else-if="mode === 'alpha'">
         <h3>α粒子散射（卢瑟福）</h3>

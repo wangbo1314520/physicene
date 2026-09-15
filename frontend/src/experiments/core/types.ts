@@ -53,6 +53,10 @@ export interface ExperimentModule {
   available: boolean
   /** 预计开放的批次 */
   batch?: string
+  /** 所属层：教材实验（默认）/ 高考·竞赛题（B9-B11 新增层，独立目录 /gaokao，不计入教材 55 卡台账） */
+  layer?: 'textbook' | 'gaokao'
+  /** 核心考点标签（高考/竞赛层） */
+  tags?: string[]
   /** 2.5D 实验的仿真预置（available 且 dimension=2.5D 时必填） */
   preset?: ExperimentPreset
   /** 自定义实验组件（2D/3D 类实验：自带仪器面板与图层，B1 起） */
