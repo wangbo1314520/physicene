@@ -62,7 +62,6 @@ const STEP_CONFIG: Record<string, { topic: string; method: string; formula: stri
   'bx2-energy': { topic: '机械能守恒', method: '观察自由落体动能增长', formula: 'Ek增量=Ep减量', dataDesc: 'Ek-t 应为抛物线' },
   'bx3-coulomb-repulsion': { topic: '库仑力', method: '观察两电荷远离', formula: 'F=Kq₁q₂/r²', dataDesc: '电荷间距越大加速度越小' },
   'bx3-coulomb-attraction': { topic: '库仑引力', method: '观察异种电荷靠近', formula: 'F=Kq₁q₂/r²（异号相吸）', dataDesc: '靠近过程中加速→碰撞→弹开' },
-  'xb2-mass-spectrometer': { topic: '质谱仪', method: '观察不同速率电荷偏转', formula: 'r=mv/qB', dataDesc: '速率大的电荷圆周半径大' },
   'xb3-alpha-scatter': { topic: 'α散射', method: '观察不同瞄准距离的散射', formula: '瞄准距离小→偏转角大', dataDesc: '三条轨迹对应不同 b 值' },
   // B1 2D
   'bx3-emf-internal': { topic: '电源电动势与内阻', method: '调变阻器记录U-I', formula: 'U=E−Ir（截距=E，斜率=−r）', dataDesc: 'U-I 图线为直线，截距≈E，斜率≈−r' },
