@@ -232,7 +232,7 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 | 937a191 | 质量 | 内容一致性核查：E2E 标题↔内容断言+修 bx1-hooke 错位+作用反作用力箭头+snap-stage 工具 |
 | 64aa94c | P0-2 | CircuitEditor 自由搭建编辑器 + 高考 6 电路实验接入 + 电路正确性 E2E |
 | 07348cd | P0-2 | 继电器/感应线圈元件 + 电磁振荡/光控路灯/电磁感应接线舞台 + 静电装置操作 |
-| （本轮） | 实验台 | 三维度元件体系：2D/2.5D/3D 分段 + 7 元件按维度过滤 + 11 模板 + lab-check E2E |
+| 9c9eeba | 实验台 | 三维度元件体系：2D/2.5D/3D 分段 + 7 元件按维度过滤 + 11 模板 + lab-check E2E |
 
 ### 实验库之前的里程碑
 
