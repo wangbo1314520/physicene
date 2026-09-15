@@ -1,4 +1,4 @@
-"""实验库（/exp/:id）无头 E2E：登录 → 逐个打开实验 → 断言仪器画布/内容与标题一致/按钮交互/控制台无错误。
+"""实验库（/exp/:id）无头 E2E：登录 → 逐个打开实验 → 断言仪器画布/内容与标题一致/动画多帧变化/按钮交互/控制台无错误。
 用法（Vite dev + Java 8080 已启动）：
   set PLAYWRIGHT_BROWSERS_PATH=E:\\Program\\playwright-browsers
   python frontend/e2e/exp-lib-check.py [--ids a,b,c] [--url http://localhost:5173]
@@ -74,6 +74,16 @@ KEYWORDS = {
 
 ALL_IDS = list(KEYWORDS.keys())
 
+# 动画正确性断言：点主按钮后间隔 400ms 采两帧舞台画布，必须不同（防止“动画是一张静图”）。
+ANIMATED_IDS = {
+    "bx3-induction-condition", "bx3-emf-factors", "bx3-lenz-law", "xb2-ampere-force",
+    "xb2-lorentz-demo", "xb2-particle-bfield", "xb2-transformer", "xb3-brownian", "xb3-alpha-scatter",
+    "bx1-action-reaction", "bx1-conical-pendulum", "bx2-centripetal", "bx1-newton-tube",
+    "bx2-work-velocity", "xb3-gas-isotherm", "bx1-galileo-ramp", "xb2-em-oscillation",
+    "bx2-circular-life", "bx2-motion-composition", "bx1-inertia", "bx2-energy",
+}
+STAGE_SEL = ".lab canvas, .exp canvas, .alt-stage canvas, .sim25d canvas"
+
 
 def login(api_base: str) -> dict:
     req = urllib.request.Request(
@@ -134,10 +144,22 @@ def main() -> int:
             # 主动作按钮（第一个非 alt/ghost 的 .btn 或 .run）
             main_btn = page.locator(".panel .btn:not(.alt):not(.ghost), .panel .run, .panel > button:not(.rec):not(.btn), .sim25d .primary").first
             clicked_main = False
+            anim_ok = True
             if main_btn.count() and main_btn.is_enabled():
                 main_btn.click()
                 clicked_main = True
-                page.wait_for_timeout(1200)
+                if exp_id in ANIMATED_IDS:
+                    stage = page.locator(STAGE_SEL).first
+                    page.wait_for_timeout(250)
+                    frame_a = stage.screenshot()
+                    page.wait_for_timeout(400)
+                    frame_b = stage.screenshot()
+                    anim_ok = frame_a != frame_b
+                    if not anim_ok:
+                        failures.append(f"{exp_id}: 动画静止——主按钮后间隔 400ms 两帧完全相同")
+                    page.wait_for_timeout(550)
+                else:
+                    page.wait_for_timeout(1200)
             rec_btn = page.locator(".panel .btn.alt, .panel .rec").first
             clicked_rec = False
             if rec_btn.count() and rec_btn.is_enabled():
@@ -146,8 +168,9 @@ def main() -> int:
                 page.wait_for_timeout(300)
             page.screenshot(path=str(OUT / f"exp-{exp_id}.png"))
             real_errors = [e for e in errors if "favicon" not in e]
-            ok = canvases >= 1 and not real_errors and content_ok
-            print(f"  {'✓' if ok else '✗'} 画布 {canvases} 个 | 内容{'一致' if content_ok else '不符!'} | 主按钮{'已点' if clicked_main else '无/禁用'} | 记录{'已点' if clicked_rec else '无/禁用'} | 控制台错误 {len(real_errors)}")
+            ok = canvases >= 1 and not real_errors and content_ok and anim_ok
+            anim_txt = ("动画✓" if anim_ok else "动画静止!") if exp_id in ANIMATED_IDS else "动画n/a"
+            print(f"  {'✓' if ok else '✗'} 画布 {canvases} 个 | 内容{'一致' if content_ok else '不符!'} | {anim_txt} | 主按钮{'已点' if clicked_main else '无/禁用'} | 记录{'已点' if clicked_rec else '无/禁用'} | 控制台错误 {len(real_errors)}")
             for e in real_errors[:3]:
                 print("     ", e[:180])
             if canvases < 1 or real_errors:

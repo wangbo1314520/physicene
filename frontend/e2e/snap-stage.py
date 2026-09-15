@@ -3,6 +3,7 @@
 输出 frontend/e2e/out/stage-<id>-<ms>.png
 """
 import argparse
+import hashlib
 import json
 import sys
 import urllib.request
@@ -33,6 +34,7 @@ def main() -> int:
     ap.add_argument("--api", default="http://localhost:8080")
     ap.add_argument("--id", required=True)
     ap.add_argument("--at", default="700,950,1050", help="页面就绪后的毫秒时刻列表")
+    ap.add_argument("--click-main", action="store_true", help="就绪后先点主按钮（▶ 播放/释放等）再采样")
     args = ap.parse_args()
     ats = [int(s) for s in args.at.split(",") if s.strip()]
 
@@ -47,13 +49,22 @@ def main() -> int:
         page.goto(f"{args.url}/exp/{args.id}")
         page.wait_for_selector(STAGE_SEL, timeout=12000)
         stage = page.locator(STAGE_SEL).first
+        if args.click_main:
+            btn = page.locator(".panel .btn:not(.alt):not(.ghost), .panel .run, .panel > button:not(.rec):not(.btn), .sim25d .primary").first
+            if btn.count() and btn.is_enabled():
+                btn.click()
+                print("clicked main:", btn.inner_text().strip()[:20])
         elapsed = 0
+        digests = []
         for ms in ats:
             page.wait_for_timeout(max(0, ms - elapsed))
             elapsed = ms
             path = OUT / f"stage-{args.id}-{ms}.png"
             stage.screenshot(path=str(path))
+            digests.append(hashlib.md5(path.read_bytes()).hexdigest()[:8])
             print("saved", path)
+        distinct = len(set(digests))
+        print(f"frames={len(digests)} distinct={distinct} {'ANIMATED' if distinct == len(digests) else 'STATIC!'} {digests}")
         browser.close()
     return 0
 

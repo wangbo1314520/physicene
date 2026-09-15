@@ -243,7 +243,7 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 | B0-B8 E2E | 每批次 | ✅ 0 控制台错误 | Playwright（浏览器在 E:\Program\playwright-browsers） |
 | 55 卡逐卡 E2E | 55 | ✅ 55/55 | 同上 |
 | 演示页无头 E2E | 14 项 | ✅ 全过，0 控制台错误 | `set PLAYWRIGHT_BROWSERS_PATH=E:\Program\playwright-browsers && python frontend/e2e/sim-demo-check.py`（需 Vite 在 5174） |
-| 实验库逐实验无头 E2E | 55 | ✅ 55/55，内容一致，0 控制台错误 | `python -u frontend/e2e/exp-lib-check.py [--ids a,b] [--url http://localhost:5173]`（API 登录 demo 账号后逐个打开 /exp/:id，断言仪器画布、**面板标题含该实验专属关键词（标题↔内容一致）**、点主按钮与记录按钮、收集控制台错误；需 Java 8080）。抓动画时间窗口帧用 `frontend/e2e/snap-stage.py --id <id> --at 300,850,1000` |
+| 实验库逐实验无头 E2E | 55 | ✅ 55/55，内容一致，动画多帧，0 控制台错误 | `python -u frontend/e2e/exp-lib-check.py [--ids a,b] [--url http://localhost:5173]`（API 登录 demo 账号后逐个打开 /exp/:id，断言仪器画布、**面板标题含该实验专属关键词（标题↔内容一致）**、**21 个应动实验点主按钮后间隔 400ms 两帧必须不同（动画正确性）**、点主按钮与记录按钮、收集控制台错误；需 Java 8080）。抓动画时间窗口帧用 `frontend/e2e/snap-stage.py --id <id> --click-main --at 600,1500,2600`（输出 ANIMATED/STATIC 判定） |
 
 > 2026-09-15 上线评审复核：此前 56 个前端单测仅在会话内临时运行、未入库；本日以 vitest 正式落盘为 4 个 `*.test.ts`，
 > 数量口径不变，可 `pnpm test` 复现。
@@ -259,11 +259,13 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 - ✅ 上线评审包（5 项全关 + 2026-09-15 复核 7 项问题已修复，见 launch-review.md §评审复核记录）
 - ✅ 实验库质量审计与整改（2026-09-15，见 launch-review.md §实验库质量审计与整改）：22 个“公式壳/占位壳”实验重建为真仪器交互（补做 10 + 替代 12），10 个实验补仪器动画（约束族 8 + 胡克/光电 2），修复多用电表挂错内容的 bug；55 个实验现均有专用仪器画布
 - ✅ 结项评审通过
+- ⚠️ **2026-09-15 复盘发现 P0-2：自由电路搭建引擎（CircuitEngine）从未交付**——B1 开工令明确要求“自由拖元件搭电路，必须做”，B1–B8 全程缺席，上线评审未查；12 个电路类实验现为“固定电路图 + 调参 + 坐标纸”模板，自由搭建为零。已立项修复，缺陷报告/元件清单/引擎规格见 `frontend/src/experiments/docs/p0-circuit/defect-report.md`。P0-1（3D 静图）已于 ced7e22 修复并经 9/9 帧采样实证关闭
 
 ### 待做（毕设主线，非实验库）
 
 | # | 任务 | 优先级 |
 |:--|:---|:--:|
+| 0 | **P0-2 CircuitEngine**：引擎核心（MNA 直流/暂态/交流/故障/判分）→ CircuitEditor → 第一优先 6 个高考电路实验 → 电磁感应 3 → 传感器/电磁振荡/静电 → 电路正确性 E2E → 修复报告重新验收 | **最高** |
 | 1 | **第六周主线**：报告生成导出(POI Word)/学生画像/教师策略/Redis/docker-compose | 高 |
 | 2 | 上线评审（用户审阅上线评审包） | 高 |
 | 3 | 毕设论文撰写（第 3 章复用 SRS，第 5 章写实现，第 7 章 5 个创新点） | 高 |
@@ -287,11 +289,13 @@ B4（电路引擎）和 B5（光学引擎）未独立开工，相关实验已用
 9. **实验组件质量底线（硬性）**：每个实验必须有自己的仪器交互画布与真实物理过程（学生操作仪器→读数→作图），禁止用“滑杆+公式生成读数”的公式壳或“动画占位”的占位框冒充可做实验；共享组件只能承载共同底座（面板壳/绘制原语/舞台），不能承载实验本体。新实验用 `defs/apparatus/LabPanel.vue` 起手
 10. **共享组件必须经薄包装挂载（硬性）**：`ExperimentShell` 挂载实验组件时不传任何 props。凡是带必填 `mode`/配置 prop 的共享组件（`ExpConstraint`、`Exp3D`、`ExpHookePhoto`、`ExpTape`、`ExpCanvasPanels`…），注册表**禁止直接引用**，必须通过 `ExpPendulumG.vue` 这类 6 行薄包装传参（Vue 单根组件会把 shell 的 `@record` 等监听自动透传，无需手写转发）。曾因 `bx1-hooke` 直接挂 `ExpHookePhoto` 导致胡克定律页显示光电效应；E2E 的内容一致性断言（每实验一条关键词）是这条规则的自动守卫，新增实验必须同步在 `exp-lib-check.py` 的 `KEYWORDS` 里加一条
 11. **只保留一个前端 dev server**：Vite 端口被占时会自动漂到 5174，导致“改了代码但浏览器看的是旧端口的旧模块图”（2026-09-15 用户截图问题的直接原因）。开新会话前先 `netstat -ano | grep 5173`，有残留进程就先停掉再 `pnpm dev`；浏览器侧用 Ctrl+F5 强刷
+12. **验收制度（永久，2026-09-15 两个 P0 复盘后确立）**：P0-1“3D 动画是静图”与 P0-2“自由电路搭建引擎从未交付”暴露同一病根——验收只看流程不看教学本质。此后每批次验收必须同时满足：① **元件清单对账**（应有元件 vs 实际元件对账表，缺一不验）；② **动画正确性 E2E**（多帧采样，已固化为 `exp-lib-check.py` 的 `ANIMATED_IDS` 两帧必须不同）；③ **电路正确性 E2E**（连线/故障/判分实测，随 CircuitEngine 交付）；④ **物理正确性抽检**（每实验 ≥1 项物理量对比理论值，阈值写进用例）；⑤ **人工验收**（每批次人工逐实验操作，不得只靠自动化）；⑥ **截图/录屏归档**（每实验 ≥1 张运行截图 + 1 段多帧采样，`e2e/out/` + `snap-stage.py`）；⑦ **教学本质检查**（每实验问“学生能不能做这个实验的核心操作”，不能只问“能不能打开”）。开工令里的每条能力要求都必须出现在对应批次 DoD 里，DoD 缺项视为验收无效
 
 ## 十二、实验库文档索引
 
 | 文档 | 位置 |
 |:---|:---|
+| **P0-2 缺陷报告：CircuitEngine 从未交付**（现状对账/12 元件清单/引擎规格/修复顺序/验收制度） | frontend/src/experiments/docs/p0-circuit/defect-report.md |
 | 需求规格说明书 v3.4.1（冻结） | docs/01-需求规格说明书_v3.4.1.md |
 | 教材实验清单 | docs/教材实验清单与平台覆盖.md |
 | 优先级与维度规划 | docs/实验开发优先级与维度规划.md |
