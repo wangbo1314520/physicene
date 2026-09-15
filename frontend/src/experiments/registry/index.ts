@@ -5,7 +5,7 @@
  */
 import type { Component } from 'vue'
 import type { ExperimentModule, ExperimentPreset } from '../core/types'
-import ExpEmf from '../defs/ExpEmf.vue'
+import ExpEmfCircuit from '../defs/ExpEmfCircuit.vue'
 import ExpHookeLaw from '../defs/ExpHookeLaw.vue'
 import ExpPhotoelectric from '../defs/ExpPhotoelectric.vue'
 import ExpCanvasPanels from '../defs/ExpCanvasPanels.vue'
@@ -23,7 +23,7 @@ import ExpNewtonTube from '../defs/ExpNewtonTube.vue'
 import ExpGasIsotherm from '../defs/ExpGasIsotherm.vue'
 import ExpWorkVelocity from '../defs/ExpWorkVelocity.vue'
 import ExpActionReaction from '../defs/ExpActionReaction.vue'
-import ExpMultimeter from '../defs/ExpMultimeter.vue'
+import ExpMultimeterCircuit from '../defs/ExpMultimeterCircuit.vue'
 import ExpInduction from '../defs/ExpInduction.vue'
 import ExpEmfFactors from '../defs/ExpEmfFactors.vue'
 import ExpLenzLaw from '../defs/ExpLenzLaw.vue'
@@ -46,15 +46,15 @@ import ExpTotalReflection from '../defs/ExpTotalReflection.vue'
 import ExpEmOscillation from '../defs/ExpEmOscillation.vue'
 import ExpSensorControl from '../defs/ExpSensorControl.vue'
 import ExpTapeVelocity from '../defs/ExpTapeVelocity.vue'
-import ExpCapacitorCharge from '../defs/ExpCapacitorCharge.vue'
-import ExpResistivity from '../defs/ExpResistivity.vue'
+import ExpCapacitorCircuit from '../defs/ExpCapacitorCircuit.vue'
+import ExpResistivityCircuit from '../defs/ExpResistivityCircuit.vue'
 import ExpRefraction from '../defs/ExpRefraction.vue'
 import ExpStaticFriction from '../defs/ExpStaticFriction.vue'
 import ExpCoulombBalance from '../defs/ExpCoulombBalance.vue'
 import ExpWaveInterference from '../defs/ExpWaveInterference.vue'
 import ExpLightPhenomena from '../defs/ExpLightPhenomena.vue'
-import ExpSelfInduction from '../defs/ExpSelfInduction.vue'
-import ExpLcAc from '../defs/ExpLcAc.vue'
+import ExpSelfInductionCircuit from '../defs/ExpSelfInductionCircuit.vue'
+import ExpLcAcCircuit from '../defs/ExpLcAcCircuit.vue'
 
 /** 通用四步流程（2.5D 仿真实验共用骨架，B0 7 个实验的步骤） */
 function simSteps(extra: { goal: string; hint: string }[] = []): ExperimentModule['steps'] {
@@ -180,8 +180,8 @@ const AVAILABLE: ExperimentModule[] = [
     name: '电池电动势和内阻的测量',
     book: '必修第三册', chapter: '第十二章 电能 能量守恒定律', dimension: '2D',
     summary: 'U-I 图线：截距=电动势 E，斜率=−内阻 r。',
-    available: true, batch: 'B1', component: ExpEmf as Component,
-    steps: panelSteps('调节滑动变阻器 R，点击「记录此组 (I, U)」采集不同 R 下的读数，至少 6 组'),
+    available: true, batch: 'B1', component: ExpEmfCircuit as unknown as Component,
+    steps: panelSteps('从托盘取元件搭伏安法电路（电压表并联电池，电流表、滑动变阻器、开关串联）→ 闭合开关 → 改滑片记 ≥6 组 (I, U) → 坐标纸拟合'),
   },
   {
     id: 'bx1-hooke',
@@ -289,24 +289,24 @@ const PLANNED_REST: ExperimentModule[] = [
     name: '观察电容器的充、放电现象',
     book: '必修第三册', chapter: '第十章 静电场中的能量', dimension: '2D',
     summary: 'RC 充放电曲线',
-    available: true, batch: 'B8', component: ExpCapacitorCharge as unknown as Component,
-    steps: panelSteps('调节参数 → 记录读数 → 坐标纸拟合'),
+    available: true, batch: 'B8', component: ExpCapacitorCircuit as unknown as Component,
+    steps: panelSteps('搭 RC 电路（电源—单刀双掷—电阻—电容，电流计串联、电压表并联电容）→ K 拨 1 充电 → K 拨 2 放电 → 读示波器 τ'),
   },
     {
     id: 'bx3-resistivity',
     name: '导体电阻率的测量',
     book: '必修第三册', chapter: '第十一章 电路及其应用', dimension: '2D',
     summary: '伏安法+R=ρL/S',
-    available: true, batch: 'B8', component: ExpResistivity as unknown as Component,
-    steps: panelSteps('调节参数 → 记录读数 → 坐标纸拟合'),
+    available: true, batch: 'B8', component: ExpResistivityCircuit as unknown as Component,
+    steps: panelSteps('搭电流表外接法电路（电压表只并金属丝）→ 改滑片记 ≥5 组 (I, U) → 拟合 R → 用 d、L 算 ρ'),
   },
     {
     id: 'bx3-multimeter',
-    name: '练习使用多用电表（虚拟仪表）',
+    name: '练习使用多用电表',
     book: '必修第三册', chapter: '第十一章 电路及其应用', dimension: '2.5D',
     summary: '虚拟多用电表读数练习',
-    available: true, batch: 'B2', component: ExpMultimeter as unknown as Component,
-    steps: panelSteps('虚拟仪表读数练习 → 记录'),
+    available: true, batch: 'B2', component: ExpMultimeterCircuit as unknown as Component,
+    steps: panelSteps('按任务接线：欧姆挡测未知电阻（断电、断开）→ 电压挡并联 → 电流挡串联 → 判二极管极性，各记录一次'),
   },
     {
     id: 'xb1-pendulum-g',
@@ -468,16 +468,16 @@ const PLANNED_REST: ExperimentModule[] = [
     name: '探究自感现象',
     book: '选择性必修第二册', chapter: '第二章 电磁感应', dimension: '2D',
     summary: '通电/断电自感',
-    available: true, batch: 'B8', component: ExpSelfInduction as unknown as Component,
-    steps: panelSteps('调节参数 → 记录读数 → 坐标纸拟合'),
+    available: true, batch: 'B8', component: ExpSelfInductionCircuit as unknown as Component,
+    steps: panelSteps('搭双灯并联电路（L 串灯 A，滑变串灯 B）→ 闭合开关看 A 后亮 → 断开看两灯闪亮 → 读 τ'),
   },
     {
     id: 'xb2-lc-ac',
     name: '探究电感器和电容器对交流电的影响',
     book: '选择性必修第二册', chapter: '第三章 交变电流', dimension: '2D',
     summary: '感抗/容抗与频率',
-    available: true, batch: 'B8', component: ExpLcAc as unknown as Component,
-    steps: panelSteps('调节参数 → 记录读数 → 坐标纸拟合'),
+    available: true, batch: 'B8', component: ExpLcAcCircuit as unknown as Component,
+    steps: panelSteps('搭交流回路（信号源—开关—灯泡—电感/电容）→ 调频率看灯亮 → 记 ≥5 组 (f, I) → 换电容再做'),
   },
     {
     id: 'xb3-brownian',

@@ -20,6 +20,7 @@ export type ComponentKind =
   | 'diode'          // 二极管（阳极=0，阴极=1）
   | 'photoresistor'  // 光敏电阻（Rdark / Rlight，light∈[0,1]）
   | 'wire_sample'    // 待测金属丝（电阻率实验：ρ、L、d 决定 R）
+  | 'multimeter'     // 多用电表（mode: dcv / dca / ohm；欧姆挡内含 1.5V 电源与中值电阻 r₀）
 
 export interface PinRef { comp: string; pin: number }
 
@@ -77,6 +78,8 @@ export type FaultCode =
   | 'range_too_large'
   | 'capacitor_reversed'
   | 'lamp_overload'
+  | 'ohm_live_circuit'
+  | 'ohm_not_isolated'
 
 export interface Fault {
   code: FaultCode
@@ -88,10 +91,12 @@ export interface Fault {
 
 export interface MeterReading {
   compId: string
-  kind: 'ammeter' | 'voltmeter' | 'galvanometer'
-  value: number       // 有符号读数（按 + → − 记正）
-  range: number
-  deflection: number  // value / range，可为负或 > 1
+  kind: 'ammeter' | 'voltmeter' | 'galvanometer' | 'multimeter'
+  /** 多用电表当前挡位（仅 multimeter） */
+  mode?: 'dcv' | 'dca' | 'ohm'
+  value: number       // 有符号读数（按 + → − 记正；欧姆挡为电阻值 Ω）
+  range: number       // 满偏值（欧姆挡为中值电阻 r₀）
+  deflection: number  // 指针偏转 0..1（欧姆挡 = r₀/(r₀+R)），可为负或 > 1
   reversed: boolean
   overRange: boolean
 }

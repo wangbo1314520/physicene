@@ -24,6 +24,14 @@ export const GALVANOMETER_RANGES: Record<string, { range: number; r: number }> =
   '300μA': { range: 300e-6, r: 100 },
   '3mA': { range: 3e-3, r: 30 },
 }
+/** 多用电表（MF47 型近似）：电压挡灵敏度 20kΩ/V；电流挡内阻；欧姆挡中值电阻 r₀（电池 1.5V） */
+export const MULTIMETER_RANGES = {
+  dcv: { '2.5V': { range: 2.5, r: 50000 }, '10V': { range: 10, r: 200000 }, '50V': { range: 50, r: 1e6 } } as Record<string, { range: number; r: number }>,
+  dca: { '0.5mA': { range: 0.5e-3, r: 200 }, '5mA': { range: 5e-3, r: 20 }, '50mA': { range: 50e-3, r: 2 }, '500mA': { range: 0.5, r: 0.2 } } as Record<string, { range: number; r: number }>,
+  ohm: { '×1': { range: 15, r: 15 }, '×10': { range: 150, r: 150 }, '×100': { range: 1500, r: 1500 }, '×1k': { range: 15000, r: 15000 } } as Record<string, { range: number; r: number }>,
+}
+export const OHM_EMF = 1.5
+export type MultimeterMode = 'dcv' | 'dca' | 'ohm'
 
 export const DEFS: Record<ComponentKind, ComponentDef> = {
   battery: { kind: 'battery', label: '干电池', pins: ['+', '−'], category: '电源',
@@ -58,6 +66,8 @@ export const DEFS: Record<ComponentKind, ComponentDef> = {
     defaults: { rDark: 100000, rLight: 500, light: 1 } },
   wire_sample: { kind: 'wire_sample', label: '待测金属丝', pins: ['1', '2'], category: '被测',
     defaults: { rho: 1.1e-6, L: 0.5, d: 0.5 } },
+  multimeter: { kind: 'multimeter', label: '多用电表', pins: ['+红', '−黑'], category: '电表',
+    defaults: { mode: 'dcv', rangeKey: '10V' } },
 }
 
 let seq = 0
@@ -76,9 +86,19 @@ export function num(c: CircuitComponent, key: string, fallback = 0): number {
 
 /** 电表量程与内阻 */
 export function meterSpec(c: CircuitComponent): { range: number; r: number } {
+  if (c.kind === 'multimeter') return multimeterSpec(c)
   const key = String(c.props.rangeKey ?? '')
   const table = c.kind === 'ammeter' ? AMMETER_RANGES : c.kind === 'voltmeter' ? VOLTMETER_RANGES : GALVANOMETER_RANGES
   return table[key] ?? Object.values(table)[0]
+}
+
+/** 多用电表当前挡位规格；欧姆挡 range = r₀（中值电阻），r = r₀ */
+export function multimeterSpec(c: CircuitComponent): { mode: MultimeterMode; range: number; r: number } {
+  const mode = (c.props.mode === 'dca' || c.props.mode === 'ohm' ? c.props.mode : 'dcv') as MultimeterMode
+  const table = MULTIMETER_RANGES[mode]
+  const key = String(c.props.rangeKey ?? '')
+  const spec = table[key] ?? Object.values(table)[0]
+  return { mode, ...spec }
 }
 
 /** 小灯泡冷态电阻（线性模型） */
@@ -107,6 +127,7 @@ export function twoTerminalResistance(c: CircuitComponent): number | null {
     case 'resistor': return Math.max(1e-6, num(c, 'R', 100))
     case 'lamp': return lampResistance(c)
     case 'ammeter': case 'voltmeter': case 'galvanometer': return meterSpec(c).r
+    case 'multimeter': { const s = multimeterSpec(c); return s.mode === 'ohm' ? null : s.r }
     case 'photoresistor': return photoResistance(c)
     case 'wire_sample': return wireSampleResistance(c)
     default: return null

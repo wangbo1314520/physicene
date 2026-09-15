@@ -13,7 +13,7 @@ from playwright.sync_api import sync_playwright
 
 OUT = Path(__file__).resolve().parent / "out"
 OUT.mkdir(exist_ok=True)
-STAGE_SEL = ".lab canvas, .exp canvas, .alt-stage canvas, .sim25d canvas"
+STAGE_SEL = ".lab canvas, .exp canvas, .alt-stage canvas, .sim25d canvas, .clab canvas"
 
 
 def login(api_base: str) -> dict:

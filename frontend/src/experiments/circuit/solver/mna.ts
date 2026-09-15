@@ -8,7 +8,7 @@
  */
 import type { Circuit, CircuitComponent, DCSolution, ElementResult, PinRef } from '../types'
 import { buildNetlist, type Netlist } from '../netlist'
-import { num, twoTerminalResistance } from '../components'
+import { num, twoTerminalResistance, multimeterSpec, OHM_EMF } from '../components'
 import { solveReal } from './linear'
 
 export const R_CONTACT = 1e-3
@@ -104,6 +104,10 @@ function solveOnce(circuit: Circuit, net: Netlist, ctx: Ctx): number[] | null {
         if (ctx.state.diodeOn.get(c.id)) { const G = 1 / R_DIODE_ON; stampG(na, nb, G); stampI(na, nb, G * num(c, 'vf', 0.7)) }
         else stampG(na, nb, G_DIODE_OFF)
         break
+      case 'multimeter': { // 只剩欧姆挡：内置 1.5V 电源（正极接黑表笔 pin1，“红进黑出”）+ 中值电阻
+        const G = 1 / multimeterSpec(c).r
+        stampG(na, nb, G); stampI(nb, na, G * OHM_EMF); break
+      }
     }
   }
   const x = solveReal(A, b)
@@ -149,6 +153,7 @@ function extract(circuit: Circuit, net: Netlist, V: number[], ctx: Ctx): Pick<DC
       }
       case 'diode':
         i = ctx.state.diodeOn.get(c.id) ? (v - num(c, 'vf', 0.7)) / R_DIODE_ON : G_DIODE_OFF * v; break
+      case 'multimeter': i = (v + OHM_EMF) / multimeterSpec(c).r; break // 欧姆挡：i 为红→黑内部电流 = 外电路从黑流向红的电流
     }
     elements[c.id] = { v, i, p: v * i }
   }

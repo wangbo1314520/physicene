@@ -55,7 +55,8 @@ function assignRoles(circuit: Circuit, tpl: CircuitTemplate): { roleMap: Record<
   return { roleMap, missing, extra }
 }
 
-export function gradeCircuit(circuit: Circuit, tpl: CircuitTemplate, sol: DCSolution = solveDC(circuit)): GradeResult {
+export function gradeCircuit(circuit: Circuit, tpl: CircuitTemplate, sol: DCSolution = solveDC(circuit),
+                             iOverride?: Record<string, number>): GradeResult {
   const issues: GradeIssue[] = []
   const { roleMap, missing, extra } = assignRoles(circuit, tpl)
   let score = 0
@@ -68,7 +69,8 @@ export function gradeCircuit(circuit: Circuit, tpl: CircuitTemplate, sol: DCSolu
     const a = sol.nodeOf({ comp: id, pin: 0 }), b = sol.nodeOf({ comp: id, pin: 1 })
     return a < b ? `${a}-${b}` : `${b}-${a}`
   }
-  const cur = (id: string) => Math.abs(sol.elements[id]?.i ?? 0)
+  // 交流实验传入 iOverride（有效值），否则用直流解
+  const cur = (id: string) => (iOverride ? Math.abs(iOverride[id] ?? 0) : Math.abs(sol.elements[id]?.i ?? 0))
 
   for (const group of tpl.parallel ?? []) {
     max += 2

@@ -3,11 +3,12 @@
  */
 import type { Circuit, CircuitComponent, DCSolution, Fault, MeterReading } from './types'
 import { buildNetlist } from './netlist'
-import { meterSpec, num, pinCount, twoTerminalResistance } from './components'
+import { meterSpec, multimeterSpec, num, pinCount, twoTerminalResistance, OHM_EMF } from './components'
 
 const isSource = (c: CircuitComponent) => c.kind === 'battery' || c.kind === 'dc_source' || c.kind === 'ac_source'
-type MeterComp = CircuitComponent & { kind: 'ammeter' | 'voltmeter' | 'galvanometer' }
-const isMeter = (c: CircuitComponent): c is MeterComp => c.kind === 'ammeter' || c.kind === 'voltmeter' || c.kind === 'galvanometer'
+type MeterComp = CircuitComponent & { kind: 'ammeter' | 'voltmeter' | 'galvanometer' | 'multimeter' }
+const isMeter = (c: CircuitComponent): c is MeterComp =>
+  c.kind === 'ammeter' || c.kind === 'voltmeter' || c.kind === 'galvanometer' || c.kind === 'multimeter'
 const isLoad = (c: CircuitComponent) =>
   c.kind === 'resistor' || c.kind === 'lamp' || c.kind === 'wire_sample' || c.kind === 'rheostat' ||
   c.kind === 'photoresistor' || c.kind === 'inductor' || c.kind === 'diode'
@@ -16,8 +17,22 @@ export function meterReadings(circuit: Circuit, sol: DCSolution): MeterReading[]
   const out: MeterReading[] = []
   for (const c of circuit.components) {
     if (!isMeter(c) || !sol.elements[c.id]) continue
-    const { range } = meterSpec(c)
     const r = sol.elements[c.id]
+    if (c.kind === 'multimeter') {
+      const spec = multimeterSpec(c)
+      if (spec.mode === 'ohm') {
+        const iExt = r.i // 黑→红 的外电路电流
+        const Rx = iExt > 1e-12 ? OHM_EMF / iExt - spec.r : Infinity
+        out.push({ compId: c.id, kind: 'multimeter', mode: 'ohm', value: Rx, range: spec.r,
+          deflection: Number.isFinite(Rx) ? spec.r / (spec.r + Math.max(0, Rx)) : 0, reversed: iExt < -1e-9, overRange: false })
+      } else {
+        const value = spec.mode === 'dcv' ? r.v : r.i
+        out.push({ compId: c.id, kind: 'multimeter', mode: spec.mode, value, range: spec.range, deflection: value / spec.range,
+          reversed: value < -0.02 * spec.range, overRange: Math.abs(value) > spec.range * 1.001 })
+      }
+      continue
+    }
+    const { range } = meterSpec(c)
     const value = c.kind === 'voltmeter' ? r.v : r.i
     out.push({
       compId: c.id, kind: c.kind, value, range, deflection: value / range,
@@ -36,12 +51,28 @@ export function detectFaults(circuit: Circuit, sol: DCSolution): Fault[] {
   const faults: Fault[] = []
   const comps = circuit.components
   const sources = comps.filter(isSource)
-  if (sources.length === 0) {
+  const ohmMeters = comps.filter((c) => c.kind === 'multimeter' && multimeterSpec(c).mode === 'ohm')
+  if (sources.length === 0 && ohmMeters.length === 0) {
     faults.push({ code: 'no_source', severity: 'error', compIds: [], message: '电路中没有电源' })
     return faults
   }
   if (!sol.ok) return faults
   const net = buildNetlist(circuit)
+
+  // 欧姆挡规则：必须断电测量；待测元件应从电路中断开
+  for (const m of ohmMeters) {
+    if (sources.length) faults.push({ code: 'ohm_live_circuit', severity: 'error', compIds: [m.id, ...sources.map((s) => s.id)],
+      message: '欧姆挡测电阻时电路必须断电——先断开电源，把待测电阻从电路中取出再测' })
+    const pair = nodePair(sol, m)
+    const target = comps.find((c) => c.id !== m.id && pinCount(c.kind) === 2 && nodePair(sol, c) === pair)
+    if (target) {
+      const na = sol.nodeOf({ comp: m.id, pin: 0 }), nb = sol.nodeOf({ comp: m.id, pin: 1 })
+      const others = comps.filter((c) => c.id !== m.id && c.id !== target.id &&
+        Array.from({ length: pinCount(c.kind) }, (_, p) => sol.nodeOf({ comp: c.id, pin: p })).some((n) => n === na || n === nb))
+      if (others.length) faults.push({ code: 'ohm_not_isolated', severity: 'warning', compIds: [target.id, ...others.map((c) => c.id)],
+        message: '待测电阻两端还连着其他元件，测得的是并联值——应把它从电路中断开后单独测' })
+    }
+  }
 
   // 虚接导线
   const loose = circuit.wires.filter((w) => w.loose)
@@ -62,6 +93,7 @@ export function detectFaults(circuit: Circuit, sol: DCSolution): Fault[] {
   for (const s of sources) {
     const src = sol.sources[s.id]
     if (!src) continue
+    if (s.kind === 'ac_source') continue   // 交流源在直流解中 EMF=0，短路/断路判据无意义（由交流解另行判断）
     // 短路：电源看到的外电阻极小
     if (Number.isFinite(src.rExt) && src.rExt < 0.3 && Math.abs(src.iOut) > 1e-6) {
       const path = comps.filter((c) => c.id !== s.id && sol.elements[c.id] && Math.abs(sol.elements[c.id].i) > 0.9 * Math.abs(src.iOut))
@@ -69,10 +101,12 @@ export function detectFaults(circuit: Circuit, sol: DCSolution): Fault[] {
       faults.push({ code: 'short', severity: 'error', compIds: [s.id, ...path.map((c) => c.id)],
         message: `电源被短路：外电路电阻仅 ${src.rExt.toFixed(3)} Ω，电流 ${Math.abs(src.iOut).toFixed(2)} A` })
     }
-    // 断路：没有电流但存在负载
-    const hasLoad = comps.some(isLoad)
+    // 断路：负载元件中没有电流（电压表跨接电源时电源仍有微小电流，不能用电源电流判）
+    const loads = comps.filter(isLoad)
+    const hasLoad = loads.length > 0
+    const loadI = loads.reduce((s, c) => s + Math.abs(sol.elements[c.id]?.i ?? 0), 0)
     const hasCap = comps.some((c) => c.kind === 'capacitor')
-    if (Math.abs(src.iOut) < 1e-9 && hasLoad) {
+    if (hasLoad && loadI < 1e-9) {
       if (openSwitches.length) faults.push({ code: 'switch_open', severity: 'error', compIds: openSwitches.map((c) => c.id), message: '开关未闭合，电路断路' })
       if (dangling.length) faults.push({ code: 'dangling_pin', severity: 'error', compIds: dangling, message: '有元件引脚未接导线，电路断路' })
       if (!openSwitches.length && !dangling.length && !hasCap && !loose.length)
@@ -85,24 +119,32 @@ export function detectFaults(circuit: Circuit, sol: DCSolution): Fault[] {
   // 电表错接
   const loadPairs = new Map<string, string>()
   for (const c of comps) if (isLoad(c) || isSource(c)) loadPairs.set(nodePair(sol, c), c.id)
-  const totalI = Math.max(...sources.map((s) => Math.abs(sol.sources[s.id]?.iOut ?? 0)))
+  const totalI = Math.max(0, ...sources.map((s) => Math.abs(sol.sources[s.id]?.iOut ?? 0)))
+  const actsAsAmmeter = (c: CircuitComponent) => c.kind === 'ammeter' || c.kind === 'galvanometer' || (c.kind === 'multimeter' && multimeterSpec(c).mode === 'dca')
+  const actsAsVoltmeter = (c: CircuitComponent) => c.kind === 'voltmeter' || (c.kind === 'multimeter' && multimeterSpec(c).mode === 'dcv')
+  // 与任一二端元件共享两端节点的电压表 = 并联接法（即使直流下该元件开路，如电容），不判串联
+  const pairsOfParts = new Set(comps.filter((c) => !isMeter(c) && pinCount(c.kind) === 2).map((c) => nodePair(sol, c)))
   for (const c of comps) {
-    if (c.kind === 'ammeter' || c.kind === 'galvanometer') {
+    if (actsAsAmmeter(c)) {
       const other = loadPairs.get(nodePair(sol, c))
       if (other) faults.push({ code: 'ammeter_parallel', severity: 'error', compIds: [c.id, other],
-        message: `${c.kind === 'ammeter' ? '电流表' : '电流计'}并联在元件两端——会短路该元件并可能烧表` })
+        message: `${meterName(c)}并联在元件两端——会短路该元件并可能烧表` })
     }
-    if (c.kind === 'voltmeter' && totalI > 1e-7) {
+    if (actsAsVoltmeter(c) && totalI > 1e-7 && !pairsOfParts.has(nodePair(sol, c))) {
       const iv = Math.abs(sol.elements[c.id]?.i ?? 0)
       if (Math.abs(iv - totalI) < 0.01 * totalI) faults.push({ code: 'voltmeter_series', severity: 'error', compIds: [c.id],
-        message: '电压表被串联进主回路——内阻极大，电路几乎无电流，用电器不工作' })
+        message: `${meterName(c)}被串联进主回路——内阻极大，电路几乎无电流，用电器不工作` })
     }
   }
 
   // 读数：反接 / 超量程 / 量程过大
   for (const m of meterReadings(circuit, sol)) {
     const c = comps.find((x) => x.id === m.compId)!
-    const name = c.kind === 'voltmeter' ? '电压表' : c.kind === 'ammeter' ? '电流表' : '电流计'
+    const name = meterName(c)
+    if (m.mode === 'ohm') {
+      if (m.reversed) faults.push({ code: 'meter_reversed', severity: 'error', compIds: [c.id], message: `${name}欧姆挡指针反向偏转——外电路带电或极性错误` })
+      continue
+    }
     if (m.reversed) faults.push({ code: 'meter_reversed', severity: 'error', compIds: [c.id], message: `${name}正负接反，指针反向偏转` })
     else if (m.overRange) faults.push({ code: 'over_range', severity: 'error', compIds: [c.id], message: `${name}超量程（读数 ${fmt(m.value)} > 量程 ${fmt(m.range)}），应换大量程` })
     else if (Math.abs(m.value) > 1e-9 && Math.abs(m.value) < m.range / 3)
@@ -119,6 +161,11 @@ export function detectFaults(circuit: Circuit, sol: DCSolution): Fault[] {
       faults.push({ code: 'lamp_overload', severity: 'warning', compIds: [c.id], message: `小灯泡电压 ${Math.abs(r.v).toFixed(2)} V 超过额定值 ${num(c, 'ratedU', 2.5)} V，有烧毁风险` })
   }
   return faults
+}
+
+function meterName(c: CircuitComponent): string {
+  if (c.kind === 'multimeter') { const m = multimeterSpec(c).mode; return `多用电表${m === 'dcv' ? '电压挡' : m === 'dca' ? '电流挡' : '欧姆挡'}` }
+  return c.kind === 'voltmeter' ? '电压表' : c.kind === 'ammeter' ? '电流表' : '电流计'
 }
 
 function fmt(x: number): string {

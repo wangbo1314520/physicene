@@ -4,7 +4,7 @@
  */
 import type { Circuit, CircuitComponent, PinRef } from '../types'
 import { buildNetlist } from '../netlist'
-import { num, twoTerminalResistance } from '../components'
+import { num, twoTerminalResistance, multimeterSpec } from '../components'
 import { solveComplex, cx, cadd, csub, cmul, cdiv, cabs, cang, type Cx } from './linear'
 import { R_CONTACT, R_SRC_MIN } from './mna'
 
@@ -23,6 +23,7 @@ function admittance(c: CircuitComponent, omega: number): Cx | null {
     case 'inductor': return cdiv(cx(1), cx(Math.max(R_CONTACT, num(c, 'rw', 0)), omega * num(c, 'L', 1)))
     case 'switch': return c.props.closed === true ? cx(1 / R_CONTACT) : cx(0)
     case 'diode': return cx(1e-9)
+    case 'multimeter': return cx(1 / multimeterSpec(c).r)
     default: return null
   }
 }

@@ -21,7 +21,7 @@ KEYWORDS = {
     "bx1-inertia": None, "bx1-f-ma": None, "bx2-energy": None,
     "bx3-coulomb-repulsion": None, "bx3-coulomb-attraction": None,
     "xb1-momentum-conservation": None,
-    "bx3-emf-internal": "滑动变阻器",
+    "bx3-emf-internal": "电动势和内阻",
     "bx1-hooke": "弹簧悬挂法",
     "xb3-photoelectric": "遏止电压",
     "bx1-force-composition": "力的合成",
@@ -82,7 +82,7 @@ ANIMATED_IDS = {
     "bx2-work-velocity", "xb3-gas-isotherm", "bx1-galileo-ramp", "xb2-em-oscillation",
     "bx2-circular-life", "bx2-motion-composition", "bx1-inertia", "bx2-energy",
 }
-STAGE_SEL = ".lab canvas, .exp canvas, .alt-stage canvas, .sim25d canvas"
+STAGE_SEL = ".lab canvas, .exp canvas, .alt-stage canvas, .sim25d canvas, .clab canvas"
 
 
 def login(api_base: str) -> dict:
@@ -124,14 +124,14 @@ def main() -> int:
             print(f"▶ {exp_id}")
             page.goto(f"{args.url}/exp/{exp_id}")
             try:
-                page.wait_for_selector(".lab canvas, .exp canvas, .alt-stage canvas, .sim25d canvas", timeout=12000)
+                page.wait_for_selector(".lab canvas, .exp canvas, .alt-stage canvas, .sim25d canvas, .clab canvas", timeout=12000)
             except Exception:
                 failures.append(f"{exp_id}: 未找到仪器画布")
                 page.screenshot(path=str(OUT / f"exp-{exp_id}.png"))
                 print("  ✗ 未找到仪器画布")
                 continue
             page.wait_for_timeout(700)
-            canvases = page.locator(".lab canvas, .exp canvas, .alt-stage canvas, .sim25d canvas").count()
+            canvases = page.locator(".lab canvas, .exp canvas, .alt-stage canvas, .sim25d canvas, .clab canvas").count()
             # 内容一致性：面板 h3 标题必须包含本实验关键词
             headings = page.evaluate(
                 "Array.from(document.querySelectorAll('h3'))"

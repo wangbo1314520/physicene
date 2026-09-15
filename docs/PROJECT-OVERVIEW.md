@@ -244,6 +244,7 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 | 55 卡逐卡 E2E | 55 | ✅ 55/55 | 同上 |
 | 演示页无头 E2E | 14 项 | ✅ 全过，0 控制台错误 | `set PLAYWRIGHT_BROWSERS_PATH=E:\Program\playwright-browsers && python frontend/e2e/sim-demo-check.py`（需 Vite 在 5174） |
 | 实验库逐实验无头 E2E | 55 | ✅ 55/55，内容一致，动画多帧，0 控制台错误 | `python -u frontend/e2e/exp-lib-check.py [--ids a,b] [--url http://localhost:5173]`（API 登录 demo 账号后逐个打开 /exp/:id，断言仪器画布、**面板标题含该实验专属关键词（标题↔内容一致）**、**21 个应动实验点主按钮后间隔 400ms 两帧必须不同（动画正确性）**、点主按钮与记录按钮、收集控制台错误；需 Java 8080）。抓动画时间窗口帧用 `frontend/e2e/snap-stage.py --id <id> --click-main --at 600,1500,2600`（输出 ANIMATED/STATIC 判定） |
+| **电路正确性 E2E**（P0-2 验收项） | 6 实验 / 27 断言 | ✅ 6/6 | `python -u frontend/e2e/circuit-check.py [--ids a,b]`：经 DEV 钩子 `window.__circuitEditor` 脚本化搭电路，断言正确接法读数与理论一致（伏安法拟合 E/r、外接法 R、欧姆挡读数、RC τ、自感 τ、感抗）、判分通过、典型错接被故障检测抓住（电流表并联/带电测电阻）、暂态回放两帧不同；截图归档 `e2e/out/circuit-*.png` |
 
 > 2026-09-15 上线评审复核：此前 56 个前端单测仅在会话内临时运行、未入库；本日以 vitest 正式落盘为 4 个 `*.test.ts`，
 > 数量口径不变，可 `pnpm test` 复现。
