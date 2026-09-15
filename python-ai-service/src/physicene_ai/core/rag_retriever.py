@@ -11,8 +11,8 @@ TOP_K = 5
 # 相似度阈值：SRS 设计值 0.7，经 6 册教材实测校准为 0.52——
 # 物理相关查询实测 0.54~0.63，无关查询 0.42~0.50，0.52 为最优分界
 THRESHOLD = 0.52
-MODEL_PATH = r"E:\Program\models\bge-m3"
-CHROMA_DIR = "data/chroma"
+MODEL_PATH = settings.bge_m3_path
+CHROMA_DIR = settings.chroma_dir
 
 
 class RagRetriever:
@@ -24,6 +24,10 @@ class RagRetriever:
     @property
     def ready(self) -> bool:
         return self._collection is not None
+
+    @property
+    def model_ready(self) -> bool:
+        return self._model is not None
 
     def _ensure_loaded(self):
         if self._collection is not None:

@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     llm_mock: int = 0
 
+    # 仓库外资源（项目磁盘约束：默认落在 E:\Program，换机器/容器用环境变量覆盖）
+    bge_m3_path: str = r"E:\Program\models\bge-m3"
+    chroma_dir: str = "data/chroma"
+    textbooks_dir: str = r"E:\学习\10.论文项目"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

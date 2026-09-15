@@ -128,7 +128,7 @@ E:\Program\physicene\
 
 - 第一阶段 22/22 ✅
 - 第二阶段 18/18 ✅
-- 权威对账表：`experiments/docs/b8-closure/reconciliation-v2.md`（定版冻结）
+- 权威对账表：`frontend/src/experiments/docs/b8-closure/reconciliation-v2.1.md`（v2.1 勘误定版，取代 v2.0）
 
 ### 核心引擎
 
@@ -223,16 +223,20 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 
 ## 九、测试覆盖汇总
 
-| 测试 | 数量 | 状态 |
-|:---|:--:|:--:|
-| Java mvn test | 8 | ✅ 全过 |
-| fit 单测 | 12 | ✅ 全过 |
-| TapeSampler 单测 | 10 | ✅ 全过 |
-| FieldEngine 单测 | 19 | ✅ 全过 |
-| merge 单测 | 15 | ✅ 全过 |
-| **单测合计** | **64** | **✅ 全过** |
-| B0-B8 E2E | 每批次 | ✅ 0 控制台错误 |
-| 55 卡逐卡 E2E | 55 | ✅ 55/55 |
+| 测试 | 数量 | 状态 | 运行方式 |
+|:---|:--:|:--:|:---|
+| Java mvn test | 8 | ✅ 全过 | `cd java-backend && mvn test` |
+| fit 单测 | 12 | ✅ 全过 | `renderers/canvas2d/fit.test.ts` |
+| TapeSampler 单测 | 10 | ✅ 全过 | `renderers/sim25d/TapeSampler.test.ts` |
+| FieldEngine 单测 | 19 | ✅ 全过 | `renderers/canvas3d/FieldEngine.test.ts` |
+| merge 单测 | 15 | ✅ 全过 | `core/merge.test.ts` |
+| **单测合计** | **64** | **✅ 全过** | 前端 56 个：`cd frontend && pnpm test`（vitest 5） |
+| 类型检查 | — | ✅ 0 错 | `pnpm exec vue-tsc --noEmit`（typescript 须 5.9.x，7.x 与 vue-tsc 3.3 不兼容） |
+| B0-B8 E2E | 每批次 | ✅ 0 控制台错误 | Playwright（浏览器在 E:\Program\playwright-browsers） |
+| 55 卡逐卡 E2E | 55 | ✅ 55/55 | 同上 |
+
+> 2026-09-15 上线评审复核：此前 56 个前端单测仅在会话内临时运行、未入库；本日以 vitest 正式落盘为 4 个 `*.test.ts`，
+> 数量口径不变，可 `pnpm test` 复现。
 
 ## 十、当前状态与下一步
 
@@ -241,8 +245,8 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 - ✅ 实验库 B0-B8 全部批次
 - ✅ 40 规划实验 100% 覆盖
 - ✅ 55 卡 / 55 可做 / 0 锁定
-- ✅ 对账表 v2.0 定版冻结
-- ✅ 上线评审包（5 项全关）
+- ✅ 对账表 v2.1 勘误定版冻结（步骤库 55 条，与代码逐项核对一致）
+- ✅ 上线评审包（5 项全关 + 2026-09-15 复核 7 项问题已修复，见 launch-review.md §评审复核记录）
 - ✅ 结项评审通过
 
 ### 待做（毕设主线，非实验库）
@@ -266,6 +270,9 @@ B4（电路引擎）和 B5（光学引擎）未独立开工，相关实验已用
 3. **MySQL 备份**：`scripts/backup-db.bat`（保留最近 30 份），建议定期运行
 4. **DeepSeek API Key**：已存 `.env`（gitignore 保护），不在代码中
 5. **实验台零改动原则**：LabView/SimView 功能未因实验库而改变
+6. **磁盘约束（硬性）**：所有新增安装、下载的资源一律放在 `E:\Program` 下，不得写入其他盘。现有落点：Python `E:\Program\Python312`、bge-m3 `E:\Program\models\bge-m3`、Playwright 浏览器 `E:\Program\playwright-browsers`、pnpm 内容仓库 `E:\.pnpm-store`（E 盘）。已知例外：pnpm 元数据缓存默认在 `C:\Users\wangbo\AppData\Local\pnpm-cache`（约 295M，用户级全局配置；项目级 .npmrc 的 cache-dir 不被 pnpm 识别，2026-09-15 实测无效已删）。按第 8 条不动全局配置；日后若要迁到 E 盘：`pnpm config set cache-dir --global E:\Program\.pnpm-cache`（须先征得同意）
+7. **外部路径一律走环境变量**：bge-m3 模型路径由 `BGE_M3_PATH` 指定（默认 `E:\Program\models\bge-m3`），禁止在代码里硬编码绝对路径
+8. **环境变量与配置文件不随意改动（硬性）**：`.env`、`application.properties`、`vite.config.ts`、`.npmrc` 等一律不得未经用户同意修改。需要新增可配置项时，只在代码里加带默认值的 Settings 字段并更新 `.env.example` 文档，本机 `.env` 保持原样；默认值须与原行为一致
 
 ## 十二、实验库文档索引
 
@@ -282,8 +289,9 @@ B4（电路引擎）和 B5（光学引擎）未独立开工，相关实验已用
 | B6 验收报告 | docs/B6-验收报告.md |
 | B7 验收报告 | docs/B7-验收报告.md |
 | B8 验收报告 | docs/B8-验收报告.md |
-| 权威对账表 v2.0 | experiments/docs/b8-closure/reconciliation-v2.md |
-| 上线评审包 | experiments/docs/b8-closure/launch-review.md |
-| processedData v1.2 | experiments/docs/processedData-v1.2.md |
+| 权威对账表 v2.1（勘误定版） | frontend/src/experiments/docs/b8-closure/reconciliation-v2.1.md |
+| 对账表 v2.0（已被 v2.1 取代） | frontend/src/experiments/docs/b8-closure/reconciliation-v2.md |
+| 上线评审包 | frontend/src/experiments/docs/b8-closure/launch-review.md |
+| processedData v1.2 | frontend/src/experiments/docs/processedData-v1.2.md |
 | 开发日志 | docs/开发日志.md |
 | 第一周复盘 | docs/第一周复盘总结.md |

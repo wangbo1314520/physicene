@@ -16,7 +16,7 @@ interface TimestampedData extends ProcessedData {
  *   标量字段 → Last-Write-Wins（remote 优先）
  *   数组字段 → 取长度更长的一方
  *   exports → 取 local（本地生成的资源文件）
- *   version → max + 1
+ *   version → 取双方最大值
  */
 export function mergeProcessed(
   local: ProcessedData,

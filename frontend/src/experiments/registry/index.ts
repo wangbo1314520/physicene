@@ -1,7 +1,7 @@
 /**
- * 实验注册表（40 个 = 阶段一 22 + 阶段二 18）
- * B0 上线 7 个（电磁三件套批次已开发的实验）；其余锁定并标注目标批次。
- * B1=2D 引擎 B2=2.5D 引擎 B3=3D 引擎 P1=阶段一 P2=阶段二
+ * 实验注册表：55 卡 / 55 可做 / 0 锁定（B8 收尾定版，对账表 v2.1）
+ *   40 规划实验（阶段一 22 + 阶段二 18）全部实现 + 15 增值（B0 电磁先行 3 + B8 第三阶段替代 12）
+ *   B0=电磁先行 B1=2D 引擎 B2=2.5D 引擎 B3=3D 引擎 B8=第三阶段替代/补做
  */
 import type { Component } from 'vue'
 import type { ExperimentModule, ExperimentPreset } from '../core/types'
@@ -221,13 +221,8 @@ const AVAILABLE: ExperimentModule[] = [
   }
 ]
 
-/** 阶段一其余 15 个 + 阶段二 18 个（锁定占位，标注目标批次） */
-function locked(id: string, name: string, book: string, chapter: string,
-                dimension: '2D' | '2.5D' | '3D', batch: string, summary: string): ExperimentModule {
-  return { id, name, book, chapter, dimension, summary, available: false, batch, steps: [] }
-}
-
-const LOCKED: ExperimentModule[] = [
+/** 40 规划中 B0/B1 之外的 33 个（阶段一 15 + 阶段二 18），原为锁定占位，已由 B2/B3/B8 全部实现 */
+const PLANNED_REST: ExperimentModule[] = [
   // ── 阶段一（B1 纸带/作图类 → B2 2.5D 约束类 → B4 电路 → B5 光学）──
     {
     id: 'bx1-timer-practice',
@@ -638,7 +633,7 @@ const ALT_EXPERIMENTS: ExperimentModule[] = [
   },
 ]
 
-export const EXPERIMENTS: ExperimentModule[] = [...AVAILABLE, ...LOCKED, ...ALT_EXPERIMENTS]
+export const EXPERIMENTS: ExperimentModule[] = [...AVAILABLE, ...PLANNED_REST, ...ALT_EXPERIMENTS]
 
 export function findExperiment(id: string): ExperimentModule | undefined {
   return EXPERIMENTS.find((e) => e.id === id)

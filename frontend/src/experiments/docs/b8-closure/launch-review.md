@@ -1,7 +1,7 @@
 # PhysiScene 实验库上线评审包
 
-> 日期：2026-09-15　状态：上线前 5 项全部关闭
-> 前置：结项评审已通过（40 规划 100%、55/55/0、对账表 v2.0 冻结）
+> 日期：2026-09-15　状态：上线前 5 项全部关闭；同日评审复核发现 7 项问题并全部修复（见 §评审复核记录）
+> 前置：结项评审已通过（40 规划 100%、55/55/0、对账表 v2.1 勘误定版冻结）
 
 ---
 
@@ -16,9 +16,9 @@
 
 | # | 遗留项 | 归档位置 | 内容摘要 |
 |:--|:--|:--|:--|
-| 1 | 多端同步真机 | 引擎层 AutosaveManager+merge.ts | PointerEvent(touch/pen)+touch-action:none 全引擎覆盖；真机操作待用户实测 |
-| 2 | 断网恢复 | merge.ts 单测 #7-8 | 断网暂存 pending → 恢复后 flush 合并；单测验证空对象/嵌套合并 |
-| 3 | 三类 processedData 合并样例 | merge.test.ts 15/15 | 2D paper(#5) + 2.5D tape(#2) + 3D field3d(#6) 各覆盖 |
+| 1 | 多端同步真机 | data/api.ts AutosaveManager + core/merge.ts | PointerEvent(touch/pen)+touch-action:none 全引擎覆盖；真机操作待用户实测 |
+| 2 | 断网恢复 | core/merge.test.ts #7-#8 | 断网暂存 pending → 恢复后 flush 合并；#7 本地离线增量不丢，#8 双端各自演进均保留（`pnpm test` 可复现） |
+| 3 | 三类 processedData 合并样例 | core/merge.test.ts 15/15 | 2D paper(#5) + 2.5D tape(#2) + 3D 场线 fieldLines(#6) 各覆盖，三类顶层字段互不干扰 |
 | 4 | Report 复用对照 | B0 验收报告 §DoD-4 | report 表 session_id 挂接，零重复开发，content JSON 含 stepState/conclusion |
 | 5 | 导出样例 | E2E 验证 | CSV(MyExperimentsView) + JSON(导出按钮) + PNG(GraphPaper/3D) 各格式组件就绪 |
 | 6 | 数据看板 | TeacherReviewView | 三指标卡(提交/进行中/最近) + 列表 + 批阅弹窗 |
@@ -60,6 +60,11 @@
 ### 部署步骤
 
 ```bash
+# 0. 仓库外资源（本项目磁盘约束：一律放 E:\Program；Linux 容器可换 /data/…，用环境变量覆盖）
+#    bge-m3 嵌入模型：从 huggingface.co/BAAI/bge-m3 下载到 BGE_M3_PATH（默认 E:\Program\models\bge-m3，约 2.2GB）
+#    PaddleOCR 模型：首次调用自动下载到 ~/.paddlex，可预热
+#    教材 PDF（仅建库用）：放到 TEXTBOOKS_DIR
+
 # 1. 数据库
 mysql -uroot -p < scripts/init-db.sql
 
@@ -70,17 +75,19 @@ mvn spring-boot:run          # 开发
 
 # 3. Python AI 服务
 cd python-ai-service
+cp .env.example .env         # 填入 DEEPSEEK_API_KEY / INTERNAL_KEY / BGE_M3_PATH
 poetry install
+poetry run python scripts/build_kb.py     # 建教材知识库 → CHROMA_DIR（data/ 已 gitignore，新环境必做，约 1300 片段）
 poetry run uvicorn physicene_ai.main:app --port 8000
 
 # 4. 前端
 cd frontend
 pnpm install
+pnpm test                     # 56 个单测（fit/TapeSampler/FieldEngine/merge）
 pnpm dev                      # 开发
 # 或 pnpm build && nginx serve dist/
 
-# 5. Docker（可选）
-docker-compose up -d
+# 5. Docker —— docker-compose.yml 目前为占位骨架（服务全部注释），容器化归第六周任务，暂不可用
 ```
 
 ### 环境变量
@@ -91,10 +98,14 @@ JWT_SECRET=<random-64-chars>
 AI_INTERNAL_KEY=<random>
 DEEPSEEK_API_KEY=<key>
 
-# Python (.env)
+# Python (.env，模板见 .env.example)
 DEEPSEEK_API_KEY=<key>
 INTERNAL_KEY=<same-as-java>
 REDIS_URL=redis://localhost:6379/0
+# 以下三项可选：默认值即下列值，仅在换机器 / 容器路径不同时才需设置
+BGE_M3_PATH=E:\Program\models\bge-m3     # bge-m3 模型目录（代码不再硬编码）
+CHROMA_DIR=data/chroma                   # Chroma 持久化目录
+TEXTBOOKS_DIR=E:\学习\10.论文项目          # 教材 PDF 目录（仅 build_kb.py 用）
 ```
 
 ---
@@ -119,7 +130,8 @@ scripts/backup-db.bat
 ### 监控端点
 
 - Java: `GET /actuator/health`、`GET /actuator/metrics`
-- Python: `GET /health`、`GET /metrics`（Prometheus format）
+- Python: `GET /health`（liveness；`components` 上报 chroma / bge_m3_model / paddle_ocr 的**真实**懒加载状态，`resources` 上报 BGE_M3_PATH / CHROMA_DIR 及其目录是否存在——换机器后模型路径失效可在此一眼看出）
+- Python: `GET /ready`（readiness；三组件全部 LOADED 才 true。组件懒加载，进程刚启动为 NOT_LOADED，首个 RAG/OCR 请求后转 LOADED，上线前建议各预热一次）
 
 ### 常见故障
 
@@ -191,12 +203,12 @@ mysql -uroot -p physicene < backups/physicene_<date>.sql
 ### 应用回滚
 
 ```bash
-# Git 回退
+# Git 回退（当前唯一可用路径）
 git checkout <previous-tag>   # 如 v0.5.0-rag-ocr
+# 然后按 §部署步骤 重新 mvn package / pnpm build
 
-# 或 Docker
-docker-compose down
-docker-compose up -d --force-recreate
+# Docker 路径——暂不可用：docker-compose.yml 为占位骨架（服务全部注释），容器化归第六周任务
+# docker-compose down && docker-compose up -d --force-recreate
 ```
 
 ### 数据保留
@@ -221,7 +233,7 @@ docker-compose up -d --force-recreate
   ✓ xb1-refraction: 测量玻璃的折射率
   ✓ bx3-capacitor-charge: 观察电容器的充、放电现象
 补做实验提交成功
-控制台错误: 0 | mvn test: 8/8 | vue-tsc: 0 错
+控制台错误: 0 | mvn test: 8/8 | vitest: 56/56（fit 12 / TapeSampler 10 / FieldEngine 19 / merge 15）| vue-tsc: 0 错
 ```
 
 ---
@@ -231,11 +243,32 @@ docker-compose up -d --force-recreate
 | 准入条件 | 状态 |
 |:---|:--:|
 | 5 项上线前事项全部关闭 | ✅ |
-| 对账表 v2.0 冻结 | ✅ |
+| 对账表 v2.1 勘误定版冻结（与代码逐项核对一致） | ✅ |
 | 全目录 55 卡 E2E 通过 | ✅ |
-| 部署文档可执行 | ✅ |
+| 前端单测入库可复现（vitest 56/56，`pnpm test`） | ✅ |
+| 部署文档可执行（仓库外资源走环境变量；.env.example 入库；建库步骤补齐） | ✅ |
 | 性能报告通过 | ✅ |
 | 安全报告通过 | ✅ |
-| 回滚方案就绪 | ✅ |
+| 回滚方案就绪（Git 路径；Docker 路径明确标注待第六周） | ✅ |
 
 **上线评审包完毕，请做最终上线评审。**
+
+---
+
+## 评审复核记录（2026-09-15）
+
+评审讲解时对照代码逐项核实，核心数字（55 卡 / 55 步骤 / 一一对应 / 残留清零 / Java 8 单测）全部成立；
+另发现 7 项问题，当日全部修复：
+
+| # | 严重度 | 问题 | 处理 |
+|:--:|:--:|:--|:--|
+| 1 | 🔴 | 评审包引用的 56 个前端单测（fit/TapeSampler/FieldEngine/merge）仅曾在会话内临时运行，仓库与 git 历史中均无 `*.test.ts`，也未安装测试运行器，证据不可复现 | 安装 vitest 5，按原口径落盘 4 个测试文件共 56 用例，`pnpm test` 56/56；`pnpm test` 纳入部署步骤 |
+| 2 | 🔴 | bge-m3 模型路径 `E:\Program\models\bge-m3` 硬编码于 `rag_retriever.py` 与 `build_kb.py`，换机器 / Linux 容器必崩 | 收进 pydantic Settings：`BGE_M3_PATH` / `CHROMA_DIR` / `TEXTBOOKS_DIR`，默认值与原硬编码完全一致，本机 `.env` 未改动（配置文件不随意修改），仅换机器时才需设置；`.env.example` 补全文档；已实测默认路径成功加载模型并检索命中 |
+| 3 | 🟡 | 知识库 `data/chroma` 被 gitignore，部署步骤缺建库一步，新环境 RAG 为空 | 部署步骤补 `scripts/build_kb.py`，并说明模型下载来源与体积（2.2GB） |
+| 4 | 🟡 | `.env.example` 被 `.gitignore` 的 `.env.*` 规则误忽略，新克隆无配置模板 | 加 `!.env.example` 例外，模板补全全部变量 |
+| 5 | 🟡 | docker-compose.yml 为全注释占位骨架，但回滚方案将 Docker 列为可用路径；运维文档声称 Python 有 `/metrics`（Prometheus），实际不存在 | 回滚方案明确 Docker 待第六周；删除不实的 `/metrics` 声明 |
+| 6 | 🟡 | Python `/health` 三组件状态硬编码 NOT_LOADED，`/ready` 永远 false，监控上报假状态 | 接 `rag_retriever.ready / model_ready`、`ocr_service.ready` 真实状态，新增 `resources` 段上报路径存在性；实测懒加载后翻转为 LOADED |
+| 7 | 🟡 | 对账表 v2.0（定版冻结）"步骤库 56 / B0-B3 34"与代码（55 / 33）及本评审包第①项矛盾 | 按其冻结规则新开 v2.1 勘误定版，v2.0 顶部加取代指引 |
+
+复核中顺带发现并修复：`frontend/node_modules` 残留 typescript 5.9.2 与锁文件 7.0.2 不一致，掩盖了 vue-tsc 3.3 与 TS 7 不兼容的问题（干净 `pnpm install` 后 vue-tsc 会直接崩）——已将 typescript 钉回 `^5.9.2`，vue-tsc 0 错可复现。
+`merge.ts` 头注释"version → max + 1"与实现（取 max）不符，注释已纠正。
