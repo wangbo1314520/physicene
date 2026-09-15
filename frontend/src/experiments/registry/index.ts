@@ -453,6 +453,14 @@ function get3d_summary(eid: string) {
 
 const ALT_EXPERIMENTS: ExperimentModule[] = [
   {
+    id: 'xb3-alpha-scatter',
+    name: 'α粒子散射实验（3D）',
+    book: '选择性必修第三册', chapter: '第四章 原子结构和波粒二象性', dimension: '3D',
+    summary: '瞄准距离→偏转角，卢瑟福核式结构。',
+    available: true, batch: 'B3', component: ExpAlphaScatter3D as unknown as Component,
+    steps: panelSteps('观察三条不同瞄准距离的 α 粒子散射轨迹'),
+  },
+  {
     id: 'bx1-reaction-time',
     name: '测反应时间（第三阶段替代）',
     book: '必修第一册', chapter: '第一章 运动的描述', dimension: '2D',
