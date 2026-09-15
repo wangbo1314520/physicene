@@ -210,6 +210,14 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 | 2740db3 | B8 | 收尾包（α散射恢复+对账表） |
 | 3aa9d22 | B8 | 补做 10 个锁定（100% 覆盖） |
 | 996e8fa | 上线 | 上线评审包（5 项关闭+55 卡 E2E） |
+| 817236b | 上线 | 评审复核（单测落盘 56+外部路径环境变量化+对账表 v2.1） |
+| b3fe3e1 | 演示 | 演示页维度分档渲染+3D 场线带箭头+补 7 演示+实验库 3D 接入 |
+| ced7e22 | 演示 | 实验库 3D 组件重写为逐帧动画+α散射 5 粒子+可折叠分组选择器 |
+| ecf6426 | 质量 | P1：补做 10 实验重建为真仪器交互（替换公式壳 ExpCurvePanel） |
+| 6fa7877 | 质量 | P2：替代 12 实验重建为真动画场景（替换占位壳 ExpAlt） |
+| 3e05756 | 质量 | P3：约束族动画舞台+真多用电表+胡克/光电仪器舞台 |
+| b0a35b1 | 质量 | 实验库质量审计记录+全 55 实验 E2E |
+| （本轮） | 质量 | 内容一致性核查：E2E 标题↔内容断言+修 bx1-hooke 错位+作用反作用力箭头+snap-stage 工具 |
 
 ### 实验库之前的里程碑
 
@@ -235,7 +243,7 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 | B0-B8 E2E | 每批次 | ✅ 0 控制台错误 | Playwright（浏览器在 E:\Program\playwright-browsers） |
 | 55 卡逐卡 E2E | 55 | ✅ 55/55 | 同上 |
 | 演示页无头 E2E | 14 项 | ✅ 全过，0 控制台错误 | `set PLAYWRIGHT_BROWSERS_PATH=E:\Program\playwright-browsers && python frontend/e2e/sim-demo-check.py`（需 Vite 在 5174） |
-| 实验库逐实验无头 E2E | 55 | ✅ 55/55，0 控制台错误 | `python frontend/e2e/exp-lib-check.py [--ids a,b]`（API 登录 demo 账号后逐个打开 /exp/:id，断言仪器画布、点主按钮与记录按钮、收集控制台错误；需 Java 8080） |
+| 实验库逐实验无头 E2E | 55 | ✅ 55/55，内容一致，0 控制台错误 | `python -u frontend/e2e/exp-lib-check.py [--ids a,b] [--url http://localhost:5173]`（API 登录 demo 账号后逐个打开 /exp/:id，断言仪器画布、**面板标题含该实验专属关键词（标题↔内容一致）**、点主按钮与记录按钮、收集控制台错误；需 Java 8080）。抓动画时间窗口帧用 `frontend/e2e/snap-stage.py --id <id> --at 300,850,1000` |
 
 > 2026-09-15 上线评审复核：此前 56 个前端单测仅在会话内临时运行、未入库；本日以 vitest 正式落盘为 4 个 `*.test.ts`，
 > 数量口径不变，可 `pnpm test` 复现。
@@ -277,6 +285,8 @@ B4（电路引擎）和 B5（光学引擎）未独立开工，相关实验已用
 7. **外部路径一律走环境变量**：bge-m3 模型路径由 `BGE_M3_PATH` 指定（默认 `E:\Program\models\bge-m3`），禁止在代码里硬编码绝对路径
 8. **环境变量与配置文件不随意改动（硬性）**：`.env`、`application.properties`、`vite.config.ts`、`.npmrc` 等一律不得未经用户同意修改。需要新增可配置项时，只在代码里加带默认值的 Settings 字段并更新 `.env.example` 文档，本机 `.env` 保持原样；默认值须与原行为一致
 9. **实验组件质量底线（硬性）**：每个实验必须有自己的仪器交互画布与真实物理过程（学生操作仪器→读数→作图），禁止用“滑杆+公式生成读数”的公式壳或“动画占位”的占位框冒充可做实验；共享组件只能承载共同底座（面板壳/绘制原语/舞台），不能承载实验本体。新实验用 `defs/apparatus/LabPanel.vue` 起手
+10. **共享组件必须经薄包装挂载（硬性）**：`ExperimentShell` 挂载实验组件时不传任何 props。凡是带必填 `mode`/配置 prop 的共享组件（`ExpConstraint`、`Exp3D`、`ExpHookePhoto`、`ExpTape`、`ExpCanvasPanels`…），注册表**禁止直接引用**，必须通过 `ExpPendulumG.vue` 这类 6 行薄包装传参（Vue 单根组件会把 shell 的 `@record` 等监听自动透传，无需手写转发）。曾因 `bx1-hooke` 直接挂 `ExpHookePhoto` 导致胡克定律页显示光电效应；E2E 的内容一致性断言（每实验一条关键词）是这条规则的自动守卫，新增实验必须同步在 `exp-lib-check.py` 的 `KEYWORDS` 里加一条
+11. **只保留一个前端 dev server**：Vite 端口被占时会自动漂到 5174，导致“改了代码但浏览器看的是旧端口的旧模块图”（2026-09-15 用户截图问题的直接原因）。开新会话前先 `netstat -ano | grep 5173`，有残留进程就先停掉再 `pnpm dev`；浏览器侧用 Ctrl+F5 强刷
 
 ## 十二、实验库文档索引
 

@@ -6,7 +6,8 @@
 import type { Component } from 'vue'
 import type { ExperimentModule, ExperimentPreset } from '../core/types'
 import ExpEmf from '../defs/ExpEmf.vue'
-import ExpHookePhoto from '../defs/ExpHookePhoto.vue'
+import ExpHookeLaw from '../defs/ExpHookeLaw.vue'
+import ExpPhotoelectric from '../defs/ExpPhotoelectric.vue'
 import ExpCanvasPanels from '../defs/ExpCanvasPanels.vue'
 import ExpForceComposition from '../defs/ExpForceComposition.vue'
 import ExpProjectile from '../defs/ExpProjectile.vue'
@@ -187,7 +188,7 @@ const AVAILABLE: ExperimentModule[] = [
     name: '探究弹簧弹力与形变量的关系（胡克定律）',
     book: '必修第一册', chapter: '第三章 相互作用——力', dimension: '2D',
     summary: 'F-x 图线过原点，斜率=劲度系数 k。',
-    available: true, batch: 'B1', component: ExpHookePhoto as unknown as Component,
+    available: true, batch: 'B1', component: ExpHookeLaw as unknown as Component,
     steps: panelSteps('选择砝码档位，点击「📏 记录读数」采集 (x, F) 数据，至少 5 组'),
   },
   {
@@ -195,7 +196,7 @@ const AVAILABLE: ExperimentModule[] = [
     name: '观察光电效应现象（Uc-ν 测普朗克常量）',
     book: '选择性必修第三册', chapter: '第四章 原子结构和波粒二象性', dimension: '2D',
     summary: 'Uc-ν 直线：斜率=h/e，截距=−W/e。',
-    available: true, batch: 'B1', component: ExpHookePhoto as unknown as Component,
+    available: true, batch: 'B1', component: ExpPhotoelectric as unknown as Component,
     steps: panelSteps('调节频率档位，点击「📏 记录读数」采集 (ν, Uc) 数据，至少 5 组'),
   },
   {

@@ -168,31 +168,62 @@ function workV(ctx: CanvasRenderingContext2D, w: number, h: number) {
 
 function actionR(ctx: CanvasRenderingContext2D, w: number, h: number) {
   const m1 = props.params.m1 ?? 1, m2 = props.params.m2 ?? 2, J = props.params.J ?? 6
-  const tt = t % 3.2
-  const v1 = -J / m1, v2 = J / m2
-  const cx = w / 2, trackY = h * 0.6
+  const tt = t % 3.6
+  const REL = 0.8, TAU = 0.35                      // 释放时刻、弹簧作用时长（恒力近似）
+  const v1 = -J / m1, v2 = J / m2                  // 末速度（冲量定理）
+  const F = J / TAU                                // 作用阶段等大反向的力
+  const cx = w / 2, trackY = h * 0.6, PX = 30
   ctx.fillStyle = '#23233a'; ctx.fillRect(20, trackY, w - 40, 10)
-  const moving = tt > 0.6
-  const dx1 = moving ? v1 * (tt - 0.6) * 30 : 0, dx2 = moving ? v2 * (tt - 0.6) * 30 : 0
+  const t1 = Math.max(0, tt - REL)
+  const phase = Math.min(1, t1 / TAU)              // 0..1 弹簧作用进度
+  // 位移：作用阶段匀加速 s=v·t'²/(2τ)，之后匀速
+  const disp = (v: number) => (t1 <= TAU ? (v * t1 * t1) / (2 * TAU) : (v * TAU) / 2 + v * (t1 - TAU)) * PX
+  const dx1 = disp(v1), dx2 = disp(v2)
   const w1 = 30 + m1 * 10, w2 = 30 + m2 * 10
   const x1 = cx - 22 - w1 + dx1, x2 = cx + 22 + dx2
-  // 压缩弹簧（未释放时）
-  if (!moving) {
-    ctx.strokeStyle = '#F5C542'; ctx.lineWidth = 2
+  // 弹簧：作用结束前始终连着两车，随两车分开逐渐伸展变直
+  if (phase < 1) {
+    const gap = x2 - (x1 + w1)
+    const amp = 8 * (1 - phase * 0.7)
+    ctx.strokeStyle = phase > 0 ? '#ffb347' : '#F5C542'; ctx.lineWidth = 2
     ctx.beginPath(); ctx.moveTo(x1 + w1, trackY - 14)
-    for (let i = 1; i <= 8; i++) ctx.lineTo(x1 + w1 + (44 * i) / 8, trackY - 14 + (i % 2 ? -8 : 8))
+    for (let i = 1; i <= 8; i++) ctx.lineTo(x1 + w1 + (gap * i) / 8, trackY - 14 + (i % 2 ? -amp : amp))
     ctx.lineTo(x2, trackY - 14); ctx.stroke()
+    if (phase === 0) { // 锁定夹
+      ctx.fillStyle = '#8a8aa0'; ctx.fillRect(cx - 3, trackY - 40, 6, 26)
+      label(ctx, '压缩弹簧 · 夹子锁定', cx, trackY - 50, '#8a8aa0', 11)
+    }
   }
   ctx.fillStyle = '#4A90D9'; ctx.fillRect(x1, trackY - 30, w1, 30); label(ctx, `m₁=${m1}kg`, x1 + w1 / 2, trackY - 15, '#fff', 11)
   ctx.fillStyle = '#E05555'; ctx.fillRect(x2, trackY - 30, w2, 30); label(ctx, `m₂=${m2}kg`, x2 + w2 / 2, trackY - 15, '#fff', 11)
-  if (moving) {
-    ctx.strokeStyle = '#3ecf8e'; ctx.lineWidth = 2
-    ctx.beginPath(); ctx.moveTo(x1, trackY - 40); ctx.lineTo(x1 + v1 * 10, trackY - 40); ctx.stroke()
-    ctx.beginPath(); ctx.moveTo(x2 + w2, trackY - 40); ctx.lineTo(x2 + w2 + v2 * 10, trackY - 40); ctx.stroke()
-    label(ctx, `v₁ = ${v1.toFixed(2)}`, x1 - 10, trackY - 54, '#3ecf8e', 11)
-    label(ctx, `v₂ = ${v2.toFixed(2)}`, x2 + w2 + 10, trackY - 54, '#3ecf8e', 11)
+  // 作用阶段：等长反向的力箭头——牛顿第三定律的直观呈现
+  if (phase > 0 && phase < 1) {
+    const L = 52
+    arrow(ctx, x1 + w1 / 2, trackY - 15, x1 + w1 / 2 - L, trackY - 15, '#ffb347')
+    arrow(ctx, x2 + w2 / 2, trackY - 15, x2 + w2 / 2 + L, trackY - 15, '#ffb347')
+    label(ctx, `F₁ = ${F.toFixed(1)} N`, x1 + w1 / 2 - L - 6, trackY - 44, '#ffb347', 11)
+    label(ctx, `F₂ = ${F.toFixed(1)} N`, x2 + w2 / 2 + L + 6, trackY - 44, '#ffb347', 11)
+    label(ctx, `释放！F₁ = −F₂，同时作用 ${TAU} s`, cx, trackY - 66, '#ffb347', 12)
   }
-  label(ctx, `F₁ = −F₂（弹簧对两车）→ 相同时间内冲量等大反向 → m₁v₁ + m₂v₂ = ${(m1 * v1 + m2 * v2).toFixed(2)}`, w / 2, h - 12, '#7fe3b3', 12)
+  // 分离后：速度矢量（与质量成反比）
+  if (phase >= 1) {
+    arrow(ctx, x1, trackY - 40, x1 + v1 * 10, trackY - 40, '#3ecf8e')
+    arrow(ctx, x2 + w2, trackY - 40, x2 + w2 + v2 * 10, trackY - 40, '#3ecf8e')
+    label(ctx, `v₁ = ${v1.toFixed(2)} m/s`, x1 - 10, trackY - 54, '#3ecf8e', 11)
+    label(ctx, `v₂ = ${v2.toFixed(2)} m/s`, x2 + w2 + 10, trackY - 54, '#3ecf8e', 11)
+  }
+  label(ctx, `F₁ = −F₂ 且作用时间相同 → 冲量等大反向 → m₁v₁ + m₂v₂ = ${(m1 * v1 + m2 * v2).toFixed(2)}`, w / 2, h - 12, '#7fe3b3', 12)
+}
+
+/** 带箭头的线段 */
+function arrow(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, color: string) {
+  const ang = Math.atan2(y1 - y0, x1 - x0)
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(x1, y1)
+  ctx.lineTo(x1 - 8 * Math.cos(ang - 0.4), y1 - 8 * Math.sin(ang - 0.4))
+  ctx.lineTo(x1 - 8 * Math.cos(ang + 0.4), y1 - 8 * Math.sin(ang + 0.4))
+  ctx.closePath(); ctx.fill()
 }
 
 function draw() {
