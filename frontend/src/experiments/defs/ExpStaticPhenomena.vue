@@ -39,7 +39,18 @@ function switchRod() {
   rodKind.value = rodKind.value === 'rubber' ? 'glass' : 'rubber'
   qRod.value = 0; rodX.value = 0.22
 }
-function ground() { qE.value = 0; emit('record', { action: 'ground' }) }
+/** 接地：棒靠近（未接触）时接地 → 与棒同号的电荷经接地线流走，移开棒后验电器留下异号电（接地法感应起电）；否则完全放电 */
+function ground() {
+  if (Math.abs(qRod.value) > 0.1 && dist.value < 0.2 && !touching.value) {
+    qE.value = +(-qRod.value * 0.5).toFixed(2)
+    emit('record', { action: 'induction_ground', qE: qE.value })
+  } else { qE.value = 0; emit('record', { action: 'ground' }) }
+}
+/** 感应起电机：给棒一次性充上更多电荷（比摩擦强） */
+function machine() {
+  qRod.value = rodKind.value === 'rubber' ? -1.6 : 1.6
+  emit('record', { action: 'machine', rod: rodKind.value })
+}
 
 function step(dt: number) {
   if (rubbing.value > 0) {
@@ -137,12 +148,13 @@ onUnmounted(() => loop?.stop())
       <button class="btn" @click="rub" :disabled="rubbing > 0">🧶 摩擦起电（{{ rodKind === 'rubber' ? '毛皮→橡胶棒' : '丝绸→玻璃棒' }}）</button>
       <div class="row">
         <button class="btn ghost" @click="switchRod">换{{ rodKind === 'rubber' ? '玻璃棒(+)' : '橡胶棒(−)' }}</button>
-        <button class="btn ghost" @click="ground">⏚ 验电器接地</button>
+        <button class="btn ghost" @click="machine">⚡ 起电机充电</button>
+        <button class="btn ghost" @click="ground">⏚ 接地</button>
       </div>
       <div class="readout">棒电荷 q棒 = {{ qRod.toFixed(2) }}
 验电器电荷 q = {{ qE.toFixed(2) }}
 金箔张角 = {{ leafAngle.toFixed(0) }}°</div>
-      <p class="hint">在画布上左右拖动棒：先看感应（靠近不碰），再接触转移电荷。换另一种棒接触即可看到中和。</p>
+      <p class="hint">三种起电：①摩擦起电；②接触起电——带电棒碰金属球；③感应起电（接地法）——棒靠近不碰 → 点「接地」→ 移开棒，验电器留下与棒异号的电。换另一种棒接触可中和；起电机充电比摩擦强。</p>
     </template>
     <canvas ref="canvasRef" @pointerdown="onDown" @pointermove="onMove" @pointerup="onUp" @pointerleave="onUp"></canvas>
   </LabPanel>

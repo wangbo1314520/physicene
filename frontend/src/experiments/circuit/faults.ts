@@ -5,7 +5,7 @@ import type { Circuit, CircuitComponent, DCSolution, Fault, MeterReading } from 
 import { buildNetlist } from './netlist'
 import { meterSpec, multimeterSpec, num, pinCount, twoTerminalResistance, OHM_EMF } from './components'
 
-const isSource = (c: CircuitComponent) => c.kind === 'battery' || c.kind === 'dc_source' || c.kind === 'ac_source'
+const isSource = (c: CircuitComponent) => c.kind === 'battery' || c.kind === 'dc_source' || c.kind === 'ac_source' || c.kind === 'coil'
 type MeterComp = CircuitComponent & { kind: 'ammeter' | 'voltmeter' | 'galvanometer' | 'multimeter' }
 const isMeter = (c: CircuitComponent): c is MeterComp =>
   c.kind === 'ammeter' || c.kind === 'voltmeter' || c.kind === 'galvanometer' || c.kind === 'multimeter'
@@ -93,7 +93,7 @@ export function detectFaults(circuit: Circuit, sol: DCSolution): Fault[] {
   for (const s of sources) {
     const src = sol.sources[s.id]
     if (!src) continue
-    if (s.kind === 'ac_source') continue   // 交流源在直流解中 EMF=0，短路/断路判据无意义（由交流解另行判断）
+    if (s.kind === 'ac_source' || s.kind === 'coil') continue   // 交流源直流解 EMF=0；感应线圈静止时 EMF=0——短路/断路判据无意义
     // 短路：电源看到的外电阻极小
     if (Number.isFinite(src.rExt) && src.rExt < 0.3 && Math.abs(src.iOut) > 1e-6) {
       const path = comps.filter((c) => c.id !== s.id && sol.elements[c.id] && Math.abs(sol.elements[c.id].i) > 0.9 * Math.abs(src.iOut))
@@ -116,9 +116,9 @@ export function detectFaults(circuit: Circuit, sol: DCSolution): Fault[] {
     }
   }
 
-  // 电表错接
+  // 电表错接（感应线圈是弱源，电流计直接接在它两端是正确用法，不计入）
   const loadPairs = new Map<string, string>()
-  for (const c of comps) if (isLoad(c) || isSource(c)) loadPairs.set(nodePair(sol, c), c.id)
+  for (const c of comps) if ((isLoad(c) || isSource(c)) && c.kind !== 'coil') loadPairs.set(nodePair(sol, c), c.id)
   const totalI = Math.max(0, ...sources.map((s) => Math.abs(sol.sources[s.id]?.iOut ?? 0)))
   const actsAsAmmeter = (c: CircuitComponent) => c.kind === 'ammeter' || c.kind === 'galvanometer' || (c.kind === 'multimeter' && multimeterSpec(c).mode === 'dca')
   const actsAsVoltmeter = (c: CircuitComponent) => c.kind === 'voltmeter' || (c.kind === 'multimeter' && multimeterSpec(c).mode === 'dcv')

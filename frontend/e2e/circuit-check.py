@@ -184,6 +184,105 @@ def case_lc_ac(page: Page, log):
     log("交流下电流点动画两帧不同", two_frames_differ(page), "")
 
 
+def first_row(page: Page) -> str:
+    return page.locator(".clab table.rows tr").nth(1).inner_text()
+
+
+def case_em_oscillation(page: Page, log):
+    ed(page, "e.clearAll()")
+    for k, i, p in [("dc_source", "E", "{}"), ("spdt_switch", "K", "{}"), ("capacitor", "C", "{ C: 4700e-6, polarized: false }"),
+                    ("inductor", "L", "{ L: 1, rw: 5 }"), ("ammeter", "A", "{ rangeKey: '0.6A' }")]:
+        ed(page, f"e.addComponent('{k}', undefined, undefined, {p}, '{i}')")
+    for a, b in [("K:0", "C:0"), ("K:1", "E:0"), ("K:2", "L:0"), ("L:1", "A:0"), ("A:1", "C:1"), ("E:1", "C:1")]:
+        ed(page, f"e.connect('{a}','{b}')")
+    settle(page)
+    g = ed(page, "e.doGrade()")
+    log("LC 回路判分（5 角色齐全）", g["passed"], f"{g['score']}/{g['max']} {[i['code'] for i in g['issues']]}")
+    page.locator(".clab .panel .btn:not(.ghost):not(.alt)").first.click(); settle(page, 500)
+    page.locator(".clab .panel .btn.alt").first.click(); settle(page, 400)
+    log("振荡回放两帧不同（电流表来回摆）", two_frames_differ(page), "")
+    import re
+    txt = page.locator(".clab .panel").inner_text()
+    th = re.search(r"理论周期 T = .*?= ([\d.]+) s", txt); me = re.search(r"实测周期.*?= ([\d.]+) s", txt)
+    log("实测周期 ≈ 2π√(LC)（<3%）", bool(th and me) and abs(float(me.group(1)) / float(th.group(1)) - 1) < 0.03,
+        f"theory={th.group(1) if th else '?'} meas={me.group(1) if me else '?'}")
+
+
+def case_sensor(page: Page, log):
+    ed(page, "e.clearAll()")
+    for k, i, p in [("dc_source", "E", "{}"), ("resistor", "Rd", "{ R: 1000 }"), ("photoresistor", "LDR", "{}"), ("relay", "K", "{}"), ("lamp", "La", "{}")]:
+        ed(page, f"e.addComponent('{k}', undefined, undefined, {p}, '{i}')")
+    for a, b in [("E:0", "Rd:0"), ("Rd:1", "LDR:0"), ("LDR:1", "E:1"), ("K:0", "LDR:0"), ("K:1", "LDR:1"), ("E:0", "K:2"), ("K:3", "La:0"), ("La:1", "E:1")]:
+        ed(page, f"e.connect('{a}','{b}')")
+    settle(page)
+    g = ed(page, "e.doGrade()")
+    log("光控电路判分（线圈并联光敏电阻）", g["passed"], f"{g['score']}/{g['max']} {[i['code'] for i in g['issues']]}")
+    set_range(page, ".clab .panel input[type=range]", 0); settle(page, 250)
+    dark_on = ed(page, "Math.abs(e.solution().elements['La'].i) > 0.01")
+    set_range(page, ".clab .panel input[type=range]", 1); settle(page, 250)
+    light_on = ed(page, "Math.abs(e.solution().elements['La'].i) > 0.01")
+    log("夜晚灯亮、白天灯灭", dark_on and not light_on, f"dark={dark_on} light={light_on}")
+    page.locator(".clab .panel .btn:not(.ghost):not(.alt)").first.click(); settle(page, 300)
+    log("「验证光控」判定成功", "光控成功" in page.locator(".clab .panel").inner_text(), "")
+
+
+def _wire_coil(page: Page):
+    ed(page, "e.clearAll()")
+    ed(page, "e.addComponent('coil', 150, 120, {}, 'L2'); e.addComponent('galvanometer', 330, 120, { rangeKey: '3mA' }, 'G')")
+    ed(page, "e.connect('L2:0','G:0'); e.connect('L2:1','G:1')")
+    settle(page)
+
+
+def case_induction(page: Page, log):
+    _wire_coil(page)
+    for k, i, p in [("inductor", "L1", "{ L: 0.5, rw: 5 }"), ("battery", "E", "{ emf: 6, r: 0.5 }"), ("switch", "S", "{}"), ("rheostat", "Rh", "{ Rmax: 20, pos: 0.5 }")]:
+        ed(page, f"e.addComponent('{k}', undefined, undefined, {p}, '{i}')")
+    for a, b in [("E:0", "S:0"), ("S:1", "Rh:0"), ("Rh:2", "L1:0"), ("L1:1", "E:1")]:
+        ed(page, f"e.connect('{a}','{b}')")
+    settle(page)
+    g = ed(page, "e.doGrade()")
+    log("副线圈–电流计 + 原线圈回路判分", g["passed"] or all(i["code"] in ("not_closed", "not_series") for i in g["issues"]), f"{g['score']}/{g['max']} {[i['code'] for i in g['issues']]}")
+    page.locator(".clab .panel .btn:not(.ghost):not(.alt)").first.click(); settle(page, 250)   # 磁铁插入
+    log("磁铁插入：回放两帧不同", two_frames_differ(page), "")
+    r1 = first_row(page)
+    log("磁铁插入：电流计偏转", "不偏转" not in r1 and "偏" in r1, r1[:60])
+    page.locator(".clab .panel .btn.alt").first.click(); settle(page, 1300)   # 原线圈闭合开关
+    r2 = first_row(page)
+    log("原线圈闭合开关：互感产生感应电流", "开关闭合" in r2 and "不偏转" not in r2, r2[:60])
+
+
+def case_emf_factors(page: Page, log):
+    _wire_coil(page)
+    btn = page.locator(".clab .panel .btn:not(.ghost):not(.alt)").first
+    import re
+    set_range(page, ".clab .panel input[type=range]", 1); settle(page, 150)
+    btn.click(); settle(page, 1300)
+    m1 = re.search(r"(\d+) μA", first_row(page))
+    set_range(page, ".clab .panel input[type=range]", 3); settle(page, 150)
+    btn.click(); settle(page, 1300)
+    m2 = re.search(r"(\d+) μA", first_row(page))
+    log("插拔速度 ×3 时电流计峰值更大（ε ∝ ΔΦ/Δt）", bool(m1 and m2) and int(m2.group(1)) > 2 * int(m1.group(1)),
+        f"v1={m1.group(1) if m1 else '?'}μA v3={m2.group(1) if m2 else '?'}μA")
+    ed(page, "e.setProps('L2', { N: 300 })"); settle(page, 150)
+    set_range(page, ".clab .panel input[type=range]", 1); settle(page, 150)
+    btn.click(); settle(page, 1300)
+    m3 = re.search(r"(\d+) μA", first_row(page))
+    log("匝数 ×3 时峰值更大（ε ∝ N）", bool(m1 and m3) and int(m3.group(1)) > 2 * int(m1.group(1)), f"N100={m1.group(1) if m1 else '?'} N300={m3.group(1) if m3 else '?'}")
+
+
+def case_lenz(page: Page, log):
+    _wire_coil(page)
+    btns = page.locator(".clab .panel .btn:not(.ghost):not(.alt)")
+    def direction() -> str:
+        r = first_row(page); return "右" if "右偏" in r else "左" if "左偏" in r else "无"
+    btns.nth(0).click(); settle(page, 1300); n_in = direction()
+    btns.nth(1).click(); settle(page, 1300); n_out = direction()
+    page.locator(".clab .panel select").first.select_option("S"); settle(page, 100)
+    btns.nth(0).click(); settle(page, 1300); s_in = direction()
+    log("N 极插入与拔出偏转方向相反", n_in != "无" and n_out != "无" and n_in != n_out, f"N入={n_in} N出={n_out}")
+    log("S 极插入与 N 极插入方向相反（=N 极拔出）", s_in == n_out, f"S入={s_in}")
+
+
 CASES = {
     "bx3-emf-internal": case_emf,
     "bx3-resistivity": case_resistivity,
@@ -191,6 +290,11 @@ CASES = {
     "bx3-capacitor-charge": case_capacitor,
     "xb2-self-induction": case_self_induction,
     "xb2-lc-ac": case_lc_ac,
+    "xb2-em-oscillation": case_em_oscillation,
+    "xb2-sensor-control": case_sensor,
+    "bx3-induction-condition": case_induction,
+    "bx3-emf-factors": case_emf_factors,
+    "bx3-lenz-law": case_lenz,
 }
 
 

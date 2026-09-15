@@ -43,8 +43,8 @@ import ExpStaticPhenomena from '../defs/ExpStaticPhenomena.vue'
 import ExpFieldLinesModel from '../defs/ExpFieldLinesModel.vue'
 import ExpParticleAccel from '../defs/ExpParticleAccel.vue'
 import ExpTotalReflection from '../defs/ExpTotalReflection.vue'
-import ExpEmOscillation from '../defs/ExpEmOscillation.vue'
-import ExpSensorControl from '../defs/ExpSensorControl.vue'
+import ExpEmOscillationCircuit from '../defs/ExpEmOscillationCircuit.vue'
+import ExpSensorControlCircuit from '../defs/ExpSensorControlCircuit.vue'
 import ExpTapeVelocity from '../defs/ExpTapeVelocity.vue'
 import ExpCapacitorCircuit from '../defs/ExpCapacitorCircuit.vue'
 import ExpResistivityCircuit from '../defs/ExpResistivityCircuit.vue'
@@ -632,7 +632,7 @@ const ALT_EXPERIMENTS: ExperimentModule[] = [
     name: '观察电磁振荡（第三阶段替代）',
     book: '选择性必修第二册', chapter: '第四章 电磁振荡与电磁波', dimension: '2D',
     summary: '动画+波形',
-    available: true, batch: 'B8', component: ExpEmOscillation as unknown as Component,
+    available: true, batch: 'B8', component: ExpEmOscillationCircuit as unknown as Component,
     steps: panelSteps('按交互提示操作 → 记录实验数据'),
   },
   {
@@ -640,7 +640,7 @@ const ALT_EXPERIMENTS: ExperimentModule[] = [
     name: '利用传感器制作简单的自动控制装置（第三阶段替代）',
     book: '选择性必修第二册', chapter: '第五章 传感器', dimension: '2D',
     summary: '轻量交互+接线',
-    available: true, batch: 'B8', component: ExpSensorControl as unknown as Component,
+    available: true, batch: 'B8', component: ExpSensorControlCircuit as unknown as Component,
     steps: panelSteps('按交互提示操作 → 记录实验数据'),
   },
 ]

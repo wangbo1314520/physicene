@@ -21,6 +21,8 @@ export type ComponentKind =
   | 'photoresistor'  // 光敏电阻（Rdark / Rlight，light∈[0,1]）
   | 'wire_sample'    // 待测金属丝（电阻率实验：ρ、L、d 决定 R）
   | 'multimeter'     // 多用电表（mode: dcv / dca / ohm；欧姆挡内含 1.5V 电源与中值电阻 r₀）
+  | 'relay'          // 继电器：线圈(0,1) 电压 ≥ vOn 时触点(2,3) 吸合
+  | 'coil'           // 感应线圈：EMF 由外部磁通变化驱动（props.emf 随时间由实验设置），带线圈电阻
 
 export interface PinRef { comp: string; pin: number }
 

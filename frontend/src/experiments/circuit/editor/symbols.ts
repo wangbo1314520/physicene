@@ -14,6 +14,7 @@ export function pinOffsets(c: CircuitComponent): [number, number][] {
   switch (c.kind) {
     case 'rheostat': return [[-30, 0], [30, 0], [0, 20]]
     case 'spdt_switch': return [[-30, 0], [30, -12], [30, 12]]
+    case 'relay': return [[-30, -12], [-30, 12], [30, -12], [30, 12]]
     default: return [[-30, 0], [30, 0]]
   }
 }
@@ -29,7 +30,7 @@ export function pinWorld(c: CircuitComponent, pin: number): [number, number] {
 }
 /** 元件包围盒半宽/半高（世界坐标，随旋转交换） */
 export function halfSize(c: CircuitComponent): [number, number] {
-  const tall = c.kind === 'rheostat' || c.kind === 'spdt_switch' || c.kind === 'multimeter'
+  const tall = c.kind === 'rheostat' || c.kind === 'spdt_switch' || c.kind === 'multimeter' || c.kind === 'relay'
   const [hw, hh] = [32, tall ? 24 : 18]
   return c.rot === 90 || c.rot === 270 ? [hh, hw] : [hw, hh]
 }
@@ -49,6 +50,8 @@ export function valueLabel(c: CircuitComponent): string {
     case 'diode': return `Vf ${num(c, 'vf')}V`
     case 'photoresistor': return `光照 ${(num(c, 'light') * 100).toFixed(0)}%`
     case 'wire_sample': return `L=${num(c, 'L').toFixed(2)}m d=${num(c, 'd').toFixed(2)}mm`
+    case 'relay': return `吸合 ≥ ${num(c, 'vOn').toFixed(1)} V`
+    case 'coil': return `N=${num(c, 'N').toFixed(0)}  ε=${num(c, 'emf').toFixed(3)} V`
     default: return ''
   }
 }
@@ -207,6 +210,28 @@ export function drawSymbol(ctx: Ctx, c: CircuitComponent, info: DrawInfo = {}) {
       leads(ctx, 8)
       ctx.fillStyle = INK; ctx.beginPath(); ctx.moveTo(-8, -9); ctx.lineTo(8, 0); ctx.lineTo(-8, 9); ctx.closePath(); ctx.fill()
       line(ctx, 8, -9, 8, 9, INK, 2.5)
+      break
+    }
+    case 'relay': {
+      // 左：线圈（pin0/1）；右：触点（pin2/3），吸合时闭合
+      line(ctx, -30, -12, -18, -12, DIM); line(ctx, -30, 12, -18, 12, DIM)
+      ctx.strokeStyle = CU; ctx.lineWidth = 2; ctx.strokeRect(-18, -14, 14, 28)
+      for (let y = -10; y <= 10; y += 5) line(ctx, -18, y, -4, y, CU, 1)
+      line(ctx, 30, -12, 18, -12, DIM); line(ctx, 30, 12, 18, 12, DIM)
+      ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(18, -12, 3, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(18, 12, 3, 0, Math.PI * 2); ctx.fill()
+      const on = r ? Math.abs(r.v) >= num(c, 'vOn', 2.5) * 0.8 && Math.abs(r.v) > 0 : false
+      const closed = on !== (c.props.normallyClosed === true)
+      line(ctx, 18, 12, closed ? 18 : 8, closed ? -12 : -6, closed ? OK : INK, 2.5)
+      ctx.setLineDash([2, 3]); line(ctx, -4, 0, 10, 0, DIM, 1); ctx.setLineDash([])
+      break
+    }
+    case 'coil': {
+      line(ctx, -30, 0, -24, 0, CU); line(ctx, 24, 0, 30, 0, CU)
+      ctx.strokeStyle = CU; ctx.lineWidth = 2.5; ctx.beginPath()
+      for (let i = 0; i < 6; i++) ctx.arc(-20 + i * 8, 0, 4, Math.PI, 0)
+      ctx.stroke()
+      const e = num(c, 'emf', 0)
+      if (Math.abs(e) > 1e-4) text(ctx, e > 0 ? '⟵ ε' : 'ε ⟶', 0, -16, GOLD, 10)
       break
     }
   }

@@ -24,6 +24,7 @@ function admittance(c: CircuitComponent, omega: number): Cx | null {
     case 'switch': return c.props.closed === true ? cx(1 / R_CONTACT) : cx(0)
     case 'diode': return cx(1e-9)
     case 'multimeter': return cx(1 / multimeterSpec(c).r)
+    case 'coil': return cx(1 / Math.max(R_CONTACT, num(c, 'rw', 0)))
     default: return null
   }
 }

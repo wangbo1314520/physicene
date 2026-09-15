@@ -326,9 +326,10 @@ function draw(t: number) {
     if (elapsed >= total) playback.value = null
   }
 }
-/** 从外部流入某引脚的电流（pin0 = +i，其余 = −i） */
+/** 从外部流入某引脚的电流（pin0 = +i，pin1 = −i；三端/继电器触点等无法归属的引脚记 0） */
 function intoPin(els: DCSolution['elements'], ref: PinRef): number {
   const r = els[ref.comp]; if (!r) return 0
+  if (ref.pin >= 2) { const c = circuit.components.find((k) => k.id === ref.comp); return c?.kind === 'rheostat' ? -r.i : 0 }
   return ref.pin === 0 ? r.i : -r.i
 }
 
@@ -395,6 +396,10 @@ defineExpose(api)
             <label>长度 L = {{ Number(selComp.props.L).toFixed(2) }} m<input type="range" min="0.2" max="1" step="0.01" v-model.number="selComp.props.L"></label>
             <label>直径 d = {{ Number(selComp.props.d).toFixed(2) }} mm（螺旋测微器）<input type="range" min="0.2" max="1" step="0.01" v-model.number="selComp.props.d"></label>
           </template>
+          <label v-if="selComp.kind === 'relay'">吸合电压 {{ Number(selComp.props.vOn).toFixed(1) }} V（线圈 {{ selComp.props.rCoil }} Ω）
+            <input type="range" min="1" max="6" step="0.5" v-model.number="selComp.props.vOn"></label>
+          <label v-if="selComp.kind === 'coil'">匝数 N = {{ selComp.props.N }}（感应电动势由磁通变化产生，见实验操作）
+            <input type="range" min="50" max="500" step="50" v-model.number="selComp.props.N"></label>
           <p v-if="displayResistance(selComp)" class="ro">{{ displayResistance(selComp) }}</p>
           <div class="row"><button class="mini" @click="rotateSel">⟳ 旋转</button><button class="mini danger" @click="deleteSel">🗑 删除</button></div>
         </div>

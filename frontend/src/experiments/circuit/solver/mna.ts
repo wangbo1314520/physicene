@@ -21,14 +21,16 @@ export interface EngineState {
   capV: Map<string, number>
   indI: Map<string, number>
   diodeOn: Map<string, boolean>
+  relayOn: Map<string, boolean>
 }
 
 export function initialState(circuit: Circuit): EngineState {
-  const s: EngineState = { capV: new Map(), indI: new Map(), diodeOn: new Map() }
+  const s: EngineState = { capV: new Map(), indI: new Map(), diodeOn: new Map(), relayOn: new Map() }
   for (const c of circuit.components) {
     if (c.kind === 'capacitor') s.capV.set(c.id, num(c, 'v0', 0))
     if (c.kind === 'inductor') s.indI.set(c.id, num(c, 'i0', 0))
     if (c.kind === 'diode') s.diodeOn.set(c.id, false)
+    if (c.kind === 'relay') s.relayOn.set(c.id, false)
   }
   return s
 }
@@ -42,9 +44,11 @@ function srcEmf(c: CircuitComponent, ctx: Ctx): number {
     if (ctx.mode !== 'transient') return 0
     return num(c, 'vrms', 3) * Math.SQRT2 * Math.sin(2 * Math.PI * num(c, 'freq', 50) * ctx.t)
   }
+  if (c.kind === 'coil') return num(c, 'emf', 0)
   return num(c, 'emf', 1.5)
 }
-const srcR = (c: CircuitComponent) => Math.max(R_SRC_MIN, num(c, 'r', 0))
+const srcR = (c: CircuitComponent) => Math.max(R_SRC_MIN, num(c, c.kind === 'coil' ? 'rw' : 'r', 0))
+const relayClosed = (c: CircuitComponent, state: EngineState) => (state.relayOn.get(c.id) ?? false) !== (c.props.normallyClosed === true)
 
 function solveOnce(circuit: Circuit, net: Netlist, ctx: Ctx): number[] | null {
   const n = net.nodeCount - 1
@@ -71,9 +75,14 @@ function solveOnce(circuit: Circuit, net: Netlist, ctx: Ctx): number[] | null {
     const R2 = twoTerminalResistance(c)
     if (R2 !== null) { stampG(na, nb, 1 / R2); continue }
     switch (c.kind) {
-      case 'battery': case 'dc_source': case 'ac_source': {
+      case 'battery': case 'dc_source': case 'ac_source': case 'coil': {
         const G = 1 / srcR(c)
         stampG(na, nb, G); stampI(na, nb, G * srcEmf(c, ctx)); break
+      }
+      case 'relay': {
+        stampG(na, nb, 1 / Math.max(R_CONTACT, num(c, 'rCoil', 500)))
+        if (relayClosed(c, ctx.state)) stampG(net.nodeOf(pin(c, 2)), net.nodeOf(pin(c, 3)), 1 / R_CONTACT)
+        break
       }
       case 'switch':
         if (c.props.closed === true) stampG(na, nb, 1 / R_CONTACT); break
@@ -127,12 +136,13 @@ function extract(circuit: Circuit, net: Netlist, V: number[], ctx: Ctx): Pick<DC
     const R2 = twoTerminalResistance(c)
     if (R2 !== null) i = v / R2
     else switch (c.kind) {
-      case 'battery': case 'dc_source': case 'ac_source': {
+      case 'battery': case 'dc_source': case 'ac_source': case 'coil': {
         const G = 1 / srcR(c); i = G * (v - srcEmf(c, ctx))
         const iOut = -i
         sources[c.id] = { iOut, vTerm: v, rExt: Math.abs(iOut) > 1e-12 ? v / iOut : Infinity }
         break
       }
+      case 'relay': i = v / Math.max(R_CONTACT, num(c, 'rCoil', 500)); break
       case 'switch': i = c.props.closed === true ? v / R_CONTACT : 0; break
       case 'spdt_switch': {
         const pos = num(c, 'pos', 0)
@@ -160,21 +170,28 @@ function extract(circuit: Circuit, net: Netlist, V: number[], ctx: Ctx): Pick<DC
   return { elements, sources }
 }
 
-/** 二极管通断迭代直到稳定 */
+/** 二极管 / 继电器通断迭代直到稳定 */
 function solveWithDiodes(circuit: Circuit, net: Netlist, ctx: Ctx): { V: number[]; res: ReturnType<typeof extract> } | null {
-  const diodes = circuit.components.filter((c) => c.kind === 'diode')
+  const switching = circuit.components.filter((c) => c.kind === 'diode' || c.kind === 'relay')
   for (let iter = 0; iter < 20; iter++) {
     const V = solveOnce(circuit, net, ctx)
     if (!V) return null
     const res = extract(circuit, net, V, ctx)
     let changed = false
-    for (const d of diodes) {
-      const on = ctx.state.diodeOn.get(d.id) ?? false
+    for (const d of switching) {
       const { v, i } = res.elements[d.id]
-      if (!on && v > num(d, 'vf', 0.7) + 1e-9) { ctx.state.diodeOn.set(d.id, true); changed = true }
-      else if (on && i < -1e-12) { ctx.state.diodeOn.set(d.id, false); changed = true }
+      if (d.kind === 'diode') {
+        const on = ctx.state.diodeOn.get(d.id) ?? false
+        if (!on && v > num(d, 'vf', 0.7) + 1e-9) { ctx.state.diodeOn.set(d.id, true); changed = true }
+        else if (on && i < -1e-12) { ctx.state.diodeOn.set(d.id, false); changed = true }
+      } else {
+        const on = ctx.state.relayOn.get(d.id) ?? false
+        const vOn = num(d, 'vOn', 2.5)
+        const want = on ? Math.abs(v) >= 0.8 * vOn : Math.abs(v) >= vOn   // 回差防抖
+        if (want !== on) { ctx.state.relayOn.set(d.id, want); changed = true }
+      }
     }
-    if (!changed || diodes.length === 0) return { V, res }
+    if (!changed || switching.length === 0) return { V, res }
   }
   const V = solveOnce(circuit, net, ctx)
   return V ? { V, res: extract(circuit, net, V, ctx) } : null
@@ -197,8 +214,8 @@ export function solveDC(circuit: Circuit, state: EngineState = initialState(circ
 export interface TransientOptions {
   dt: number
   tEnd: number
-  /** 每步前调用，可改开关位置等（如 t≥1s 拨单刀双掷到放电） */
-  control?: (t: number, circuit: Circuit) => void
+  /** 每步前调用，可改开关位置 / 感应线圈 EMF 等；prev 为上一步各元件结果（用于互感 −M·ΔI/Δt） */
+  control?: (t: number, circuit: Circuit, prev: Record<string, ElementResult> | null) => void
   /** 初始状态（默认按 v0/i0 属性） */
   state?: EngineState
 }
@@ -218,12 +235,14 @@ export function simulateTransient(circuit: Circuit, opt: TransientOptions): Tran
   let time = 0
   let net = buildNetlist(circuit)
   const steps = Math.max(1, Math.round(opt.tEnd / opt.dt))
+  let prev: Record<string, ElementResult> | null = null
   for (let k = 0; k < steps; k++) {
     time += opt.dt
-    if (opt.control) { opt.control(time, circuit); net = buildNetlist(circuit) }
+    if (opt.control) { opt.control(time, circuit, prev); net = buildNetlist(circuit) }
     const ctx: Ctx = { mode: 'transient', h: opt.dt, t: time, state }
     const out = solveWithDiodes(circuit, net, ctx)
     if (!out) return { t, elements, state, ok: false }
+    prev = out.res.elements
     for (const c of circuit.components) {
       const r = out.res.elements[c.id]
       elements[c.id].v.push(r.v); elements[c.id].i.push(r.i)

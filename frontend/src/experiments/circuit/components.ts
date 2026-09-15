@@ -68,6 +68,10 @@ export const DEFS: Record<ComponentKind, ComponentDef> = {
     defaults: { rho: 1.1e-6, L: 0.5, d: 0.5 } },
   multimeter: { kind: 'multimeter', label: '多用电表', pins: ['+红', '−黑'], category: '电表',
     defaults: { mode: 'dcv', rangeKey: '10V' } },
+  relay: { kind: 'relay', label: '继电器', pins: ['线圈+', '线圈−', '触点1', '触点2'], category: '控制',
+    defaults: { rCoil: 5000, vOn: 2.5, normallyClosed: false } },
+  coil: { kind: 'coil', label: '感应线圈', pins: ['1', '2'], category: '被测',
+    defaults: { N: 100, rw: 2, emf: 0 } },
 }
 
 let seq = 0

@@ -112,6 +112,31 @@ describe('多用电表', () => {
   })
 })
 
+describe('继电器与感应线圈', () => {
+  it('光控：光敏电阻分压驱动继电器线圈，暗时吸合点亮路灯，亮时断开', () => {
+    const mk = (light: number) => {
+      const b = circuitBuilder()
+      b.add('dc_source', 'E', { emf: 6, r: 0 }); b.add('photoresistor', 'LDR', { rDark: 100000, rLight: 500, light })
+      b.add('resistor', 'Rd', { R: 1000 }); b.add('relay', 'K', { rCoil: 5000, vOn: 2.5 }); b.add('lamp', 'La')
+      // 分压：E+ → Rd → 节点X → LDR → E−；继电器线圈并在 LDR 两端（天暗→LDR 阻值大→分压大→吸合）
+      b.chain('E:0', 'Rd:0', 'Rd:1', 'LDR:0', 'LDR:1', 'E:1', 'K:0', 'LDR:0', 'K:1', 'LDR:1')
+      // 路灯回路：E+ → 触点 → 灯 → E−
+      b.chain('E:0', 'K:2', 'K:3', 'La:0', 'La:1', 'E:1')
+      return Math.abs(solveDC(b.circuit).elements.La.i)
+    }
+    expect(mk(0)).toBeGreaterThan(0.1)      // 暗：灯亮
+    expect(mk(1)).toBeLessThan(1e-6)        // 亮：灯灭
+  })
+  it('感应线圈 ε=0.5V、rw=2Ω 接 300μA 电流计（100Ω）→ I = ε/(rw+rG)', () => {
+    const b = circuitBuilder()
+    b.add('coil', 'L2', { N: 100, rw: 2, emf: 0.5 }); b.add('galvanometer', 'G', { rangeKey: '300μA' })
+    b.chain('L2:0', 'G:0', 'L2:1', 'G:1')
+    const s = solveDC(b.circuit)
+    expect(Math.abs(s.elements.G.i - 0.5 / 102)).toBeLessThan(1e-6)
+    expect(detectFaults(b.circuit, s).some((f) => f.code === 'no_source')).toBe(false)
+  })
+})
+
 const EMF_TEMPLATE: CircuitTemplate = {
   name: '伏安法测电动势内阻',
   roles: { src: 'battery', A: 'ammeter', V: 'voltmeter', Rh: 'rheostat', S: 'switch' },
@@ -142,13 +167,13 @@ describe('智能判分', () => {
     expect(issue?.compIds.sort()).toEqual(['E', 'V'])
   })
 
-  it('缺电流表 → missing_role；开关未闭合 → not_closed + fault', () => {
+  it('缺电流表 → missing_role；开关未闭合 → not_closed（开关状态不算接线错误，不额外扣 fault）', () => {
     const b = circuitBuilder()
     b.add('battery', 'E'); b.add('rheostat', 'Rh'); b.add('voltmeter', 'V'); b.add('switch', 'S', { closed: false })
     b.chain('E:0', 'V:0', 'E:1', 'V:1', 'E:0', 'S:0', 'S:1', 'Rh:0', 'Rh:2', 'E:1')
     const g = gradeCircuit(b.circuit, EMF_TEMPLATE)
     const c = g.issues.map((i) => i.code)
-    expect(c).toContain('missing_role'); expect(c).toContain('not_closed'); expect(c).toContain('fault')
+    expect(c).toContain('missing_role'); expect(c).toContain('not_closed'); expect(c).not.toContain('fault')
     expect(g.passed).toBe(false)
   })
 })
