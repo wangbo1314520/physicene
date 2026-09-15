@@ -1,7 +1,7 @@
 """演示实验页（/sim）无头 E2E：分组选择器 + 实验库 3D 动画推进 + α散射元件 + 控制台错误。
 用法（Vite dev 已启动）：
   set PLAYWRIGHT_BROWSERS_PATH=E:\\Program\\playwright-browsers
-  python frontend/e2e/sim-demo-check.py [--url http://localhost:5174/sim]
+  python frontend/e2e/sim-demo-check.py [--url http://localhost:5173/sim]
 截图输出到 frontend/e2e/out/。
 """
 import argparse
@@ -18,7 +18,7 @@ OUT.mkdir(exist_ok=True)
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--url", default="http://localhost:5174/sim")
+    ap.add_argument("--url", default="http://localhost:5173/sim")
     args = ap.parse_args()
 
     failures: list[str] = []

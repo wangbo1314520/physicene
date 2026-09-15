@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
-import { createSimRenderer, type SimRenderer } from '../sim/threeScene'
+import { createSimRenderer, type SimRenderer, type SimDimension } from '../sim/threeScene'
 import { http } from '../api/http'
 import {
   useSimulationSocket, type PhysicsElementInput,
@@ -87,16 +87,8 @@ const scene = reactive({
 })
 const selectedId = ref<string | null>(null)
 
-const viewMode = ref<'front' | 'iso'>((localStorage.getItem('ps_view') as 'front' | 'iso') || 'front')
-const viewLabel = computed(() => (viewMode.value === 'front' ? '正视' : '立体'))
 function resetCamera() {
   renderer?.resetView()
-}
-
-function toggleView() {
-  viewMode.value = viewMode.value === 'front' ? 'iso' : 'front'
-  localStorage.setItem('ps_view', viewMode.value)
-  renderer?.setViewMode(viewMode.value)
 }
 const selected = computed(() => scene.elements.find((e) => e.id === selectedId.value) ?? null)
 const busy = computed(() => ['running', 'paused', 'connecting'].includes(state.status))
@@ -186,15 +178,104 @@ function cancelOcrPreview() {
   renderer?.setGhost([])
   syncRenderer()
 }
-// ===== 元件库（SRS F2.5 六元件，spring/track 后续周补）=====
-const palette = [
-  { type: 'cube', label: '方块', icon: '▣', color: '#4A90D9' },
-  { type: 'sphere', label: '小球', icon: '●', color: '#F5C542' },
-  { type: 'slope', label: '斜面', icon: '◺', color: '#3ecf8e' },
-  { type: 'wall', label: '墙壁/地面', icon: '▬', color: '#8a8aa0' },
+// ===== 维度：2D 平面正交 / 2.5D 等距立体 / 3D 可旋转空间场线（与实验库“唯一维度口径”一致）=====
+const DIMS: SimDimension[] = ['2D', '2.5D', '3D']
+const DIM_INFO: Record<SimDimension, { label: string; hint: string }> = {
+  '2D': { label: '2D 平面', hint: '正交平面图（课本插图视角）：平面力学 + 平面电磁，磁场用 ⊗/⊙ 表示垂直纸面' },
+  '2.5D': { label: '2.5D 立体', hint: '等距立体观感，物理仍在竖直平面内：力学实验（斜面、碰撞、抛体）' },
+  '3D': { label: '3D 空间', hint: '可旋转视角、空间场线带箭头：点电荷电场线、匀强电场/磁场中的带电粒子' },
+}
+const dim = ref<SimDimension>(
+  (localStorage.getItem('ps_dim') as SimDimension) || (localStorage.getItem('ps_view') === 'iso' ? '2.5D' : '2D'))
+
+// ===== 元件库：后端 dyn4j 支持的 7 种元件，按维度分档 =====
+interface PaletteItem { type: string; label: string; icon: string; color: string; dims: SimDimension[]; desc: string }
+const PALETTE: PaletteItem[] = [
+  { type: 'cube', label: '方块', icon: '▣', color: '#4A90D9', dims: ['2D', '2.5D'], desc: '有质量的滑块/物块，可设摩擦、弹性、初速' },
+  { type: 'sphere', label: '小球', icon: '●', color: '#F5C542', dims: ['2D', '2.5D', '3D'], desc: '质点模型；3D 中设电荷量即为带电粒子' },
+  { type: 'slope', label: '斜面', icon: '◺', color: '#3ecf8e', dims: ['2D', '2.5D'], desc: '固定斜面（直角在左下，scale 定底与高）' },
+  { type: 'wall', label: '墙壁/地面', icon: '▬', color: '#8a8aa0', dims: ['2D', '2.5D', '3D'], desc: '固定边界，可设摩擦' },
+  { type: 'point_charge', label: '点电荷', icon: '⊕', color: '#E05555', dims: ['2D', '3D'], desc: '带电质点：受库仑力与电场力/洛伦兹力；固定后作为场源' },
+  { type: 'e_field', label: '匀强电场', icon: '⇉', color: '#7fb3ff', dims: ['2D', '3D'], desc: '矩形区域匀强电场 (Ex, Ey)，3D 中画空间场线箭头' },
+  { type: 'b_field', label: '匀强磁场', icon: '⊗', color: '#c78bff', dims: ['2D', '3D'], desc: '区域匀强磁场 B（垂直纸面 出/入），带电粒子做圆周运动' },
 ]
+const palette = computed(() => PALETTE.filter((p) => p.dims.includes(dim.value)))
+const dimHint = computed(() => DIM_INFO[dim.value].hint)
+
+function setDim(d: SimDimension) {
+  dim.value = d
+  localStorage.setItem('ps_dim', d)
+  renderer?.setDimension(d)
+  const bad = scene.elements.filter((e) => !PALETTE.find((p) => p.type === e.type)?.dims.includes(d))
+  if (bad.length) toast.value = `${DIM_INFO[d].label}模式不含 ${bad.length} 个已放置元件的类型（仍会显示，建议删除或切回原维度）`
+}
 
 let typeCounter: Record<string, number> = {}
+
+// ===== 每维度的实验设计模板：一键载入，可再自由增删元件 =====
+interface LabTemplate { name: string; desc: string; gravity?: number; elements: PhysicsElementInput[] }
+function mk(type: string, id: string, x: number, y: number, patch: Partial<PhysicsElementInput> = {}): PhysicsElementInput {
+  const base = defaultElement(type, x, y)
+  return { ...base, ...patch, id, position: { x, y }, properties: { ...base.properties, ...(patch.properties ?? {}) },
+    initialState: { velocity: { ...(base.initialState?.velocity ?? { x: 0, y: 0 }), ...(patch.initialState?.velocity ?? {}) } } }
+}
+const GROUND = () => mk('wall', 'ground', 0, -0.1, { scale: { x: 40, y: 0.2 } })
+const TEMPLATES: Record<SimDimension, LabTemplate[]> = {
+  '2D': [
+    { name: '斜面上的滑块', desc: '改滑块摩擦系数 μ：μ 大于 tanθ≈0.58 不下滑；μ=0 匀加速',
+      elements: [GROUND(), mk('slope', 'slope', -2, 0, { scale: { x: 2, y: 2.3 } }),
+        mk('cube', 'block', -3.23, 1.28, { angle: -0.5236, properties: { mass: 1, friction: 0.2, restitution: 0 } })] },
+    { name: '平抛运动', desc: '水平初速 6 m/s 从 10 m 高抛出；观察轨迹为抛物线，落地时间 √(2h/g)',
+      elements: [GROUND(), mk('sphere', 'ball', -10, 10, { properties: { mass: 1, friction: 0, restitution: 0 }, initialState: { velocity: { x: 6, y: 0 } } })] },
+    { name: '带电粒子在匀强电场中偏转', desc: '粒子水平入场，受竖直电场力做类平抛；改 E 或 v 看偏转量',
+      gravity: 0,
+      elements: [mk('e_field', 'ef', 0, 0, { scale: { x: 16, y: 8 }, properties: { eFieldX: 0, eFieldY: -2 } }),
+        mk('point_charge', 'q', -10, 2, { properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 8, y: 0 } } })] },
+    { name: '带电粒子在匀强磁场中回旋', desc: 'r = mv/(qB)：v=4、q=1、B=1、m=1 → 半径 4 m；改 B 看半径变化',
+      gravity: 0,
+      elements: [mk('b_field', 'bf', 0, 0, { scale: { x: 24, y: 24 }, properties: { bField: 1, bDirection: 'out' } }),
+        mk('point_charge', 'q', -4, 0, { properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 0, y: 4 } } })] },
+  ],
+  '2.5D': [
+    { name: '小车沿斜面下滑', desc: '等距视角看小车沿 30° 斜面加速下滑后在地面减速停下',
+      elements: [GROUND(), mk('slope', 'slope', -2, 0, { scale: { x: 2, y: 2.3 } }),
+        mk('cube', 'car', -3.23, 1.28, { angle: -0.5236, properties: { mass: 1, friction: 0.1, restitution: 0 } })] },
+    { name: '两球对心碰撞', desc: 'm₁=1 以 3 m/s 撞静止的 m₂=2，弹性碰撞 e=1；看动量守恒曲线',
+      elements: [GROUND(), mk('sphere', 'ball1', -4, 0.5, { properties: { mass: 1, friction: 0, restitution: 1 }, initialState: { velocity: { x: 3, y: 0 } } }),
+        mk('sphere', 'ball2', 2, 0.5, { color: '#E05555', properties: { mass: 2, friction: 0, restitution: 1 } })] },
+    { name: '自由落体与反弹', desc: '8 m 高静止释放，e=0.8 每次反弹高度按 e² 衰减',
+      elements: [GROUND(), mk('sphere', 'ball', 0, 8, { properties: { mass: 1, friction: 0, restitution: 0.8 } })] },
+  ],
+  '3D': [
+    { name: '正负点电荷的电场线', desc: '两个固定异号电荷（电偶极子），旋转视角看空间电场线从正到负',
+      gravity: 0,
+      elements: [mk('point_charge', 'qp', -3, 0, { isFixed: true, color: '#E05555', properties: { mass: 1, charge: 2 } }),
+        mk('point_charge', 'qn', 3, 0, { isFixed: true, color: '#4A90D9', properties: { mass: 1, charge: -2 } })] },
+    { name: '匀强电场中的加速与偏转', desc: '带电小球沿场方向加速；再给它横向初速看抛物线偏转',
+      gravity: 0,
+      elements: [mk('e_field', 'ef', 0, 0, { scale: { x: 16, y: 8 }, properties: { eFieldX: 1, eFieldY: 0 } }),
+        mk('sphere', 'q', -7, 0, { properties: { mass: 1, charge: 1, friction: 0, restitution: 0 }, initialState: { velocity: { x: 0, y: 2 } } })] },
+    { name: '匀强磁场中的圆周运动', desc: '洛伦兹力提供向心力：T = 2πm/(qB) 与速度无关',
+      gravity: 0,
+      elements: [mk('b_field', 'bf', 0, 0, { scale: { x: 24, y: 24 }, properties: { bField: 1, bDirection: 'out' } }),
+        mk('point_charge', 'q', -4, 0, { properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 0, y: 4 } } })] },
+    { name: '复合场：速度选择器', desc: 'E 与 B 正交，qE = qvB 时粒子直线通过（v = E/B = 4 m/s）；改 v 看偏转',
+      gravity: 0,
+      elements: [mk('e_field', 'ef', 0, 0, { scale: { x: 20, y: 8 }, properties: { eFieldX: 0, eFieldY: -4 } }),
+        mk('b_field', 'bf', 0, 0, { scale: { x: 20, y: 8 }, properties: { bField: 1, bDirection: 'out' } }),
+        mk('point_charge', 'q', -11, 0, { properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 4, y: 0 } } })] },
+  ],
+}
+const templates = computed(() => TEMPLATES[dim.value])
+function applyDimTemplate(t: LabTemplate) {
+  if (busy.value) return
+  scene.elements.splice(0, scene.elements.length, ...t.elements.map((e) => JSON.parse(JSON.stringify(e)) as PhysicsElementInput))
+  scene.config.gravity.y = t.gravity ?? -9.8
+  selectedId.value = null
+  syncRenderer()
+  renderer?.resetView()
+  toast.value = `已载入「${t.name}」：${t.desc}`
+}
 
 function defaultElement(type: string, x: number, y: number): PhysicsElementInput {
   typeCounter[type] = (typeCounter[type] ?? 0) + 1
@@ -204,14 +285,24 @@ function defaultElement(type: string, x: number, y: number): PhysicsElementInput
       ? { scale: { x: 2, y: 2.3 }, isFixed: true, color: '#3ecf8e' }
       : type === 'sphere'
         ? { scale: { x: 1, y: 1 }, isFixed: false, color: '#F5C542' }
-        : { scale: { x: 1, y: 1 }, isFixed: false, color: '#4A90D9' }
+        : type === 'point_charge'
+          ? { scale: { x: 0.6, y: 0.6 }, isFixed: false, color: '#E05555' }
+          : type === 'e_field'
+            ? { scale: { x: 12, y: 6 }, isFixed: true, color: '#7fb3ff' }
+            : type === 'b_field'
+              ? { scale: { x: 12, y: 12 }, isFixed: true, color: '#c78bff' }
+              : { scale: { x: 1, y: 1 }, isFixed: false, color: '#4A90D9' }
+  const properties: Record<string, any> = type === 'e_field' ? { eFieldX: 1, eFieldY: 0 }
+    : type === 'b_field' ? { bField: 1, bDirection: 'out' }
+      : type === 'point_charge' ? { mass: 1, charge: 1, friction: 0, restitution: 0 }
+        : { mass: 1, friction: 0.1, restitution: 0.5 }
   return {
     id: `${type}_${String(typeCounter[type]).padStart(3, '0')}`,
     type,
     position: { x: +x.toFixed(2), y: +y.toFixed(2) },
     angle: 0,
     scale: base.scale,
-    properties: { mass: 1, friction: 0.1, restitution: 0.5 },
+    properties,
     initialState: { velocity: { x: 0, y: 0 } },
     isFixed: base.isFixed,
     color: base.color,
@@ -492,7 +583,7 @@ watch(() => state.status, (status) => {
 onMounted(async () => {
   if (canvasRef.value) {
     renderer = createSimRenderer(canvasRef.value)
-    renderer.setViewMode(viewMode.value)
+    renderer.setDimension(dim.value)
   }
   if (chartRef.value) {
     chart = echarts.init(chartRef.value)
@@ -557,7 +648,9 @@ onUnmounted(() => {
       <button :disabled="state.status !== 'paused'" @click="step">⏭</button>
       <button :disabled="state.status === 'ended' || state.status === 'idle'" @click="end">■</button>
       <span class="status">{{ state.status === 'running' ? `运行中 t=${state.currentT.toFixed(2)}s` : state.status }}</span>
-      <button class="ghost" @click="toggleView" title="正视=课本插图视角；立体=等距 2.5D">📐 {{ viewLabel }}</button>
+      <div class="dims" :title="dimHint">
+        <button v-for="d in DIMS" :key="d" class="dim" :class="{ on: dim === d }" @click="setDim(d)">{{ DIM_INFO[d].label }}</button>
+      </div>
       <button class="ghost" @click="resetCamera()" title="滚轮缩放 / 右键拖动平移 / 双击复位">⟲ 复位视角</button>
     </section>
 
@@ -566,12 +659,16 @@ onUnmounted(() => {
 
     <section class="workspace">
       <aside class="left">
-        <h3>元件库</h3>
-        <div v-for="p in palette" :key="p.type" class="palette-item" draggable="true"
+        <h3>元件库 <span class="dimtag">{{ DIM_INFO[dim].label }}</span></h3>
+        <p class="dimhint">{{ dimHint }}</p>
+        <div v-for="p in palette" :key="p.type" class="palette-item" draggable="true" :title="p.desc"
              @dragstart="onDragStart($event, p.type)">
           <span class="icon" :style="{ color: p.color }">{{ p.icon }}</span>{{ p.label }}
         </div>
         <p class="hint">拖到画布放置 · 点击选中 · Delete 删除</p>
+        <h3>实验设计</h3>
+        <button v-for="t in templates" :key="t.name" class="tpl" :disabled="busy" :title="t.desc" @click="applyDimTemplate(t)">📋 {{ t.name }}</button>
+        <p class="hint">载入后可继续增删元件、改参数再运行</p>
         <div class="chat">
           <h3>AI 助教</h3>
           <div class="chat-log" ref="chatLog">
@@ -626,7 +723,27 @@ onUnmounted(() => {
                          @input="selected.angle = +($event.target as HTMLInputElement).value * Math.PI / 180" :disabled="busy"></label>
             <label>颜色 <input type="color" v-model="selected.color" :disabled="busy"></label>
           </div>
-          <template v-if="!selected.isFixed">
+          <template v-if="selected.type === 'e_field'">
+            <div class="row">
+              <label>Ex (N/C) <input type="number" step="0.5" v-model.number="selected.properties!.eFieldX" :disabled="busy"></label>
+              <label>Ey (N/C) <input type="number" step="0.5" v-model.number="selected.properties!.eFieldY" :disabled="busy"></label>
+            </div>
+            <div class="row">
+              <label>区域宽 (m) <input type="number" step="1" min="1" v-model.number="selected.scale!.x" :disabled="busy"></label>
+              <label>区域高 (m) <input type="number" step="1" min="1" v-model.number="selected.scale!.y" :disabled="busy"></label>
+            </div>
+          </template>
+          <template v-else-if="selected.type === 'b_field'">
+            <div class="row">
+              <label>B (T) <input type="number" step="0.1" min="0" v-model.number="selected.properties!.bField" :disabled="busy"></label>
+              <label>方向 <select v-model="selected.properties!.bDirection" :disabled="busy"><option value="out">⊙ 垂直纸面向外</option><option value="in">⊗ 垂直纸面向里</option></select></label>
+            </div>
+            <div class="row">
+              <label>区域宽 (m) <input type="number" step="1" min="1" v-model.number="selected.scale!.x" :disabled="busy"></label>
+              <label>区域高 (m) <input type="number" step="1" min="1" v-model.number="selected.scale!.y" :disabled="busy"></label>
+            </div>
+          </template>
+          <template v-else-if="!selected.isFixed">
             <div class="row">
               <label>质量 (kg) <input type="number" step="0.5" min="0.01" v-model.number="selected.properties!.mass" :disabled="busy"></label>
               <label>摩擦 μ <input type="number" step="0.05" min="0" max="1" v-model.number="selected.properties!.friction" :disabled="busy"></label>
@@ -635,9 +752,17 @@ onUnmounted(() => {
               <label>弹性 e <input type="number" step="0.1" min="0" max="1" v-model.number="selected.properties!.restitution" :disabled="busy"></label>
               <label>初速 vx <input type="number" step="1" v-model.number="selected.initialState!.velocity!.x" :disabled="busy"></label>
             </div>
-            <label>初速 vy (m/s) <input type="number" step="1" v-model.number="selected.initialState!.velocity!.y" :disabled="busy"></label>
+            <div class="row">
+              <label>初速 vy (m/s) <input type="number" step="1" v-model.number="selected.initialState!.velocity!.y" :disabled="busy"></label>
+              <label v-if="selected.type === 'point_charge' || dim === '3D'">电荷量 q (C) <input type="number" step="0.5" v-model.number="selected.properties!.charge" :disabled="busy"></label>
+            </div>
+            <label v-if="selected.type === 'point_charge'" class="chk"><input type="checkbox" v-model="selected.isFixed" :disabled="busy"> 固定为场源（不运动）</label>
           </template>
-          <p v-else class="hint">固定元件（不参与运动统计）</p>
+          <template v-else>
+            <p class="hint">固定元件（不参与运动统计）</p>
+            <label v-if="selected.type === 'point_charge'">电荷量 q (C) <input type="number" step="0.5" v-model.number="selected.properties!.charge" :disabled="busy"></label>
+            <label v-if="selected.type === 'point_charge'" class="chk"><input type="checkbox" v-model="selected.isFixed" :disabled="busy"> 固定为场源</label>
+          </template>
           <button class="danger" :disabled="busy" @click="removeSelected">删除元件</button>
         </template>
         <p v-else class="hint">点击画布中的元件编辑参数</p>
@@ -688,6 +813,16 @@ h3 { font-size: 13px; color: #b0b0cc; margin-bottom: 10px; }
 }
 .palette-item:hover { border-color: #4a90d9; }
 .palette-item .icon { font-size: 18px; }
+.dims { display: inline-flex; border: 1px solid #2f2f4a; border-radius: 8px; overflow: hidden; margin-left: 6px; }
+.dims .dim { background: #14142a; color: #8a8aa0; border: none; border-right: 1px solid #2f2f4a; padding: 6px 10px; cursor: pointer; font-size: 12px; }
+.dims .dim:last-child { border-right: none; }
+.dims .dim.on { background: #F5C542; color: #1a1a2e; font-weight: 600; }
+.dimtag { font-size: 11px; color: #F5C542; font-weight: normal; margin-left: 6px; }
+.dimhint { font-size: 11px; color: #6c6c85; line-height: 1.5; margin: -4px 0 8px; }
+.tpl { display: block; width: 100%; text-align: left; background: #14142a; border: 1px solid #2f2f4a; color: #b0b0cc; border-radius: 8px; padding: 7px 10px; margin-bottom: 6px; cursor: pointer; font-size: 12px; }
+.tpl:hover:not(:disabled) { border-color: #3ecf8e; color: #7fe3b3; }
+.tpl:disabled { opacity: 0.45; cursor: not-allowed; }
+.chk { display: flex !important; align-items: center; gap: 6px; }
 .hint { color: #565675; font-size: 11px; margin: 8px 0; }
 .chat {
   margin-top: 12px; flex: 1; display: flex; flex-direction: column; min-height: 180px;
