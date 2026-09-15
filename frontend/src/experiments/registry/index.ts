@@ -32,6 +32,7 @@ import ExpParticleBField from '../defs/ExpParticleBField.vue'
 import ExpTransformer from '../defs/ExpTransformer.vue'
 import ExpBrownian from '../defs/ExpBrownian.vue'
 import ExpAlphaScatter3D from '../defs/ExpAlphaScatter3D.vue'
+import ExpAlt from '../defs/ExpAlt.vue'
 
 /** 通用四步流程（2.5D 仿真实验共用骨架，B0 7 个实验的步骤） */
 function simSteps(extra: { goal: string; hint: string }[] = []): ExperimentModule['steps'] {
@@ -150,32 +151,8 @@ const AVAILABLE: ExperimentModule[] = [
     ], { gravity: { x: 0, y: 0 }, maxDuration: 8 }),
     steps: simSteps(),
   },
-  {
-    id: 'xb2-mass-spectrometer',
-    name: '质谱仪原理（r=mv/qB）',
-    book: '选择性必修第二册', chapter: '第一章 安培力与洛伦兹力', dimension: '2.5D',
-    summary: '相同电荷不同速率进入匀强磁场，做半径 r=mv/qB 的圆周运动。',
-    available: true, batch: 'B0',
-    preset: p([
-      pc('fast', -8, 0, 0, 4, 1, 1),
-      pc('slow', 8, 0, 0, 2, 1, 1, '#3ecf8e'),
-      { id: 'bf', type: 'b_field', position: { x: 0, y: 0 }, scale: { x: 30, y: 30 }, properties: { bField: 1, bDirection: 'out' } },
-    ], { gravity: { x: 0, y: 0 }, maxDuration: 9 }),
-    steps: simSteps(),
-  },
-  {
-    id: 'xb3-alpha-scatter',
-    name: 'α粒子散射实验（卢瑟福）',
-    book: '选择性必修第三册', chapter: '第四章 原子结构和波粒二象性', dimension: '2.5D',
-    summary: '瞄准距离越小偏转角越大——原子核式结构的证据。',
-    available: true, batch: 'B0',
-    preset: p([
-      { id: 'nucleus', type: 'point_charge', position: { x: 0, y: 0 }, color: '#E05555', properties: { mass: 1000, charge: 8 }, initialState: { velocity: { x: 0, y: 0 } }, isFixed: true },
-      pc('a_top', -12, 3, 6, 0, 1, 1),
-      pc('a_mid', -12, 0.9, 6, 0, 1, 1, '#3ecf8e'),
-    ], { gravity: { x: 0, y: 0 }, maxDuration: 6 }),
-    steps: simSteps(),
-  },
+
+
   {
     id: 'bx3-emf-internal',
     name: '电池电动势和内阻的测量',
@@ -474,7 +451,106 @@ function get3d_summary(eid: string) {
   return m[eid] ?? ''
 }
 
-export const EXPERIMENTS: ExperimentModule[] = [...AVAILABLE, ...LOCKED]
+const ALT_EXPERIMENTS: ExperimentModule[] = [
+  {
+    id: 'bx1-reaction-time',
+    name: '测反应时间（第三阶段替代）',
+    book: '必修第一册', chapter: '第一章 运动的描述', dimension: '2D',
+    summary: '轻量交互计时器',
+    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    steps: panelSteps('按交互提示操作 → 记录实验数据'),
+  },
+  {
+    id: 'bx1-galileo-ramp',
+    name: '伽利略斜面实验（第三阶段替代）',
+    book: '必修第一册', chapter: '第四章 运动和力的关系', dimension: '2D',
+    summary: '动画+理想化推理',
+    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    steps: panelSteps('按交互提示操作 → 记录实验数据'),
+  },
+  {
+    id: 'bx1-center-of-gravity',
+    name: '悬挂法确定物体的重心（第三阶段替代）',
+    book: '必修第一册', chapter: '第三章 相互作用——力', dimension: '2D',
+    summary: '轻量交互+视频',
+    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    steps: panelSteps('按交互提示操作 → 记录实验数据'),
+  },
+  {
+    id: 'bx1-mirror-deformation',
+    name: '通过平面镜观察桌面的微小形变（第三阶段替代）',
+    book: '必修第一册', chapter: '第三章 相互作用——力', dimension: '2D',
+    summary: '动画+光路放大',
+    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    steps: panelSteps('按交互提示操作 → 记录实验数据'),
+  },
+  {
+    id: 'bx2-circular-life',
+    name: '生活中的圆周运动（第三阶段替代）',
+    book: '必修第二册', chapter: '第六章 圆周运动', dimension: '2D',
+    summary: '动画+参数调节',
+    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    steps: panelSteps('按交互提示操作 → 记录实验数据'),
+  },
+  {
+    id: 'bx2-motion-composition',
+    name: '运动的合成与分解（第三阶段替代）',
+    book: '必修第二册', chapter: '第五章 抛体运动', dimension: '2D',
+    summary: '轻量矢量交互',
+    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    steps: panelSteps('按交互提示操作 → 记录实验数据'),
+  },
+  {
+    id: 'bx3-static-phenomena',
+    name: '观察静电现象（第三阶段替代）',
+    book: '必修第三册', chapter: '第九章 静电场及其应用', dimension: '2D',
+    summary: '视频+动画',
+    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    steps: panelSteps('按交互提示操作 → 记录实验数据'),
+  },
+  {
+    id: 'bx3-field-lines-model',
+    name: '电场线、等势面（第三阶段替代）',
+    book: '必修第三册', chapter: '第九章 静电场及其应用', dimension: '2D',
+    summary: '轻量2D交互',
+    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    steps: panelSteps('按交互提示操作 → 记录实验数据'),
+  },
+  {
+    id: 'bx3-particle-accel',
+    name: '带电粒子在电场中的加速与偏转（第三阶段替代）',
+    book: '必修第三册', chapter: '第十章 静电场中的能量', dimension: '2D',
+    summary: '轻量2D交互',
+    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    steps: panelSteps('按交互提示操作 → 记录实验数据'),
+  },
+  {
+    id: 'xb1-total-reflection',
+    name: '观察全反射现象（第三阶段替代）',
+    book: '选择性必修第一册', chapter: '第四章 光', dimension: '2D',
+    summary: '动画+光路',
+    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    steps: panelSteps('按交互提示操作 → 记录实验数据'),
+  },
+  {
+    id: 'xb2-em-oscillation',
+    name: '观察电磁振荡（第三阶段替代）',
+    book: '选择性必修第二册', chapter: '第四章 电磁振荡与电磁波', dimension: '2D',
+    summary: '动画+波形',
+    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    steps: panelSteps('按交互提示操作 → 记录实验数据'),
+  },
+  {
+    id: 'xb2-sensor-control',
+    name: '利用传感器制作简单的自动控制装置（第三阶段替代）',
+    book: '选择性必修第二册', chapter: '第五章 传感器', dimension: '2D',
+    summary: '轻量交互+接线',
+    available: true, batch: 'B8', component: ExpAlt as unknown as Component,
+    steps: panelSteps('按交互提示操作 → 记录实验数据'),
+  },
+]
+
+export const EXPERIMENTS: ExperimentModule[] = [...AVAILABLE, ...LOCKED, ...ALT_EXPERIMENTS]
 
 export function findExperiment(id: string): ExperimentModule | undefined {
   return EXPERIMENTS.find((e) => e.id === id)

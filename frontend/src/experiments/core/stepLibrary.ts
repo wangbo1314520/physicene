@@ -94,6 +94,19 @@ const STEP_CONFIG: Record<string, { topic: string; method: string; formula: stri
   'xb2-particle-bfield': { topic: '粒子磁场运动', method: '调B/v', formula: 'r=mv/qB，T=2πm/qB', dataDesc: '圆周半径与速度成正比' },
   'xb2-transformer': { topic: '变压器', method: '调匝数', formula: 'U₁/U₂=N₁/N₂', dataDesc: '匝数比=电压比' },
   'xb3-brownian': { topic: '布朗运动', method: '调温度', formula: '温度越高运动越剧烈', dataDesc: '微粒做无规则折线运动' },
+  // B8 第三阶段
+  'bx1-reaction-time': { topic: '反应时间', method: '点击变色', formula: 't约200ms', dataDesc: '3次取平均' },
+  'bx1-galileo-ramp': { topic: '伽利略斜面', method: '调摩擦', formula: '无摩擦匀速', dataDesc: '摩擦越小滑得越远' },
+  'bx1-center-of-gravity': { topic: '重心', method: '两次悬挂', formula: '铅垂线交点', dataDesc: '交于一点' },
+  'bx1-mirror-deformation': { topic: '微小形变', method: '施压观察', formula: '放大2L/d', dataDesc: '光杠杆' },
+  'bx2-circular-life': { topic: '圆周运动', method: '调速度', formula: 'F=mv2/r', dataDesc: '速度越大向心力越大' },
+  'bx2-motion-composition': { topic: '运动合成', method: '调两速度', formula: '勾股定理', dataDesc: '合运动直线' },
+  'bx3-static-phenomena': { topic: '静电', method: '摩擦起电', formula: '同斥异吸', dataDesc: '金箔张角' },
+  'bx3-field-lines-model': { topic: '电场线', method: '选电荷', formula: 'E=kQ/r2', dataDesc: '从正电荷出发' },
+  'bx3-particle-accel': { topic: '粒子偏转', method: '调电压', formula: 'y正比x2', dataDesc: '偏转轨迹' },
+  'xb1-total-reflection': { topic: '全反射', method: '调入射角', formula: 'sinC=1/n', dataDesc: '大于临界角' },
+  'xb2-em-oscillation': { topic: '电磁振荡', method: '调LC', formula: 'T=2pi根号LC', dataDesc: '周期变化' },
+  'xb2-sensor-control': { topic: '传感器', method: '调光照', formula: '光强电阻反比', dataDesc: '自动路灯' },
 }
 
 /** 获取实验步骤（有定制则用定制，否则用通用模板） */
