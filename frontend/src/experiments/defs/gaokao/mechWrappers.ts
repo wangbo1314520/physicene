@@ -11,6 +11,8 @@ import { multistage, impulseMicro } from './scenes/mech4'
 import { prismRefraction, waveMultiSolution, vibrationWaveGraphs } from './scenes/opt1'
 import { photoelectricEkNu, hydrogenLevels } from './scenes/mod1'
 import { obliqueProjectile, weightChange } from './scenes/mech5'
+import { liquidSealTube, cylinderPiston } from './scenes/thermo1'
+import { variableMassGas, uTube } from './scenes/thermo2'
 
 export function wrapScene(def: MechSceneDef<any>) {
   return defineComponent({
@@ -37,3 +39,7 @@ export const GkPhotoelectricEkNu = wrapScene(photoelectricEkNu)
 export const GkHydrogenLevels = wrapScene(hydrogenLevels)
 export const GkObliqueProjectile = wrapScene(obliqueProjectile)
 export const GkWeightChange = wrapScene(weightChange)
+export const GkLiquidSealTube = wrapScene(liquidSealTube)
+export const GkCylinderPiston = wrapScene(cylinderPiston)
+export const GkVariableMassGas = wrapScene(variableMassGas)
+export const GkUTube = wrapScene(uTube)

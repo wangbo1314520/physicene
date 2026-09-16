@@ -9,7 +9,7 @@ import { PLAN50 } from './gaokao-plan'
 import GkBoardBlock from '../defs/gaokao/GkBoardBlock.vue'
 import GkProjectileLoop from '../defs/gaokao/GkProjectileLoop.vue'
 import GkAccelSelectorB from '../defs/gaokao/GkAccelSelectorB.vue'
-import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro, GkPrismRefraction, GkWaveMultiSolution, GkVibrationWaveGraphs, GkPhotoelectricEkNu, GkHydrogenLevels, GkObliqueProjectile, GkWeightChange } from '../defs/gaokao/mechWrappers'
+import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro, GkPrismRefraction, GkWaveMultiSolution, GkVibrationWaveGraphs, GkPhotoelectricEkNu, GkHydrogenLevels, GkObliqueProjectile, GkWeightChange, GkLiquidSealTube, GkCylinderPiston, GkVariableMassGas, GkUTube } from '../defs/gaokao/mechWrappers'
 import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti, GkCompositeField, GkCyclotron, GkRailRod, GkRodFree, GkRodForce, GkDoubleRod, GkRodCapacitor, GkVoltAmmeterResistance, GkMeterConversion, GkTransformerTransmission, GkTransformerDynamic, GkPowerTransmission, GkAcFourValues, GkBBCombo, GkFrameThroughB, GkRodInclineB } from '../defs/gaokao/emWrappers'
 
 function gkSteps(operateHint: string): ExperimentModule['steps'] {
@@ -66,6 +66,10 @@ const LIVE: Record<string, Live> = {
   'gk-hydrogen-levels': { component: GkHydrogenLevels, summary: '氢原子能级图（Eₙ=−13.6/n²）+ 电子跃迁动画 + 光子波包按波长着色飞向光谱屏；单次 m→n 或大量原子处于 m 能级全部向下跃迁，谱线条数 C(m,2)、可见光条数。', hint: '单次模式设 3→2 看 656 nm 红光；切到“大量原子 m=4”看 6 条谱线并数可见光条数' },
   'gk-oblique-projectile': { component: GkObliqueProjectile, summary: '以 v₀、θ（可从高度 h₀）斜抛：水平匀速、竖直上抛分解，速度分量箭头实时；最高点与落地事件对照理论；可叠加余角 90°−θ 对照体验证等射程。', hint: '调 v₀、θ → ▶ 开始 → 看最高点 H、射程 R 事件；开对照抛体看 θ 与 90°−θ 射程相同、45° 最远' },
   'gk-weight-change': { component: GkWeightChange, summary: '电梯上升/下降全过程（加速→匀速→减速）或缆绳断裂：体重计读数 N=m(g±a)、匀速 N=mg、自由下落 N=0；右侧 N–t 图分超重/失重区。', hint: '选过程 → ▶ 开始 → 看每段 N 与 mg 的大小关系；注意减速下降是超重、减速上升是失重' },
+  'gk-liquid-seal-tube': { component: GkLiquidSealTube, summary: '汞柱封闭空气柱：开口向上 p=p₀+h / 向下 p=p₀−h；升温等压（L∝T）或缓慢转动等温（pL 不变）；状态板实时显示 p、L、T 与 pL/T 守恒。', hint: '选过程 → ▶ 开始 → 看 L 随 T 或随转角变化；核对 pL/T 恒定与末态理论值' },
+  'gk-cylinder-piston': { component: GkCylinderPiston, summary: '竖直/水平汽缸：活塞受力图（Mg、p₀S、pS、F）→ p=p₀+Mg/S+F/S；加热等压或加力等温，活塞随之移动。', hint: '选过程 → ▶ 开始 → 看活塞位置与状态板；切换水平汽缸看重力不再参与' },
+  'gk-variable-mass-gas': { component: GkVariableMassGas, summary: '打气筒往容器打气 / 从容器抽气：分子点数与压力表随次数变化，p–n 图线性（打气）或等比（抽气）；等效总体积法 p₀(V+nV₀)=pₙV。', hint: '设 V、V₀、n → ▶ 开始 → 每次冲程后读 p；对照 p–n 图与公式' },
+  'gk-u-tube': { component: GkUTube, summary: '左封右开的 U 形管：p=p₀+Δh；升温或向右臂注汞时两液面联动（一降 x 一升 x），气柱长与液面差同时变化，解二次方程得 x 并动画到位。', hint: '设 Δh₀、L₁、T₂/Δ → ▶ 开始 → 看液面移动到 x 目标值；核对末态 p₂L₂/T₂=p₁L₁/T₁' },
   'gk-volt-ammeter-resistance': { component: GkVoltAmmeterResistance, summary: '3D 实验台：电源/R_x/指针式电流表电压表/导线，电流粒子流动、指针偏转；内接 vs 外接的读数与 R_测=U/I 系统误差，√(R_AR_V) 判据（大内偏大、小外偏小）。', hint: '默认外接 R_x=100 Ω → 读 R_测 偏小；切内接看偏大；把 R_x 调到 √(R_AR_V)≈55 Ω 附近比较两种误差' },
   'gk-transformer-transmission': { component: GkTransformerTransmission, summary: '发电机 → 升压变压器 → 输电线（r）→ 降压变压器 → 用户 的 3D 链路，电流粒子按各段电流快慢流动、用户灯按效率发光；对比升压输电与直接输电的损耗（1/k²）。', hint: '默认“对比”搭法 → ▶ 播放 → 看两条事件：升压后线路电流、损耗、用户电压；把 k 从 10 调到 1 观察灯变暗' },
   'gk-transformer-dynamic': { component: GkTransformerDynamic, summary: '模型 45：铁芯 + 原副线圈 + 交流源 + 负载 R，U₂ 由匝数比决定、I₂ 由负载决定、I₁ 随 I₂ 变（原边随副边）、P₁=P₂；原副边电流粒子流速对应电流大小。', hint: '调 n₂ 看 U₂ 变化；调 R 看 I₂、I₁ 同时变而 U₂ 不变；核对 P₁=P₂' },

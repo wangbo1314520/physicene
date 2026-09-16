@@ -116,6 +116,10 @@ KEYWORDS = {
     "gk-b-b-combo": "磁场与磁场组合",
     "gk-frame-through-b": "线框进出磁场",
     "gk-rod-incline-b": "倾斜导轨",
+    "gk-liquid-seal-tube": "玻璃管液封",
+    "gk-cylinder-piston": "汽缸活塞",
+    "gk-variable-mass-gas": "变质量气体",
+    "gk-u-tube": "U 形管",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -135,6 +139,7 @@ ANIMATED_IDS = {
     "gk-prism-refraction", "gk-wave-multi-solution", "gk-vibration-wave-graphs", "gk-photoelectric-ek-nu", "gk-hydrogen-levels",
     "gk-volt-ammeter-resistance", "gk-meter-conversion", "gk-oblique-projectile", "gk-weight-change",
     "gk-transformer-transmission", "gk-transformer-dynamic", "gk-power-transmission", "gk-ac-four-values", "gk-b-b-combo", "gk-frame-through-b", "gk-rod-incline-b",
+    "gk-liquid-seal-tube", "gk-cylinder-piston", "gk-variable-mass-gas", "gk-u-tube",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 
@@ -469,6 +474,37 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} 斜面导轨：终速 v_m={vm} m/s（理论 mgR sinθ/(B²L²)=4.90）")
         if not ok:
             failures.append(f"{exp_id}: 斜面终速断言失败 {vm}")
+    if exp_id in ("gk-liquid-seal-tube", "gk-cylinder-piston"):
+        page.wait_for_timeout(5000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"T=360 K：L=([\d.]+) cm", txt)
+        L = float(m.group(1)) if m else -1.0
+        ok = abs(L - 24.0) <= 0.02
+        lines.append(f"  {'✓' if ok else '✗'} 等压升温：L₂={L} cm（理论 L₁T₂/T₁=24.00 cm）")
+        if not ok:
+            failures.append(f"{exp_id}: 等压断言失败 {L}")
+    if exp_id == "gk-variable-mass-gas":
+        page.wait_for_timeout(6000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"p=p₀\(1\+nV₀/V\)=([\d.]+) p₀", txt)
+        pr = float(m.group(1)) if m else -1.0
+        ok = abs(pr - 1.4) <= 0.005
+        lines.append(f"  {'✓' if ok else '✗'} 变质量气体：打气 8 次 p={pr} p₀（理论 1+nV₀/V=1.40）")
+        if not ok:
+            failures.append(f"{exp_id}: 打气断言失败 {pr}")
+    if exp_id == "gk-u-tube":
+        page.wait_for_timeout(5000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"左液面下降 x=([\d.]+) cm", txt)
+        x = float(m.group(1)) if m else -1.0
+        p1, L1, T1, T2 = 80.0, 20.0, 300.0, 360.0
+        K = p1 * L1 * T2 / T1
+        b, c = p1 + 2 * L1, p1 * L1 - K
+        x_th = (-b + (b * b - 8 * c) ** 0.5) / 4
+        ok = abs(x - x_th) <= 0.02
+        lines.append(f"  {'✓' if ok else '✗'} U 形管：x={x} cm（二次方程解 {x_th:.3f} cm）")
+        if not ok:
+            failures.append(f"{exp_id}: U 形管断言失败 {x} vs {x_th:.3f}")
     return lines
 
 
