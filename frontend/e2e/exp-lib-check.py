@@ -74,6 +74,12 @@ KEYWORDS = {
     "gk-board-block": "板块模型",
     "gk-projectile-loop": "竖直圆周",
     "gk-accel-selector-b": "速度筛选器",
+    "gk-slope-spring": "斜面 + 弹簧",
+    "gk-conveyor-board": "传送带",
+    "gk-connected-bodies": "连接体",
+    "gk-collision-spring": "碰撞 + 弹簧",
+    "gk-circular-critical": "竖直圆周临界",
+    "gk-collision-chain": "碰撞链",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -84,7 +90,7 @@ ANIMATED_IDS = {
     "xb2-lorentz-demo", "xb2-particle-bfield", "xb2-transformer", "xb3-brownian", "xb3-alpha-scatter",
     "bx1-action-reaction", "bx1-conical-pendulum", "bx2-centripetal", "bx1-newton-tube",
     "bx2-work-velocity", "xb3-gas-isotherm", "bx1-galileo-ramp", "xb2-em-oscillation",
-    "bx2-circular-life", "bx2-motion-composition", "bx1-inertia", "bx2-energy", "gk-board-block", "gk-projectile-loop", "gk-accel-selector-b",
+    "bx2-circular-life", "bx2-motion-composition", "bx1-inertia", "bx2-energy", "gk-board-block", "gk-projectile-loop", "gk-accel-selector-b", "gk-slope-spring", "gk-conveyor-board", "gk-connected-bodies", "gk-collision-spring", "gk-circular-critical", "gk-collision-chain",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 

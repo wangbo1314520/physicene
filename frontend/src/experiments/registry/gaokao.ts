@@ -7,6 +7,7 @@ import type { ExperimentModule } from '../core/types'
 import GkBoardBlock from '../defs/gaokao/GkBoardBlock.vue'
 import GkProjectileLoop from '../defs/gaokao/GkProjectileLoop.vue'
 import GkAccelSelectorB from '../defs/gaokao/GkAccelSelectorB.vue'
+import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain } from '../defs/gaokao/mechWrappers'
 
 function gkSteps(operateHint: string): ExperimentModule['steps'] {
   return [
@@ -49,12 +50,30 @@ export const GAOKAO: ExperimentModule[] = [
     component: GkProjectileLoop as unknown as Component,
     steps: gkSteps('选绳/杆模型 → 调 v₀、h、R → ▶ 开始 → 看时间轴上“过最高点 / 脱离 / 折返”事件 → 用讲解器核对 √(5gR) 与 2√(gR)'),
   },
-  planned('gk-slope-spring', '斜面 + 弹簧 + 滑块', '3 能量守恒 · 弹性势能 · 临界脱离', '2.5D', ['能量守恒', '弹性势能', '临界脱离'], MECH),
-  planned('gk-conveyor', '传送带 + 物块', '4 摩擦力方向 · 相对运动 · 热量', '2.5D', ['摩擦力方向', '相对运动', '摩擦生热'], MECH),
-  planned('gk-pulley-system', '连接体 + 滑轮', '5 牛顿定律 · 系统加速度 · 绳张力', '2.5D', ['牛顿第二定律', '整体隔离法', '绳张力'], MECH),
-  planned('gk-collision-spring', '碰撞 + 弹簧', '6 动量守恒 · 弹性碰撞 · 最大压缩', '2.5D', ['动量守恒', '弹性碰撞', '最大压缩量'], MECH),
-  planned('gk-circular-critical', '圆周运动 + 绳/杆临界', '7 绳临界 vs 杆临界', '2.5D', ['绳模型', '杆模型', '最高点临界'], MECH),
-  planned('gk-collision-chain', '多体碰撞链', '8 动量守恒 · 能量分配', '2.5D', ['动量守恒', '能量分配', '多体'], MECH),
+  { id: 'gk-slope-spring', name: '斜面 + 弹簧 + 滑块', book: MECH, chapter: '3 能量守恒 · 弹性势能 · 临界脱离', dimension: '2.5D',
+    summary: '滑块沿粗糙斜面下滑压缩底部弹簧并回弹：动能/重力势能/弹性势能/摩擦热四条能量条；最大压缩与回弹高度对照理论。', available: true, batch: 'B11', layer: 'gaokao',
+    tags: ['能量守恒', '弹性势能', '摩擦生热', '临界（μ ≥ tanθ 静止）'], component: GkSlopeSpring as unknown as Component,
+    steps: gkSteps('调 θ、μ、k、L₀ → ▶ 开始 → 看时间轴：下滑→压缩→回弹→上滑；μ=0 时应回到原高度') },
+  { id: 'gk-conveyor-board', name: '传送带 + 物块 / 板块（模型 30）', book: MECH, chapter: '4 摩擦力方向 · 相对运动 · 热量', dimension: '2.5D',
+    summary: '水平/倾斜传送带与粗糙地面上的板块三种搭法：相对滑动→共速→（μ<tanθ 继续下滑）；划痕=相对位移，Q=f·Δs。', available: true, batch: 'B11', layer: 'gaokao',
+    tags: ['摩擦力方向', '相对位移', '摩擦生热', '共速判据', '板块三阶段'], component: GkConveyorBoard as unknown as Component,
+    steps: gkSteps('选搭法 → 设 v₀、v_带、μ、θ、L → ▶ 开始 → 看共速时刻与划痕长度，对照 Δs=(Δv)²/(2μg)') },
+  { id: 'gk-connected-bodies', name: '连接体 + 滑轮（整体法 / 隔离法，模型 21）', book: MECH, chapter: '5 牛顿定律 · 系统加速度 · 绳张力', dimension: '2.5D',
+    summary: '水平面 F 拉 A-B / 斜面+定滑轮 / 动滑轮三种搭法；力传感器显示绳张力、加速度传感器显示 a；B 落地后绳松弛的第二阶段。', available: true, batch: 'B11', layer: 'gaokao',
+    tags: ['整体法', '隔离法', '绳张力', '动滑轮 a_B=a_A/2', '绳松弛'], component: GkConnectedBodies as unknown as Component,
+    steps: gkSteps('选搭法 → 调 m₁、m₂、F/θ、μ → ▶ 开始 → 读传感器 a、T，与整体法/隔离法结果对照') },
+  { id: 'gk-collision-spring', name: '碰撞 + 弹簧（模型 29）', book: MECH, chapter: '6 动量守恒 · 弹性碰撞 · 最大压缩', dimension: '2.5D',
+    summary: 'A 撞连弹簧的 B / A、B 夹压缩弹簧释放：共速即最大压缩，恢复原长即分离；动量、能量条实时守恒。', available: true, batch: 'B11', layer: 'gaokao',
+    tags: ['动量守恒', '最大压缩=共速', '弹性碰撞公式', '能量分配'], component: GkCollisionSpring as unknown as Component,
+    steps: gkSteps('选搭法 → 调 m₁、m₂、v₁、k → ▶ 开始 → 记录最大压缩与分离速度，对照 x_m 与弹性碰撞公式') },
+  { id: 'gk-circular-critical', name: '圆周运动 + 绳/杆/内轨/外轨/管道临界（模型 28）', book: MECH, chapter: '7 绳临界 vs 杆临界 · 管道双临界', dimension: '2.5D',
+    summary: '五类约束在同一圆周上对比：绳/内轨 N≥0（√(gR)，√(5gR)），杆/外轨/管道 v≥0（2√(gR)）；弹力矢量实时、脱离角与折返。', available: true, batch: 'B11', layer: 'gaokao',
+    tags: ['最高点临界', '√(5gR) vs 2√(gR)', '脱离角', '管道双临界'], component: GkCircularCritical as unknown as Component,
+    steps: gkSteps('选类型 → 调 R、v₀ → ▶ 开始 → 看最高点弹力与是否脱离/折返；把 v₀ 调到临界值附近验证') },
+  { id: 'gk-collision-chain', name: '多体碰撞链', book: MECH, chapter: '8 动量守恒 · 能量分配', dimension: '2.5D',
+    summary: '2–5 个球的碰撞链，质量相等/递增/递减，恢复系数 0–1：逐次碰撞事件、总动量守恒、动能损失；等质量弹性=牛顿摆。', available: true, batch: 'B11', layer: 'gaokao',
+    tags: ['两体碰撞公式', '恢复系数', '速度传递', '二次碰撞'], component: GkCollisionChain as unknown as Component,
+    steps: gkSteps('选个数与质量分布、e → ▶ 开始 → 看每次碰撞后的速度与能量条；e=1 等质量时末球得到 v₀') },
   {
     id: 'gk-accel-selector-b', name: '加速电场 → 速度筛选器 → 磁场', book: EM, chapter: '9 动能定理 · E/B 平衡 · 洛伦兹力', dimension: '3D',
     summary: '三区域多过程：qU=½mv² → v=E/B 才能直线通过筛选器 → 磁场中半圆 r=mv/(qB₃) 打到底片；含 AI 解题讲解。',
