@@ -21,7 +21,6 @@ import org.dyn4j.dynamics.BodyFixture;
 import org.dyn4j.dynamics.joint.DistanceJoint;
 import org.dyn4j.geometry.Vector2;
 import org.dyn4j.world.World;
-import org.dyn4j.world.contact.ContactConstraint;
 import org.dyn4j.world.listener.ContactListener;
 import org.dyn4j.world.listener.CollisionListener;
 import org.dyn4j.world.listener.CollisionListenerAdapter;
@@ -158,10 +157,10 @@ public class SimulationInstance {
 
         // 传送带：接触求解前按带速设表面切向速度（dyn4j 官方传送带语义，方案 §3.1）
         if (!belts.isEmpty()) {
-            world.addListener(new BeltContactListener());
+            world.addContactListener(new UnifiedDetectors.BeltContactListener(this));
         }
         // 接触起止跟踪：land_surface / leave_surface / detach（方案 §3.6）
-        world.addListener(new ContactTracker());
+        world.addContactListener(new UnifiedDetectors.ContactTracker(this));
 
         // 碰撞关键事件：同一对元件只报一次；初始就贴合的接触（如方块恰好放在地面上）
         // 不算"碰撞"——前两步内的接触是放置不是碰撞
@@ -204,7 +203,7 @@ public class SimulationInstance {
         frameCount++;
 
         // 帧级关键事件检测（方案 §3.6）：共速/带共速/过顶/绳状态/弹簧原长
-        detectFrameEvents();
+        UnifiedDetectors.detectFrameEvents(this);
 
         // 最高点检测：vy 由正转负（每主体一次）
         for (int i = 0; i < dynamicBodies.size(); i++) {
@@ -445,6 +444,81 @@ public class SimulationInstance {
 
     public List<PhysicsElement> getDynamicElements() {
         return dynamicElements;
+    }
+
+    // ===== 统一搭建台阶段一：检测器桥接（包内可见，方案 §3.6）=====
+
+    String idOf(Body b) {
+        Object ud = b == null ? null : b.getUserData();
+        return ud == null ? "none" : String.valueOf(ud);
+    }
+
+    static String pairOf(String a, String b) {
+        return a.compareTo(b) < 0 ? a + "|" + b : b + "|" + a;
+    }
+
+    boolean activeContactsAdd(String pair) { return activeContacts.add(pair); }
+
+    boolean activeContactsRemove(String pair) { return activeContacts.remove(pair); }
+
+    java.util.Set<String> activeContactsSnapshot() { return Set.copyOf(activeContacts); }
+
+    double[] beltOf(String id) { return belts.get(id); }
+
+    java.util.Collection<double[]> loopsSnapshot() { return loops.values(); }
+
+    java.util.Set<Map.Entry<String, DistanceJoint<Body>>> stringJointsSnapshot() { return stringJoints.entrySet(); }
+
+    Body bodyOf(String id) { return bodies.get(id); }
+
+    int dynamicBodyCount() { return dynamicBodies.size(); }
+
+    Body dynamicBodyAt(int i) { return dynamicBodies.get(i); }
+
+    String dynamicElementIdAt(int i) { return dynamicElements.get(i).getId(); }
+
+    String dynamicOf(String pair) {
+        String[] ids = pair.split("\\|");
+        for (String id : ids) {
+            for (PhysicsElement el : dynamicElements) {
+                if (el.getId().equals(id)) return id;
+            }
+        }
+        return null;
+    }
+
+    double currentTime() { return t; }
+
+    double contractDt() { return dt; }
+
+    boolean latch(String key) { return eventLatches.add(key); }
+
+    void fireKeyEvent(double time, String type, String label, Map<String, Double> payload) {
+        KeyEvent event = new KeyEvent(time, type, label, frameCount, payload);
+        keyEvents.add(event);
+        keyEventListeners.forEach(l -> l.accept(event));
+    }
+
+    /** 接触消失时判定圆轨道脱离（上半弧），θ 自最低点起算（°） */
+    void maybeDetach(String dynamicId, String id1, String id2) {
+        for (var loop : loops.entrySet()) {
+            if (!loop.getKey().equals(id1) && !loop.getKey().equals(id2)) continue;
+            double[] g = loop.getValue();
+            Body b = bodies.get(dynamicId);
+            if (b == null) continue;
+            double dx = b.getTransform().getTranslationX() - g[0];
+            double dy = b.getTransform().getTranslationY() - g[1];
+            double theta = Math.toDegrees(Math.atan2(dx, -dy));
+            if (theta < 0) theta += 360;
+            boolean upperHalf = theta > 90 && theta < 270;
+            boolean withinAnnulus = Math.abs(Math.hypot(dx, dy) - g[2]) < 0.25;
+            if (upperHalf && withinAnnulus) {
+                fireKeyEvent(t, "detach",
+                        dynamicId + " 脱离轨道（θ=" + String.format("%.1f", theta) + "°）",
+                        Map.of("theta", round(theta)));
+                return;
+            }
+        }
     }
 
     // ===== 同步执行（单元测试/回放构建用，不启线程）=====

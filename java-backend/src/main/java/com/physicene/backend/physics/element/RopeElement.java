@@ -1,6 +1,7 @@
 package com.physicene.backend.physics.element;
 
 import com.physicene.backend.physics.model.PhysicsElement;
+import com.physicene.backend.physics.model.Vector2D;
 import org.dyn4j.dynamics.Body;
 import org.dyn4j.dynamics.joint.DistanceJoint;
 import org.dyn4j.dynamics.joint.Joint;

@@ -27,6 +27,7 @@ public class SimulationConfig {
     /** 阻力系数（仅 airResistance=true 生效） */
     private double dragCoeff = 0.1;
 
-    /** 每契约步内部子步数（1=1/60，2=1/120，4=1/240，8=1/480；统一搭建台新元件默认 4，方案 §3.4） */
-    private int substeps = 4;
+    /** 每契约步内部子步数（1=1/60，4=1/240；默认 1 保持旧场景积分路径与既有测试口径，
+     *  统一搭建台新元件场景按需在场景 config 里显式设 4——交接文档 §5 预案） */
+    private int substeps = 1;
 }

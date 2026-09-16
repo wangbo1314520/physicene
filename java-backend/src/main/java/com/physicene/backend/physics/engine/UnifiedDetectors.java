@@ -5,7 +5,7 @@ import org.dyn4j.dynamics.Body;
 import org.dyn4j.dynamics.BodyFixture;
 import org.dyn4j.dynamics.joint.DistanceJoint;
 import org.dyn4j.geometry.Vector2;
-import org.dyn4j.world.contact.ContactConstraint;
+import org.dyn4j.dynamics.contact.ContactConstraint;
 import org.dyn4j.world.listener.ContactListener;
 
 import java.util.Map;
@@ -24,7 +24,7 @@ final class UnifiedDetectors {
     }
 
     /** 传送带表面速度：把带速沿接触切向注入（等价带面运动） */
-    static class BeltContactListener implements ContactListener<Body, BodyFixture> {
+    static class BeltContactListener implements ContactListener<Body> {
         private final SimulationInstance sim;
 
         BeltContactListener(SimulationInstance sim) {
@@ -32,20 +32,20 @@ final class UnifiedDetectors {
         }
 
         @Override
-        public void begin(org.dyn4j.world.ContactCollisionData<Body, BodyFixture> data,
+        public void begin(org.dyn4j.world.ContactCollisionData<Body> data,
                           org.dyn4j.dynamics.contact.Contact contact) {
             apply(data.getContactConstraint());
         }
 
         @Override
-        public void persist(org.dyn4j.world.ContactCollisionData<Body, BodyFixture> data,
+        public void persist(org.dyn4j.world.ContactCollisionData<Body> data,
                             org.dyn4j.dynamics.contact.Contact oldContact,
                             org.dyn4j.dynamics.contact.Contact newContact) {
             apply(data.getContactConstraint());
         }
 
         @Override
-        public void preSolve(org.dyn4j.world.ContactCollisionData<Body, BodyFixture> data,
+        public void preSolve(org.dyn4j.world.ContactCollisionData<Body> data,
                              org.dyn4j.dynamics.contact.Contact contact) {
             apply(data.getContactConstraint());
         }
@@ -70,27 +70,27 @@ final class UnifiedDetectors {
         }
 
         @Override
-        public void end(org.dyn4j.world.ContactCollisionData<Body, BodyFixture> data,
+        public void end(org.dyn4j.world.ContactCollisionData<Body> data,
                         org.dyn4j.dynamics.contact.Contact contact) {
         }
 
         @Override
-        public void destroyed(org.dyn4j.world.ContactCollisionData<Body, BodyFixture> data,
+        public void destroyed(org.dyn4j.world.ContactCollisionData<Body> data,
                               org.dyn4j.dynamics.contact.Contact contact) {
         }
 
         @Override
-        public void collision(org.dyn4j.world.CollisionData<Body, BodyFixture> data) {
+        public void collision(org.dyn4j.world.ContactCollisionData<Body> data) {
         }
 
         @Override
-        public void postSolve(org.dyn4j.world.ContactCollisionData<Body, BodyFixture> data,
+        public void postSolve(org.dyn4j.world.ContactCollisionData<Body> data,
                               org.dyn4j.dynamics.contact.SolvedContact contact) {
         }
     }
 
     /** 接触起止：land_surface / leave_surface / detach（接触消失且位于弧上半部，θ 自最低点起算） */
-    static class ContactTracker implements ContactListener<Body, BodyFixture> {
+    static class ContactTracker implements ContactListener<Body> {
         private final SimulationInstance sim;
 
         ContactTracker(SimulationInstance sim) {
@@ -98,7 +98,7 @@ final class UnifiedDetectors {
         }
 
         @Override
-        public void begin(org.dyn4j.world.ContactCollisionData<Body, BodyFixture> data,
+        public void begin(org.dyn4j.world.ContactCollisionData<Body> data,
                           org.dyn4j.dynamics.contact.Contact contact) {
             if (data.getFixture1().isSensor() || data.getFixture2().isSensor()) {
                 return;
@@ -113,7 +113,7 @@ final class UnifiedDetectors {
         }
 
         @Override
-        public void end(org.dyn4j.world.ContactCollisionData<Body, BodyFixture> data,
+        public void end(org.dyn4j.world.ContactCollisionData<Body> data,
                         org.dyn4j.dynamics.contact.Contact contact) {
             if (data.getFixture1().isSensor() || data.getFixture2().isSensor()) {
                 return;
@@ -129,26 +129,26 @@ final class UnifiedDetectors {
         }
 
         @Override
-        public void persist(org.dyn4j.world.ContactCollisionData<Body, BodyFixture> data,
+        public void persist(org.dyn4j.world.ContactCollisionData<Body> data,
                             org.dyn4j.dynamics.contact.Contact c1, org.dyn4j.dynamics.contact.Contact c2) {
         }
 
         @Override
-        public void destroyed(org.dyn4j.world.ContactCollisionData<Body, BodyFixture> data,
+        public void destroyed(org.dyn4j.world.ContactCollisionData<Body> data,
                               org.dyn4j.dynamics.contact.Contact contact) {
         }
 
         @Override
-        public void collision(org.dyn4j.world.CollisionData<Body, BodyFixture> data) {
+        public void collision(org.dyn4j.world.ContactCollisionData<Body> data) {
         }
 
         @Override
-        public void preSolve(org.dyn4j.world.ContactCollisionData<Body, BodyFixture> data,
+        public void preSolve(org.dyn4j.world.ContactCollisionData<Body> data,
                              org.dyn4j.dynamics.contact.Contact contact) {
         }
 
         @Override
-        public void postSolve(org.dyn4j.world.ContactCollisionData<Body, BodyFixture> data,
+        public void postSolve(org.dyn4j.world.ContactCollisionData<Body> data,
                               org.dyn4j.dynamics.contact.SolvedContact contact) {
         }
     }
@@ -193,7 +193,7 @@ final class UnifiedDetectors {
                 }
             }
         }
-        for (Map.Entry<String, DistanceJoint<Body>> e : sim.stringJointsSnapshot().entrySet()) {
+        for (Map.Entry<String, DistanceJoint<Body>> e : sim.stringJointsSnapshot()) {
             DistanceJoint<Body> j = e.getValue();
             double cur = j.getCurrentDistance();
             String kind = e.getKey().endsWith("#spring") ? "spring" : e.getKey().endsWith("#rod") ? "rod" : "rope";
