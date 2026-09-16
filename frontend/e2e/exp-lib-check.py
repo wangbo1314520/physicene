@@ -90,6 +90,9 @@ KEYWORDS = {
     "gk-m28-circular-five": "内轨",
     "gk-m29-collision-spring": "碰撞 + 弹簧",
     "gk-m30-conveyor-board": "传送带 + 板块",
+    "gk-velocity-selector": "速度选择器",
+    "gk-mass-spectrometer": "质谱仪",
+    "gk-e-b-e-multi": "电场 → 磁场 → 电场",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -104,6 +107,7 @@ ANIMATED_IDS = {
     "gk-isochrone", "gk-clothesline", "gk-multistage", "gk-impulse-micro",
     "gk-accel-deflect-screen", "gk-b-then-e",
     "gk-m21-whole-isolate", "gk-m28-circular-five", "gk-m29-collision-spring", "gk-m30-conveyor-board",
+    "gk-velocity-selector", "gk-mass-spectrometer", "gk-e-b-e-multi",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 
@@ -201,6 +205,34 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} 磁场→电场：屏上 y={y} m（理论 {y_th:.2f} m，r={r:.2f}>W 穿出 θ={__import__('math').degrees(__import__('math').asin(sin_t)):.1f}°）")
         if not ok:
             failures.append(f"{exp_id}: 组合场落点断言失败 {y} vs {y_th:.2f}")
+    if exp_id == "gk-velocity-selector":
+        page.wait_for_timeout(5500)
+        txt = page.locator(".panel").inner_text()
+        ok = "直线通过出口狭缝 ✓" in txt and "撞上极板" in txt and "撞下极板" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 速度选择器：v=E/B 直线通过，0.7v 撞下板（电场力侧）、1.3v 撞上板（洛伦兹力侧）")
+        if not ok:
+            failures.append(f"{exp_id}: 三粒子结果断言失败")
+    if exp_id == "gk-mass-spectrometer":
+        page.wait_for_timeout(8500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"谱线间距 Δx=([\d.]+) m", txt)
+        dx = float(m.group(1)) if m else -1.0
+        U, B, q, m1, m2 = 10, 1, 1, 1, 1.3
+        dx_th = 2 * ((2 * m2 * U / q) ** 0.5 - (2 * m1 * U / q) ** 0.5) / B
+        ok = abs(dx - dx_th) <= 0.05
+        lines.append(f"  {'✓' if ok else '✗'} 质谱仪：谱线间距 Δx={dx} m（理论 (2/B)√(2U/q)(√m₂−√m₁)={dx_th:.2f} m）")
+        if not ok:
+            failures.append(f"{exp_id}: 谱线间距断言失败 {dx} vs {dx_th:.2f}")
+    if exp_id == "gk-e-b-e-multi":
+        page.wait_for_timeout(4500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"回到电场区，y=([\d.]+) m", txt)
+        y = float(m.group(1)) if m else -1.0
+        r_th = (2 * 8) ** 0.5 / 1.5
+        ok = abs(y - 2 * r_th) <= 0.1
+        lines.append(f"  {'✓' if ok else '✗'} 电→磁→电：首个半圆后上移 y={y} m（理论 2r=2·√(2qU/m)/(qB/m)={2 * r_th:.2f} m）")
+        if not ok:
+            failures.append(f"{exp_id}: 半圆上移断言失败 {y} vs {2 * r_th:.2f}")
     return lines
 
 

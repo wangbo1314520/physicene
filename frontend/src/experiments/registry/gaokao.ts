@@ -10,7 +10,7 @@ import GkBoardBlock from '../defs/gaokao/GkBoardBlock.vue'
 import GkProjectileLoop from '../defs/gaokao/GkProjectileLoop.vue'
 import GkAccelSelectorB from '../defs/gaokao/GkAccelSelectorB.vue'
 import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro } from '../defs/gaokao/mechWrappers'
-import { GkAccelDeflectScreen, GkBThenE } from '../defs/gaokao/emWrappers'
+import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti } from '../defs/gaokao/emWrappers'
 
 function gkSteps(operateHint: string): ExperimentModule['steps'] {
   return [
@@ -49,6 +49,9 @@ const LIVE: Record<string, Live> = {
   'gk-accel-selector-b': { component: GkAccelSelectorB, summary: '三区域多过程：qU=½mv² → v=E/B 才能直线通过筛选器 → 磁场中半圆 r=mv/(qB₃) 打到底片。', hint: '调 U 使 v=√(2qU/m) 等于 E/B → ▶ 播放 → 看粒子能否直线通过筛选器、磁场中半径 → 改 B₃ 看落点 2r' },
   'gk-accel-deflect-screen': { component: GkAccelDeflectScreen, summary: '示波管原型：qU₁=½mv₀² 加速 → 平行板内类平抛（y₁=U₂L²/4dU₁、tanθ=U₂L/2dU₁，与比荷无关）→ 出板直线打屏 Y=y₁+D·tanθ；撞板临界 y₁>d/2。', hint: '调 U₁、U₂、L、D → ▶ 播放 → 看出板时的 y₁、θ 与屏上 Y 是否与理论一致；调大 U₂ 直到撞板' },
   'gk-b-then-e': { component: GkBThenE, summary: '先磁后电：有界磁场中 r=mv/(qB)，r>W 以 sinθ=W/r 穿出（出射点上移 r(1−cosθ)），进入竖直电场类平抛打屏；r≤W 转半圆折返。', hint: '调 v、B 使 r>W 或 r≤W → ▶ 播放 → 看穿出角 θ 与出射点；调 E 看屏上落点变化' },
+  'gk-velocity-selector': { component: GkVelocitySelector, summary: '平行板 + 垂直磁场 + 入口/出口狭缝：E=U/d，只有 v=U/(Bd) 的粒子直线通过；三粒子对比（0.7v 撞电场力侧、1.3v 撞洛伦兹力侧）；正负电荷通过条件相同。', hint: '设 U、d、B 算出 v₀=U/(Bd) → 把 v 调到 v₀ → ▶ 播放 → 中间粒子直线通过、两侧粒子分别撞板；切换负电荷再验证' },
+  'gk-mass-spectrometer': { component: GkMassSpectrometer, summary: '两种同位素同 q 不同 m 经同一 U 加速 → 狭缝 → 磁场半圆 → 底片：r=√(2mU/q)/B，落点 2r，谱线间距 Δx=2(r₂−r₁)；底片带刻度。', hint: '调 U、B、m₁、m₂ → ▶ 播放 → 看两离子先后到达底片的位置与 Δx；减小 B 看分辨率提高' },
+  'gk-e-b-e-multi': { component: GkEBEMulti, summary: '电场区加速 → 磁场半圆 → 反向回电场区减速到零 → 再加速……每周期上移 2r 的阶梯往复；三段用时分别为 2L/v、πm/(qB)、2L/v。', hint: '调 U、B、周期数 → ▶ 播放 → 看时间轴“加速→半圆→减速”循环与每周期上移 2r' },
 }
 
 export const GAOKAO: ExperimentModule[] = PLAN50.map((pl) => {

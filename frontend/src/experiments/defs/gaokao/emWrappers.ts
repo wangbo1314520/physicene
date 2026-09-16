@@ -5,6 +5,7 @@ import { defineComponent, h } from 'vue'
 import EMScene from './EMScene.vue'
 import type { EMSceneDef } from '../../engine/emScene'
 import { accelDeflectScreen, bThenE } from './scenes/em1'
+import { velocitySelector, massSpectrometer, eBEMulti } from './scenes/em2'
 
 export function wrapEM(def: EMSceneDef<any>) {
   return defineComponent({
@@ -16,3 +17,6 @@ export function wrapEM(def: EMSceneDef<any>) {
 
 export const GkAccelDeflectScreen = wrapEM(accelDeflectScreen)
 export const GkBThenE = wrapEM(bThenE)
+export const GkVelocitySelector = wrapEM(velocitySelector)
+export const GkMassSpectrometer = wrapEM(massSpectrometer)
+export const GkEBEMulti = wrapEM(eBEMulti)
