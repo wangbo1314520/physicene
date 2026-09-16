@@ -58,7 +58,7 @@ const count = (els: Els, tag: string) => els.filter((e) => tagsOf(e).includes(ta
 const one = (els: Els, tag: string) => els.find((e) => tagsOf(e).includes(tag))
 const num = (e: Placed | undefined, key: string, fb: number) => (e && Number.isFinite(e.params[key]) ? e.params[key] : fb)
 
-interface Rule {
+export interface Rule {
   id: string; title: string; need: string[]; forbid?: string[]; bonus?: string[]
   build(els: Els): { target: Target; params?: Record<string, number>; notes?: string[] }
 }
@@ -66,7 +66,7 @@ const M = (def: MechSceneDef<any>): Target => ({ kind: 'mech', def })
 const E = (def: EMSceneDef<any>): Target => ({ kind: 'em', def })
 const CIRCUIT_KIND: Record<string, ComponentKind> = { battery: 'battery', resistor: 'resistor', switch: 'switch', ammeter: 'ammeter', voltmeter: 'voltmeter', rheostat: 'rheostat', capacitor: 'capacitor', inductor: 'inductor', diode: 'diode', lamp: 'lamp', ac_src: 'ac_source', multimeter: 'multimeter', galvanometer: 'galvanometer' }
 
-const RULES: Rule[] = [
+export const RULES: Rule[] = [
   // ── 力学 ──
   { id: 'slope-spring', title: '斜面 + 弹簧 + 滑块（模型 3）', need: ['斜面', '弹簧', '运动体'], build: (els) => ({ target: M(slopeSpring), params: { th: num(one(els, '斜面'), 'th', 30), mu: num(one(els, '斜面'), 'mu', 0.1), k: num(one(els, '弹簧'), 'k', 60), m: num(one(els, '运动体'), 'm', 1) } }) },
   { id: 'conveyor', title: '传送带 + 物块（模型 4/30）', need: ['传送带', '运动体'], build: (els) => { const c = one(els, '传送带')!; return { target: M(conveyorBoard), params: { setup: num(c, 'th', 0) > 0 ? 1 : 0, vb: num(c, 'vb', 3), th: num(c, 'th', 15), mu: num(c, 'mu', 0.2), L: num(c, 'L', 6), v0: num(one(els, '运动体'), 'v0', 0) } } } },

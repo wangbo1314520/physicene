@@ -60,6 +60,7 @@ def main() -> int:
     ap.add_argument("--url", default="http://localhost:5173")
     ap.add_argument("--api", default="http://localhost:8080")
     ap.add_argument("--only", default="")
+    ap.add_argument("--video", action="store_true", help="整段录屏到 e2e/out/video/sandbox-10-scenes.webm")
     args = ap.parse_args()
     only = {int(x) for x in args.only.split(",") if x}
     OUT.mkdir(exist_ok=True)
@@ -67,7 +68,11 @@ def main() -> int:
     failures: list[str] = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        ctx = browser.new_context(viewport={"width": 1500, "height": 1000})
+        ctx_kw: dict = {"viewport": {"width": 1500, "height": 1000}}
+        if args.video:
+            (OUT / "video").mkdir(parents=True, exist_ok=True)
+            ctx_kw.update(record_video_dir=str(OUT / "video" / "_tmp"), record_video_size={"width": 1500, "height": 1000})
+        ctx = browser.new_context(**ctx_kw)
         ctx.add_init_script(f"localStorage.setItem('ps_token', {json.dumps(auth['token'])});localStorage.setItem('ps_user', {json.dumps(json.dumps(auth['user']))});")
         page = ctx.new_page()
         errors: list[str] = []
@@ -129,6 +134,14 @@ def main() -> int:
         real_errors = [e for e in errors if "favicon" not in e and "ResizeObserver" not in e]
         if real_errors:
             failures.append(f"控制台错误 {len(real_errors)}：{real_errors[:3]}")
+        video = page.video if args.video else None
+        ctx.close()
+        if video:
+            import shutil
+            dst = OUT / "video" / "sandbox-10-scenes.webm"
+            shutil.move(video.path(), str(dst))
+            shutil.rmtree(OUT / "video" / "_tmp", ignore_errors=True)
+            print(f"录屏 → {dst}")
         browser.close()
     print("\n结果:", "全部通过 ✅" if not failures else f"失败 {len(failures)} 项：\n  " + "\n  ".join(failures))
     return 0 if not failures else 1

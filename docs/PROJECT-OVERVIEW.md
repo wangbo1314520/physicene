@@ -14,7 +14,7 @@
 三大产品线：
 1. **实验库**（`/exp`）——按教材章节分组的 55 个结构化实验，带学习路径（步骤只提示不阻塞）+ 真 AI 助教（直接讲解 / 逐级提示 / 分析数据 / 问答）+ 数据记录
 2. **高考·竞赛题场景**（`/gaokao`）——v3.1 清单 65 卡，多过程时间轴 + AI 解题讲解器（提示 / 完整 / 变式）
-3. **自由搭建实验台**（`/lab`，B13 沙盒）——元件面板自由拖拽、连线、设参、运行、采集数据，AI 识别场景并讲思路
+3. **自由搭建实验**（`/sandbox`，B13 沙盒）——89 项元件自由拖拽、连线、设参，场景识别器把组合映射到 62 个场景求解器 / 电路引擎 / 刚体沙盒并内嵌运行，数据面板 + 坐标纸 + AI 助手；`/lab` 为刚体实验台（Java dyn4j，任意方块/小球/斜面/场组合）
 
 ## 二、技术栈
 
@@ -249,6 +249,9 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 | 19727f1 / 714ffe0 | B11 P2 收官 | #33 磁流体 / #34 流量计 / #35 霍尔；#43 导体棒弹簧 / #50 黑箱 / #69 刚体 / #70 感应 ODE → **v3.1 清单 65/65 全部上线** |
 | 9673b96 | B12 | `gaokao-ledger.test.ts` 自动对账（65 卡覆盖 + 讲解模板 11 段 + 生成对账表）；力学四别名改为变体；组 1 十二卡补物理断言（65/65 均有解析解比对） |
 | e39ba7a | B12 | 上线评审文档 + 65 卡截图入库 + 录屏归档脚本 `gaokao-media.py` + 方案书/总览回填 |
+| a3a76c6 | 定位更正 | 删三模式与考试评分、删教师批阅页、AI 助教接真 AI（aiAgent.ts）、提交后 AI 即时反馈、Python 启动预热 RAG、ai-tutor-check.py |
+| 261282e | B13 | 自由搭建 /sandbox：元件目录 89 / 识别器 58 规则 / 内嵌运行 / 数据面板+坐标纸 / AI 助手 / 十场景 E2E |
+| （本轮） | B13 | B13 验收报告 + 元件对账表（自动） + 模块 README + 十场景截图录屏 |
 | 9c9eeba | 实验台 | 三维度元件体系：2D/2.5D/3D 分段 + 7 元件按维度过滤 + 11 模板 + lab-check E2E |
 
 ### 实验库之前的里程碑
@@ -276,6 +279,7 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 | 55 卡逐卡 E2E | 55 | ✅ 55/55 | 同上 |
 | 演示页无头 E2E | 14 项 | ✅ 全过，0 控制台错误 | `set PLAYWRIGHT_BROWSERS_PATH=E:\Program\playwright-browsers && python frontend/e2e/sim-demo-check.py`（Vite 5173） |
 | 实验库逐实验无头 E2E | **120（教材 55 + 高考层 65）** | ✅ 120/120，内容一致，动画多帧，**高考层 65 卡每卡一项与解析解比对的物理量断言**（等时圆 √(4R/g)、回旋 q²B²R²/2m、磁聚焦 90°×5、伏安法 R_x∥R_V、棱镜 δ、光电 h 斜率…），0 控制台错误 | `python -u frontend/e2e/exp-lib-check.py [--ids a,b] [--url http://localhost:5173]`（API 登录 demo 账号后逐个打开 /exp/:id，断言仪器画布、**面板标题含该实验专属关键词（标题↔内容一致）**、**应动实验点主按钮后间隔 400ms 两帧必须不同（动画正确性）**、点主按钮与记录按钮、收集控制台错误、`extra_checks()` 专项物理断言；需 Java 8080）。抓动画时间窗口帧用 `frontend/e2e/snap-stage.py --id <id> --click-main --at 600,1500,2600`（输出 ANIMATED/STATIC 判定） |
+| **自由搭建 E2E** | 10 场景 × 5 断言 | ✅ 10/10（识别 / 运行器 / 动画 / 物理量 / 零错误） | `python -u frontend/e2e/sandbox-check.py [--only 4,7] [--video]`：经 DEV 钩子 `window.__sandbox` 脚本化搭元件 → 识别 → 运行 → 断言物理量与解析解一致；截图 `e2e/out/sandbox-*.png`（入库 `docs/media/sandbox/`），`--video` 整段录屏。对账 `sandbox-ledger.test.ts`（目录 / 规则 / 十场景识别，生成 `docs/自由搭建-元件对账表.md`） |
 | **AI 助教真通道 E2E** | 3 断言 | ✅（真 AI 回复 809 字，直接给出 F=kx） | `python -u frontend/e2e/ai-tutor-check.py [--id]`：打开实验 → 点「直接讲解」→ 等真 AI 回复（在线灯绿、非回退文案）→ 直接问答案也回答；需 Python 8000 已启动且 RAG 预热完成 |
 | **高考层媒体归档** | 65 截图 + 65 录屏 | ✅ | `python -u frontend/e2e/gaokao-media.py [--ids] [--no-video]`：逐卡运行，截图 → `docs/media/gaokao/<id>.png`（入库），录屏 → `frontend/e2e/out/video/<id>.webm`（本地） |
 | **电路正确性 E2E**（P0-2 验收项） | 11 实验 / 45 断言 | ✅ 11/11 | `python -u frontend/e2e/circuit-check.py [--ids a,b]`：经 DEV 钩子 `window.__circuitEditor` 脚本化搭电路，断言正确接法读数与理论一致（伏安法拟合 E/r、外接法 R、欧姆挡读数、RC τ、自感 τ、感抗）、判分通过、典型错接被故障检测抓住（电流表并联/带电测电阻）、暂态回放两帧不同；截图归档 `e2e/out/circuit-*.png` |
@@ -336,6 +340,7 @@ B4（电路引擎）和 B5（光学引擎）未独立开工，相关实验已用
 11. **只保留一个前端 dev server**：Vite 端口被占时会自动漂到 5174，导致“改了代码但浏览器看的是旧端口的旧模块图”（2026-09-15 用户截图问题的直接原因）。开新会话前先 `netstat -ano | grep 5173`，有残留进程就先停掉再 `pnpm dev`；浏览器侧用 Ctrl+F5 强刷
 12. **验收制度（永久，2026-09-15 两个 P0 复盘后确立）**：P0-1“3D 动画是静图”与 P0-2“自由电路搭建引擎从未交付”暴露同一病根——验收只看流程不看教学本质。此后每批次验收必须同时满足：① **元件清单对账**（应有元件 vs 实际元件对账表，缺一不验）；② **动画正确性 E2E**（多帧采样，已固化为 `exp-lib-check.py` 的 `ANIMATED_IDS` 两帧必须不同）；③ **电路正确性 E2E**（连线/故障/判分实测，随 CircuitEngine 交付）；④ **物理正确性抽检**（每实验 ≥1 项物理量对比理论值，阈值写进用例）；⑤ **人工验收**（每批次人工逐实验操作，不得只靠自动化）；⑥ **截图/录屏归档**（每实验 ≥1 张运行截图 + 1 段多帧采样，`e2e/out/` + `snap-stage.py`）；⑦ **教学本质检查**（每实验问“学生能不能做这个实验的核心操作”，不能只问“能不能打开”）。开工令里的每条能力要求都必须出现在对应批次 DoD 里，DoD 缺项视为验收无效
 13. **高考/竞赛题层场景契约（2026-09-17，B11 全量交付后固化）**：① 清单唯一来源是 `registry/gaokao-plan.ts`（v3.1 §7.1 逐项编码；文档标题写 50 但分册合计 **65**，一律按 65 对账）；② 新场景 = 一个 `MechSceneDef`（2D/2.5D，`defs/gaokao/scenes/*.ts`）或 `EMSceneDef`（3D）数据模块 + `wrapScene/wrapEM` 薄包装 + `gaokao.ts` 的 `LIVE` 一行；同一物理模型的多个清单编号用 `variantScene/variantEM` 给不同默认搭法，禁止两个 id 直挂同一组件；③ 必须同时提交：`exp-lib-check.py` 的 `KEYWORDS`（标题关键词）+ `ANIMATED_IDS` + `extra_checks()` 里**一项与解析解比对的物理量断言**（阈值写死）；④ 讲解模板十一段全部非空、`readout(p, null)` 可用且无 NaN——`gaokao-ledger.test.ts` 会拦；⑤ 长会话写大文件曾连续三次“写入执行失败”（单次 Write 超大载荷被截断后原样重试），此后每个场景文件 ≤ 300 行、每组 2–3 场景一提交，接线用一次性 Python 补丁脚本而非十几次小编辑
+16. **自由搭建的求解契约**：沙盒不是任意组合的通用 ODE 求解器，而是“元件组合 → 已验证求解器”的映射（`sandbox/recognizer.ts` 规则）。新组合三步接入见 `frontend/src/sandbox/README.md`；规则里引用的参数键必须是目标 def 的 `params[].key`，`sandbox-ledger.test.ts` 会检查标签有效性与十场景识别结果。刚体任意组合仍走 `/lab`（dyn4j），电路任意连线走 CircuitEditor
 15. **AI 服务（Python 8000）是实验层“真 AI”的前提**：启动 `cd python-ai-service && .venv/Scripts/python.exe -m uvicorn physicene_ai.main:app --port 8000`（`.env` 含 DEEPSEEK_API_KEY，禁止打印）。启动时后台预热 RAG（bge-m3 + Chroma 约 40–80 s，`RAG_WARMUP=0` 可关）；预热前的首个问答会撞 Java Feign 35 s 读超时 → 前端自动回退到内置讲解并亮红灯，预热后恢复。`experiments/data/aiAgent.ts` 是实验层唯一 AI 出口（带实验上下文、LaTeX 转写、失败回退）
 14. **3D 场景两条渲染坑（three.js）**：透明场区盒必须 `depthWrite=false`，否则盒内比前表面近的箭头/粒子被深度测试吃掉（表现为“电场箭头不见了”）；箭头组要沿局部 +y 建模再用四元数指向目标，`scale.y` 才沿箭头轴伸缩（沿其它方向建模再缩放会歪）。`textSprite` 已改为按文本宽度自适应画布，长中文标签不再裁切
 
@@ -345,6 +350,8 @@ B4（电路引擎）和 B5（光学引擎）未独立开工，相关实验已用
 |:---|:---|
 | **实验库完整修复与扩展方案书 v3.0**（三层架构 / P0 / B9–B12 / 20 场景 / AI 讲解器 / 验收 v3.0，含执行状态表） | docs/实验库完整修复与扩展方案书-v3.0.md |
 | **上线评审 · v3.1 高考/竞赛题层（B11 65/65 + B12 全平台回归；结论：解除停上线）** | docs/上线评审-v3.1-高考竞赛层.md |
+| **B13 验收报告 · 自由搭建实验（十场景 10/10，DoD 对照，架构取舍）** | docs/B13-验收报告.md；模块说明 frontend/src/sandbox/README.md |
+| **自由搭建 · 元件与识别规则对账表**（自动生成：89 元件 / 58 规则 / 十场景） | docs/自由搭建-元件对账表.md；截图 docs/media/sandbox/ |
 | **高考竞赛层 · 元件与题型对账表**（自动生成：65 卡 × 运行器/元件参数/E2E 物理断言/讲解模板/截图） | docs/高考竞赛层-元件与题型对账表.md（`gaokao-ledger.test.ts` 生成）；截图 docs/media/gaokao/ |
 | **P0-2 缺陷报告：CircuitEngine 从未交付**（现状对账/12 元件清单/引擎规格/修复顺序/验收制度） | frontend/src/experiments/docs/p0-circuit/defect-report.md |
 | 需求规格说明书 v3.4.1（冻结） | docs/01-需求规格说明书_v3.4.1.md |
