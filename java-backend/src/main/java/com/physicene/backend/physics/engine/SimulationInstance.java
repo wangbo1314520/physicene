@@ -11,10 +11,18 @@ import com.physicene.backend.physics.model.PhysicsElement;
 import com.physicene.backend.physics.model.Scene;
 import com.physicene.backend.physics.model.SubjectState;
 import com.physicene.backend.physics.model.Vector2D;
+import com.physicene.backend.physics.element.BeltElement;
+import com.physicene.backend.physics.element.JointBehavior;
+import com.physicene.backend.physics.element.LoopTrackElement;
+import com.physicene.backend.physics.element.RopeElement;
+import org.dyn4j.dynamics.ContinuousDetectionMode;
 import org.dyn4j.dynamics.Body;
 import org.dyn4j.dynamics.BodyFixture;
+import org.dyn4j.dynamics.joint.DistanceJoint;
 import org.dyn4j.geometry.Vector2;
 import org.dyn4j.world.World;
+import org.dyn4j.world.contact.ContactConstraint;
+import org.dyn4j.world.listener.ContactListener;
 import org.dyn4j.world.listener.CollisionListener;
 import org.dyn4j.world.listener.CollisionListenerAdapter;
 import org.slf4j.Logger;
@@ -67,6 +75,19 @@ public class SimulationInstance {
     private final Set<String> collisionPairs = ConcurrentHashMap.newKeySet();
     private final Map<String, Boolean> maxHeightReported = new HashMap<>();
 
+    // ===== 统一搭建台阶段一状态（方案 §3.1/3.2/3.4/3.6）=====
+    private final int substeps;
+    /** belt id -> [speed, angle, cx, cy]：接触回调取带速与方向 */
+    private final Map<String, double[]> belts = new LinkedHashMap<>();
+    /** loop_track id -> [cx, cy, R]：脱离角/过顶检测 */
+    private final Map<String, double[]> loops = new LinkedHashMap<>();
+    /** 关节键 -> DistanceJoint：绳绷紧/松弛、弹簧原长事件 */
+    private final Map<String, DistanceJoint<Body>> stringJoints = new LinkedHashMap<>();
+    /** 活跃接触对 id1|id2（ContactTracker 维护） */
+    private final Set<String> activeContacts = ConcurrentHashMap.newKeySet();
+    /** 事件去重锁 */
+    private final Set<String> eventLatches = ConcurrentHashMap.newKeySet();
+
     private Status status = Status.RUNNING;
     private double t = 0;
     private int frameCount = 0;
@@ -89,20 +110,58 @@ public class SimulationInstance {
         this.scene = scene;
         this.world = new World<>();
         this.dt = scene.getConfig().getTimestep();
+        this.substeps = Math.max(1, Math.min(8, scene.getConfig().getSubsteps()));
 
         world.setGravity(new Vector2(scene.getConfig().getGravity().x(), scene.getConfig().getGravity().y()));
-        // dyn4j 默认步长 1/60s，契约 timestep 同为 1/60；时间推进以契约 dt 为准
+        // 子步：物理步长 = 契约 dt / substeps（默认 4 -> 240Hz），帧与数据仍按契约 1/60 输出（方案 §3.4）
+        world.getSettings().setStepFrequency(1.0 / (this.dt / substeps));
+        // 连续碰撞：仅对标记 bullet 的运动体启用（薄边/高速防穿透，方案 §3.4）
+        world.getSettings().setContinuousDetectionMode(ContinuousDetectionMode.BULLETS_ONLY);
+        world.getSettings().setPositionConstraintSolverIterations(20);
 
+        // 第一遍：普通元件建刚体；关节元件（rope/rod/spring/pulley）收集待第二遍
+        List<JointBehavior> jointBehaviors = new ArrayList<>();
         for (PhysicsElement element : scene.getElements()) {
             ElementBehavior behavior = registry.create(element);
             behaviors.add(behavior);
+            if (behavior instanceof LoopTrackElement lt) {
+                loops.put(element.getId(), new double[]{element.getPosition().x(),
+                        element.getPosition().y(), lt.radius()});
+            }
+            if (behavior instanceof JointBehavior jb && !(behavior instanceof LoopTrackElement)) {
+                jointBehaviors.add(jb);
+                continue;
+            }
+            if (behavior instanceof BeltElement be) {
+                belts.put(element.getId(), new double[]{be.beltSpeed(), element.getAngle(),
+                        element.getPosition().x(), element.getPosition().y()});
+            }
             Body body = behavior.createBody(world);
-            bodies.put(element.getId(), body);
-            if (!element.isFixed()) {
-                dynamicBodies.add(body);
-                dynamicElements.add(element);
+            if (body != null) {
+                if (element.getParams() != null && element.getParams().getOrDefault("bullet", 0.0) >= 1) {
+                    body.setBullet(true);
+                }
+                bodies.put(element.getId(), body);
+                if (!element.isFixed()) {
+                    dynamicBodies.add(body);
+                    dynamicElements.add(element);
+                }
             }
         }
+        // 第二遍：全部刚体就绪后建关节（连接目标必须已存在，SceneValidator 已静态校验）
+        for (JointBehavior jb : jointBehaviors) {
+            var joint = jb.createJoint(world, bodies);
+            if (jb instanceof RopeElement rope && joint instanceof DistanceJoint dj) {
+                stringJoints.put(rope.ownId() + "#" + rope.getType(), dj);
+            }
+        }
+
+        // 传送带：接触求解前按带速设表面切向速度（dyn4j 官方传送带语义，方案 §3.1）
+        if (!belts.isEmpty()) {
+            world.addListener(new BeltContactListener());
+        }
+        // 接触起止跟踪：land_surface / leave_surface / detach（方案 §3.6）
+        world.addListener(new ContactTracker());
 
         // 碰撞关键事件：同一对元件只报一次；初始就贴合的接触（如方块恰好放在地面上）
         // 不算"碰撞"——前两步内的接触是放置不是碰撞
@@ -135,12 +194,17 @@ public class SimulationInstance {
         if (status != Status.RUNNING) {
             return;
         }
-        // 自定义力扩展点（F2.6 computeForce）：电磁元件（点电荷）在此受力
-        applyCustomForces();
-
-        world.step(1);
+        // 自定义力扩展点（F2.6 computeForce）：电磁元件（点电荷）在此受力；
+        // 统一搭建台：每个子步刷新一次（场力跟随子步位置，方案 §3.4）
+        for (int i = 0; i < substeps; i++) {
+            applyCustomForces();
+            world.step(1);
+        }
         t += dt;
         frameCount++;
+
+        // 帧级关键事件检测（方案 §3.6）：共速/带共速/过顶/绳状态/弹簧原长
+        detectFrameEvents();
 
         // 最高点检测：vy 由正转负（每主体一次）
         for (int i = 0; i < dynamicBodies.size(); i++) {

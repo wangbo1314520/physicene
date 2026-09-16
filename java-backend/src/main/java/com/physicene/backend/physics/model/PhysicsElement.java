@@ -30,4 +30,29 @@ public class PhysicsElement {
     private boolean isVisible = true;
 
     private String color = "#4A90D9";
+
+    // ===== 统一几何搭建台扩展（阶段一，方案 §2.4/§3.3）=====
+
+    /** 关节/耦合连接对象 id（rope/rod/spring 连 A，pulley 连施力端） */
+    private String connectTo;
+
+    /** 第二连接对象 id（rope/rod/spring 连 B；pulley 连负载端） */
+    private String connectTo2;
+
+    /** 关节在 connectTo 本体上的局部锚点（米；null 视为 (0,0)） */
+    private Vector2D anchorA;
+
+    /** 关节在 connectTo2 本体上的局部锚点（米；null 视为 (0,0)） */
+    private Vector2D anchorB;
+
+    /**
+     * 类型参数表（与前端 GeoElement.params 同构）：
+     * belt: beltSpeed(-8..8 m/s), beltLength, beltRadius
+     * loop_track: radius(0.1..5), arcA0<arcA1(°), arcSide(inner|outer|both), arcThickness
+     * rope/rod: jointLength(>0)
+     * spring: jointLength, stiffness(>0), dampingRatio(0..1)
+     * pulley: ratio(1|2)
+     * 任意 body: bullet(0|1)
+     */
+    private java.util.Map<String, Double> params = new java.util.HashMap<>();
 }
