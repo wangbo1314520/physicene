@@ -688,6 +688,123 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} 感应 ODE：t=τ={tau} s 时 v={v} m/s（{pct}% v_m，理论 63.2%）")
         if not ok:
             failures.append(f"{exp_id}: 时间常数断言失败 {tau}/{v}/{pct}")
+    if exp_id == "gk-slope-spring":
+        page.wait_for_timeout(3000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"最大压缩 x=([\d.]+) m", txt)
+        x = float(m.group(1)) if m else -1.0
+        import math
+        g, th, mu, k, L0 = 9.8, math.radians(30), 0.1, 60.0, 2.0
+        c = g * (math.sin(th) - mu * math.cos(th))
+        x_th = (c + math.sqrt(c * c + 2 * k * c * L0)) / k
+        ok = abs(x - x_th) <= 0.01
+        lines.append(f"  {'✓' if ok else '✗'} 斜面弹簧：最大压缩 x={x} m（能量方程解 {x_th:.3f} m）")
+        if not ok:
+            failures.append(f"{exp_id}: 最大压缩断言失败 {x} vs {x_th:.3f}")
+    if exp_id == "gk-conveyor-board":
+        page.wait_for_timeout(3000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"共速 v=([\d.]+) m/s", txt)
+        v = float(m.group(1)) if m else -1.0
+        ok = abs(v - 3.0) <= 0.01
+        lines.append(f"  {'✓' if ok else '✗'} 水平传送带：共速 v={v} m/s（带速 3.00）")
+        if not ok:
+            failures.append(f"{exp_id}: 共速断言失败 {v}")
+    if exp_id == "gk-m30-conveyor-board":
+        page.wait_for_timeout(4500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"停止；滑块共滑 ([\d.]+) m，Q=([\d.]+) J", txt)
+        Q = float(m.group(2)) if m else -1.0
+        Q_th = 0.2 * 1 * 9.8 * (16 / (2 * 0.2 * 9.8))
+        ok = abs(Q - Q_th) <= 0.05
+        lines.append(f"  {'✓' if ok else '✗'} 板块+粗糙地面：板不启动（μmg<μ₂(m+M)g），滑块摩擦生热 Q={Q} J（理论 ½mv₀²={Q_th:.2f} J）")
+        if not ok:
+            failures.append(f"{exp_id}: 板块热量断言失败 {Q}")
+    if exp_id in ("gk-connected-bodies", "gk-m21-whole-isolate"):
+        page.wait_for_timeout(2000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"a = ([\d.]+) m/s²　力传感器：绳张力 T = ([\d.]+) N", txt)
+        a, T = (float(m.group(1)), float(m.group(2))) if m else (-1.0, -1.0)
+        a_th = (20 - 0.1 * 3 * 9.8) / 3
+        T_th = 1 * a_th + 0.1 * 1 * 9.8
+        ok = abs(a - a_th) <= 0.01 and abs(T - T_th) <= 0.01
+        lines.append(f"  {'✓' if ok else '✗'} 连接体：a={a}（整体法 {a_th:.2f}），T={T} N（隔离法 {T_th:.2f}）")
+        if not ok:
+            failures.append(f"{exp_id}: 整体/隔离断言失败 {a}/{T}")
+    if exp_id == "gk-collision-spring":
+        page.wait_for_timeout(3500)
+        txt = page.locator(".panel").inner_text()
+        m1 = re.search(r"最大压缩 x_m=([\d.]+) m", txt)
+        m2 = re.search(r"v_B′=([\d.]+) m/s", txt)
+        xm = float(m1.group(1)) if m1 else -1.0
+        vb = float(m2.group(1)) if m2 else -1.0
+        xm_th = 4 * (2 / 300) ** 0.5
+        ok = abs(xm - xm_th) <= 0.004 and abs(vb - 8 / 3) <= 0.02
+        lines.append(f"  {'✓' if ok else '✗'} 碰撞+弹簧：x_m={xm} m（理论 {xm_th:.3f}），分离 v_B′={vb} m/s（弹性碰撞 2.67）")
+        if not ok:
+            failures.append(f"{exp_id}: 弹簧碰撞断言失败 {xm}/{vb}")
+    if exp_id == "gk-m29-collision-spring":
+        page.wait_for_timeout(3000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"分离：v_A′=(-?[\d.]+)，v_B′=(-?[\d.]+) m/s", txt)
+        va, vb = (float(m.group(1)), float(m.group(2))) if m else (0.0, 0.0)
+        va_th = -((2 * 8 * 2) / (1 * 3)) ** 0.5
+        ok = abs(va - va_th) <= 0.03 and abs(vb + va / 2) <= 0.03
+        lines.append(f"  {'✓' if ok else '✗'} 夹弹簧释放：v_A′={va}，v_B′={vb} m/s（理论 {va_th:.2f}/{-va_th / 2:.2f}，动量为零）")
+        if not ok:
+            failures.append(f"{exp_id}: 释放速度断言失败 {va}/{vb}")
+    if exp_id == "gk-circular-critical":
+        page.wait_for_timeout(2500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"θ=([\d.]+)° 处 N<0 脱离", txt)
+        th = float(m.group(1)) if m else -1.0
+        import math
+        th_th = math.degrees(math.acos((2 * 9.8 - 36) / (3 * 9.8)))
+        ok = abs(th - th_th) <= 0.6
+        lines.append(f"  {'✓' if ok else '✗'} 绳系圆周：v₀=6<√(5gR) 在 θ={th}° 脱离（理论 cosθ=(2gR−v₀²)/3gR → {th_th:.1f}°）")
+        if not ok:
+            failures.append(f"{exp_id}: 脱离角断言失败 {th}")
+    if exp_id == "gk-m28-circular-five":
+        page.wait_for_timeout(3000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"θ=([\d.]+)° 处 v=0，折返", txt)
+        th = float(m.group(1)) if m else -1.0
+        import math
+        th_th = math.degrees(math.acos(1 - 36 / (2 * 9.8)))
+        ok = abs(th - th_th) <= 0.6
+        lines.append(f"  {'✓' if ok else '✗'} 管道圆周：v₀=6<2√(gR) 在 θ={th}° 速度为零折返（能量守恒 {th_th:.1f}°）")
+        if not ok:
+            failures.append(f"{exp_id}: 折返角断言失败 {th}")
+    if exp_id == "gk-collision-chain":
+        page.wait_for_timeout(6000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"总动量 ([\d.]+)（初 ([\d.]+)），动能 ([\d.]+) J（初 ([\d.]+)，损失 ([\d.]+) J）", txt)
+        ok = bool(m) and abs(float(m.group(1)) - 3.0) <= 0.01 and abs(float(m.group(3)) - 4.5) <= 0.01 and abs(float(m.group(5))) <= 0.01
+        lines.append(f"  {'✓' if ok else '✗'} 碰撞链（等质量 e=1）：总动量 3.00 守恒、动能 4.50 J 无损失（速度沿链传递）")
+        if not ok:
+            failures.append(f"{exp_id}: 碰撞链守恒断言失败")
+    if exp_id == "gk-projectile-loop":
+        page.wait_for_timeout(3000)
+        txt = page.locator(".panel").inner_text()
+        m1 = re.search(r"切入轨道底端 v₁=([\d.]+) m/s", txt)
+        m2 = re.search(r"最高点 v=([\d.]+) m/s", txt)
+        v1 = float(m1.group(1)) if m1 else -1.0
+        vt = float(m2.group(1)) if m2 else -1.0
+        v1_th = (16 + 2 * 9.8 * 3) ** 0.5
+        vt_th = (v1_th ** 2 - 4 * 9.8 * 1) ** 0.5
+        ok = abs(v1 - v1_th) <= 0.03 and abs(vt - vt_th) <= 0.03
+        lines.append(f"  {'✓' if ok else '✗'} 平抛+圆周：切入 v₁={v1}（√(v₀²+2gh)={v1_th:.2f}），最高点 v={vt}（{vt_th:.2f}）")
+        if not ok:
+            failures.append(f"{exp_id}: 平抛圆周断言失败 {v1}/{vt}")
+    if exp_id == "gk-accel-selector-b":
+        page.wait_for_timeout(1000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"半圆 r=([\d.]+) m → 打到底片，距入口 2r=([\d.]+) m", txt)
+        r = float(m.group(1)) if m else -1.0
+        ok = abs(r - 4.0) <= 0.01 and "v = 4.00 m/s" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 加速→筛选→磁场：v=√(2qU/m)=4.00=E/B 通过，r=mv/(qB₃)={r} m（4.00），落点 2r")
+        if not ok:
+            failures.append(f"{exp_id}: 质谱原型断言失败 {r}")
     return lines
 
 

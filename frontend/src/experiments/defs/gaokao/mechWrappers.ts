@@ -17,6 +17,12 @@ import { thinFilm, diffractionVsInterference, waveSuperposition } from './scenes
 import { nuclearReaction, bohrCollision, matterWave } from './scenes/mod2'
 import { variableForce, smallQuantity, noninertial } from './scenes/comp1'
 
+/** 同一场景的模型编号别名：换 id 与默认搭法/参数（薄包装，规则 10） */
+export function variantScene(def: MechSceneDef<any>, id: string, defaults: Record<string, number>) {
+  const v: MechSceneDef<any> = { ...def, id, params: def.params.map((d) => (d.key in defaults ? { ...d, default: defaults[d.key] } : d)) }
+  return wrapScene(v)
+}
+
 export function wrapScene(def: MechSceneDef<any>) {
   return defineComponent({
     name: def.id,
@@ -31,6 +37,10 @@ export const GkConnectedBodies = wrapScene(connectedBodies)
 export const GkCollisionSpring = wrapScene(collisionSpring)
 export const GkCircularCritical = wrapScene(circularCritical)
 export const GkCollisionChain = wrapScene(collisionChain)
+export const GkM30ConveyorBoard = variantScene(conveyorBoard, 'gk-m30-conveyor-board', { setup: 2, v0: 4 })
+export const GkM21WholeIsolate = variantScene(connectedBodies, 'gk-m21-whole-isolate', { setup: 0 })
+export const GkM28CircularFive = variantScene(circularCritical, 'gk-m28-circular-five', { type: 4 })
+export const GkM29CollisionSpring = variantScene(collisionSpring, 'gk-m29-collision-spring', { setup: 1 })
 export const GkIsochrone = wrapScene(isochrone)
 export const GkClothesline = wrapScene(clothesline)
 export const GkMultistage = wrapScene(multistage)
