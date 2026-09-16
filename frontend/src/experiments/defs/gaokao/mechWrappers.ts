@@ -15,6 +15,7 @@ import { liquidSealTube, cylinderPiston } from './scenes/thermo1'
 import { variableMassGas, uTube } from './scenes/thermo2'
 import { thinFilm, diffractionVsInterference, waveSuperposition } from './scenes/opt2'
 import { nuclearReaction, bohrCollision, matterWave } from './scenes/mod2'
+import { variableForce, smallQuantity, noninertial } from './scenes/comp1'
 
 export function wrapScene(def: MechSceneDef<any>) {
   return defineComponent({
@@ -51,3 +52,6 @@ export const GkWaveSuperposition = wrapScene(waveSuperposition)
 export const GkNuclearReaction = wrapScene(nuclearReaction)
 export const GkBohrCollision = wrapScene(bohrCollision)
 export const GkMatterWave = wrapScene(matterWave)
+export const GkVariableForce = wrapScene(variableForce)
+export const GkSmallQuantity = wrapScene(smallQuantity)
+export const GkNoninertial = wrapScene(noninertial)

@@ -126,6 +126,9 @@ KEYWORDS = {
     "gk-nuclear-reaction": "核反应方程",
     "gk-bohr-collision": "玻尔模型 + 碰撞",
     "gk-matter-wave": "物质波",
+    "gk-variable-force": "微元法 + 积分",
+    "gk-small-quantity": "小量近似",
+    "gk-noninertial": "非惯性系",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -148,6 +151,7 @@ ANIMATED_IDS = {
     "gk-liquid-seal-tube", "gk-cylinder-piston", "gk-variable-mass-gas", "gk-u-tube",
     "gk-thin-film", "gk-diffraction-vs-interference", "gk-wave-superposition",
     "gk-nuclear-reaction", "gk-bohr-collision", "gk-matter-wave",
+    "gk-variable-force", "gk-small-quantity", "gk-noninertial",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 
@@ -574,6 +578,38 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} 物质波：电子 100 V λ={lam} nm（理论 {lam_th:.4f} nm=1.226/√U）")
         if not ok:
             failures.append(f"{exp_id}: 德布罗意波长断言失败 {lam}")
+    if exp_id == "gk-variable-force":
+        page.wait_for_timeout(6000)
+        txt = page.locator(".panel").inner_text()
+        m1 = re.search(r"解析 W=∫F dx=([\d.]+) J", txt)
+        m2 = re.search(r"ΔE_k=½mv²=([\d.]+) J", txt)
+        W = float(m1.group(1)) if m1 else -1.0
+        dEk = float(m2.group(1)) if m2 else -1.0
+        W_th = 2 * 20 * 4 / 3.141592653589793
+        ok = abs(W - W_th) <= 0.02 and abs(dEk - W_th) <= 0.3
+        lines.append(f"  {'✓' if ok else '✗'} 变力做功：解析 W={W} J（2F₀L/π={W_th:.2f}），动能定理 ΔE_k={dEk} J")
+        if not ok:
+            failures.append(f"{exp_id}: 变力功断言失败 {W}/{dEk}")
+    if exp_id == "gk-small-quantity":
+        page.wait_for_timeout(5500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"→ T/T₀=([\d.]+)", txt)
+        r = float(m.group(1)) if m else -1.0
+        ok = abs(r - 1.0732) <= 0.004
+        lines.append(f"  {'✓' if ok else '✗'} 小量近似：θ₀=60° 实测 T/T₀={r}（椭圆积分 1.0732）")
+        if not ok:
+            failures.append(f"{exp_id}: 周期修正断言失败 {r}")
+    if exp_id == "gk-noninertial":
+        page.wait_for_timeout(8000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"平衡角 θ=([\d.]+)°", txt)
+        th = float(m.group(1)) if m else -1.0
+        import math
+        th_th = math.degrees(math.atan(3 / 9.8))
+        ok = abs(th - th_th) <= 0.6
+        lines.append(f"  {'✓' if ok else '✗'} 非惯性系：摆平衡角 θ={th}°（理论 arctan(a/g)={th_th:.1f}°）")
+        if not ok:
+            failures.append(f"{exp_id}: 平衡角断言失败 {th}")
     return lines
 
 
