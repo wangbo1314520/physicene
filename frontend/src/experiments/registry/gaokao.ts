@@ -10,7 +10,7 @@ import GkBoardBlock from '../defs/gaokao/GkBoardBlock.vue'
 import GkProjectileLoop from '../defs/gaokao/GkProjectileLoop.vue'
 import GkAccelSelectorB from '../defs/gaokao/GkAccelSelectorB.vue'
 import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro, GkPrismRefraction, GkWaveMultiSolution, GkVibrationWaveGraphs, GkPhotoelectricEkNu, GkHydrogenLevels, GkObliqueProjectile, GkWeightChange, GkLiquidSealTube, GkCylinderPiston, GkVariableMassGas, GkUTube, GkThinFilm, GkDiffractionVsInterference, GkWaveSuperposition, GkNuclearReaction, GkBohrCollision, GkMatterWave, GkVariableForce, GkSmallQuantity, GkNoninertial } from '../defs/gaokao/mechWrappers'
-import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti, GkCompositeField, GkCyclotron, GkRailRod, GkRodFree, GkRodForce, GkDoubleRod, GkRodCapacitor, GkVoltAmmeterResistance, GkMeterConversion, GkTransformerTransmission, GkTransformerDynamic, GkPowerTransmission, GkAcFourValues, GkBBCombo, GkFrameThroughB, GkRodInclineB, GkMhdGenerator, GkEmFlowmeter, GkHallEffect } from '../defs/gaokao/emWrappers'
+import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti, GkCompositeField, GkCyclotron, GkRailRod, GkRodFree, GkRodForce, GkDoubleRod, GkRodCapacitor, GkVoltAmmeterResistance, GkMeterConversion, GkTransformerTransmission, GkTransformerDynamic, GkPowerTransmission, GkAcFourValues, GkBBCombo, GkFrameThroughB, GkRodInclineB, GkMhdGenerator, GkEmFlowmeter, GkHallEffect, GkRodSpring, GkBlackBox, GkRigidBody, GkInductionOde } from '../defs/gaokao/emWrappers'
 
 function gkSteps(operateHint: string): ExperimentModule['steps'] {
   return [
@@ -90,6 +90,10 @@ const LIVE: Record<string, Live> = {
   'gk-mhd-generator': { component: GkMhdGenerator, summary: '等离子体通道 + 竖直磁场 + 两侧极板：正负离子被洛伦兹力分向两极板（粒子动画），稳态 E=Bdv；含内阻 r 的外电路电流、输出功率与 R=r 最大输出。', hint: '调 B、v、d 看 E=Bdv；调 R 找输出功率最大点 R=r' },
   'gk-em-flowmeter': { component: GkEmFlowmeter, summary: '导电液体流过带磁场的绝缘管，管壁电极测得 U=BDv，换算流速与流量 Q=πD²v/4；离子横向分离动画、电压表读数随 v 线性。', hint: '调 v 看 U 线性变化；调 D、B 验证 v=U/(BD) 与 Q 公式' },
   'gk-hall-effect': { component: GkHallEffect, summary: '通电薄片 + 垂直磁场：电子/空穴漂移方向相反但被推到同一侧面，霍尔电压 U_H=BI/(nqd) 极性相反 → 判断载流子类型；n 从金属到半导体跨 6 个量级看 U_H 变化。', hint: '切换电子/空穴看极性反转；把 n 调到 0.001（半导体量级）看 U_H 从 μV 到 mV' },
+  'gk-rod-spring': { component: GkRodSpring, summary: '弹簧 + 导体棒 + 磁场 + 电阻：线性电磁阻尼振动 m x¨+(B²L²/R)x˙+kx=0，弹簧圈随位移伸缩、x–t 板叠加包络 ±x₀e^{−γt}；每周期记录周期与焦耳热，机械能最终全部变热。', hint: '▶ 播放 → 看振幅按包络衰减、周期与 2π/ω_d 对照；把 B 调到 0 看无阻尼简谐；调大 B 到过阻尼' },
+  'gk-black-box': { component: GkBlackBox, summary: '三接线柱黑箱（内含电阻 + 二极管）：多用电表欧姆挡红黑表笔自动完成 6 次正反探测，指针与读数表逐次揭示，最后给出内部结构结论；强调“电流从黑表笔流出”。', hint: '▶ 播放 → 逐次看读数：相同=电阻、一通一断=二极管；切换二极管方向再测一遍' },
+  'gk-rigid-body': { component: GkRigidBody, summary: '薄圆环 / 实心圆柱 / 实心球在斜面上纯滚动竞速（3D，自转与平动同步）：a=g sinθ/(1+k) 与 m、R 无关；到达事件给出时间、末速与平动/转动动能比 1:k。', hint: '▶ 播放 → 球先到、环最后；调 θ、L 看时间按 √(2L(1+k)/g sinθ) 变化' },
+  'gk-induction-circuit-mech': { component: GkInductionOde, summary: '导轨导体棒的严格微分方程解：恒力启动 v=v_m(1−e^{−t/τ}) 或初速衰减 v=v₀e^{−t/τ}，τ=mR/(B²L²)；v–t 板白线解析解与黄线仿真叠合，τ/3τ 事件核对 63.2%/95%。', hint: '▶ 播放 → 看 t=τ 时 63.2%、3τ 时 95%；切换到衰减模式看 x_∞=v₀τ 与动量定理结果一致' },
   'gk-meter-conversion': { component: GkMeterConversion, summary: '灵敏电流计 G 改装：并联 R_并=I_gR_g/(I−I_g) 成电流表（粒子流分流可见）或串联 R_串=U/I_g−R_g 成电压表；输入信号按量程比例输入，表头偏转比例一致（线性刻度）。', hint: '选改装类型 → 调 I_g、R_g、量程 → 调“输入/量程”滑杆看指针偏转比例是否一致 → 读改装后内阻' },
 }
 

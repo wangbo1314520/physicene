@@ -132,6 +132,10 @@ KEYWORDS = {
     "gk-mhd-generator": "磁流体发电机",
     "gk-em-flowmeter": "电磁流量计",
     "gk-hall-effect": "霍尔效应",
+    "gk-rod-spring": "导体棒 + 弹簧",
+    "gk-black-box": "电学黑箱",
+    "gk-rigid-body": "刚体动力学",
+    "gk-induction-circuit-mech": "微分方程",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -156,6 +160,7 @@ ANIMATED_IDS = {
     "gk-nuclear-reaction", "gk-bohr-collision", "gk-matter-wave",
     "gk-variable-force", "gk-small-quantity", "gk-noninertial",
     "gk-mhd-generator", "gk-em-flowmeter", "gk-hall-effect",
+    "gk-rod-spring", "gk-black-box", "gk-rigid-body", "gk-induction-circuit-mech",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 
@@ -645,6 +650,44 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} 霍尔效应：U_H={U} μV（理论 BI/nqd={U_th:.2f} μV），电子导电 −z 面电势低")
         if not ok:
             failures.append(f"{exp_id}: 霍尔电压断言失败 {U}")
+    if exp_id == "gk-rod-spring":
+        page.wait_for_timeout(5500)
+        txt = page.locator(".panel").inner_text()
+        m1 = re.search(r"γ=B²L²/\(2mR\)=([\d.]+) s⁻¹", txt)
+        m2 = re.search(r"T=([\d.]+) s（理论 2π/ω_d=([\d.]+)）", txt)
+        gam = float(m1.group(1)) if m1 else -1.0
+        T, T_th = (float(m2.group(1)), float(m2.group(2))) if m2 else (-1.0, -2.0)
+        ok = abs(gam - 0.5) <= 0.001 and abs(T - T_th) <= 0.03
+        lines.append(f"  {'✓' if ok else '✗'} 导体棒+弹簧：γ={gam} s⁻¹（0.500），实测周期 T={T} s（理论 {T_th}）")
+        if not ok:
+            failures.append(f"{exp_id}: 阻尼振动断言失败 {gam}/{T}/{T_th}")
+    if exp_id == "gk-black-box":
+        page.wait_for_timeout(9500)
+        txt = page.locator(".panel").inner_text()
+        ok = "结论：A–B 间为电阻 R=20 Ω" in txt and "正向 B→C" in txt and "红C 黑B：≈0（导通）" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 电学黑箱：6 次探测后结论正确（A–B 电阻 20 Ω，B–C 二极管正向 B→C，红C黑B 导通）")
+        if not ok:
+            failures.append(f"{exp_id}: 黑箱结论断言失败")
+    if exp_id == "gk-rigid-body":
+        page.wait_for_timeout(4800)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"实心球到达 t=([\d.]+) s", txt)
+        t = float(m.group(1)) if m else -1.0
+        import math
+        t_th = math.sqrt(2 * 6 * 1.4 / (9.8 * math.sin(math.radians(30))))
+        ok = abs(t - t_th) <= 0.02 and "薄圆环到达" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 刚体纯滚动：实心球 t={t} s（理论 √(2L(1+k)/g sinθ)={t_th:.2f}），三者均到达")
+        if not ok:
+            failures.append(f"{exp_id}: 滚动时间断言失败 {t}")
+    if exp_id == "gk-induction-circuit-mech":
+        page.wait_for_timeout(2500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"t=1τ=([\d.]+) s：v=([\d.]+) m/s（([\d.]+)% v_m", txt)
+        tau, v, pct = (float(m.group(1)), float(m.group(2)), float(m.group(3))) if m else (-1.0, -1.0, -1.0)
+        ok = abs(tau - 1.0) <= 0.01 and abs(pct - 63.2) <= 0.3 and abs(v - 1.264) <= 0.01
+        lines.append(f"  {'✓' if ok else '✗'} 感应 ODE：t=τ={tau} s 时 v={v} m/s（{pct}% v_m，理论 63.2%）")
+        if not ok:
+            failures.append(f"{exp_id}: 时间常数断言失败 {tau}/{v}/{pct}")
     return lines
 
 
