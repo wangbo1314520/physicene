@@ -9,7 +9,7 @@ import { PLAN50 } from './gaokao-plan'
 import GkBoardBlock from '../defs/gaokao/GkBoardBlock.vue'
 import GkProjectileLoop from '../defs/gaokao/GkProjectileLoop.vue'
 import GkAccelSelectorB from '../defs/gaokao/GkAccelSelectorB.vue'
-import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro, GkPrismRefraction, GkWaveMultiSolution, GkVibrationWaveGraphs, GkPhotoelectricEkNu, GkHydrogenLevels, GkObliqueProjectile, GkWeightChange, GkLiquidSealTube, GkCylinderPiston, GkVariableMassGas, GkUTube } from '../defs/gaokao/mechWrappers'
+import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro, GkPrismRefraction, GkWaveMultiSolution, GkVibrationWaveGraphs, GkPhotoelectricEkNu, GkHydrogenLevels, GkObliqueProjectile, GkWeightChange, GkLiquidSealTube, GkCylinderPiston, GkVariableMassGas, GkUTube, GkThinFilm, GkDiffractionVsInterference, GkWaveSuperposition } from '../defs/gaokao/mechWrappers'
 import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti, GkCompositeField, GkCyclotron, GkRailRod, GkRodFree, GkRodForce, GkDoubleRod, GkRodCapacitor, GkVoltAmmeterResistance, GkMeterConversion, GkTransformerTransmission, GkTransformerDynamic, GkPowerTransmission, GkAcFourValues, GkBBCombo, GkFrameThroughB, GkRodInclineB } from '../defs/gaokao/emWrappers'
 
 function gkSteps(operateHint: string): ExperimentModule['steps'] {
@@ -70,6 +70,9 @@ const LIVE: Record<string, Live> = {
   'gk-cylinder-piston': { component: GkCylinderPiston, summary: '竖直/水平汽缸：活塞受力图（Mg、p₀S、pS、F）→ p=p₀+Mg/S+F/S；加热等压或加力等温，活塞随之移动。', hint: '选过程 → ▶ 开始 → 看活塞位置与状态板；切换水平汽缸看重力不再参与' },
   'gk-variable-mass-gas': { component: GkVariableMassGas, summary: '打气筒往容器打气 / 从容器抽气：分子点数与压力表随次数变化，p–n 图线性（打气）或等比（抽气）；等效总体积法 p₀(V+nV₀)=pₙV。', hint: '设 V、V₀、n → ▶ 开始 → 每次冲程后读 p；对照 p–n 图与公式' },
   'gk-u-tube': { component: GkUTube, summary: '左封右开的 U 形管：p=p₀+Δh；升温或向右臂注汞时两液面联动（一降 x 一升 x），气柱长与液面差同时变化，解二次方程得 x 并动画到位。', hint: '设 Δh₀、L₁、T₂/Δ → ▶ 开始 → 看液面移动到 x 目标值；核对末态 p₂L₂/T₂=p₁L₁/T₁' },
+  'gk-thin-film': { component: GkThinFilm, summary: '空气劈尖等厚干涉：侧视两束反射光与半波损失、俯视条纹随探针扫描逐级点亮；Δd=λ/2n、Δx=λ/(2nα)，棱边暗纹。', hint: '调 λ、α、n → ▶ 开始 → 看探针经过各级亮纹的事件与条纹间距；α 增大条纹变密' },
+  'gk-diffraction-vs-interference': { component: GkDiffractionVsInterference, summary: '同屏对比双缝干涉与单缝衍射：光子逐个随机落屏、统计直方图逼近理论光强曲线；Δx=Lλ/d 等间距 vs 中央亮纹 2Lλ/a 最宽最亮。', hint: '▶ 开始 → 看条纹从噪声中显现；调 d、a、λ 对照间距与中央宽度公式' },
+  'gk-wave-superposition': { component: GkWaveSuperposition, summary: '双相干源水波叠加热图实时演化，加强/减弱双曲线族叠加显示；探针 P 的 Δr 与 λ 的关系给出加强/减弱判断；同相/反相可切换。', hint: '移动探针 P → ▶ 开始 → 读 Δr=kλ 或 (k+½)λ 的判定；切反相看结论互换' },
   'gk-volt-ammeter-resistance': { component: GkVoltAmmeterResistance, summary: '3D 实验台：电源/R_x/指针式电流表电压表/导线，电流粒子流动、指针偏转；内接 vs 外接的读数与 R_测=U/I 系统误差，√(R_AR_V) 判据（大内偏大、小外偏小）。', hint: '默认外接 R_x=100 Ω → 读 R_测 偏小；切内接看偏大；把 R_x 调到 √(R_AR_V)≈55 Ω 附近比较两种误差' },
   'gk-transformer-transmission': { component: GkTransformerTransmission, summary: '发电机 → 升压变压器 → 输电线（r）→ 降压变压器 → 用户 的 3D 链路，电流粒子按各段电流快慢流动、用户灯按效率发光；对比升压输电与直接输电的损耗（1/k²）。', hint: '默认“对比”搭法 → ▶ 播放 → 看两条事件：升压后线路电流、损耗、用户电压；把 k 从 10 调到 1 观察灯变暗' },
   'gk-transformer-dynamic': { component: GkTransformerDynamic, summary: '模型 45：铁芯 + 原副线圈 + 交流源 + 负载 R，U₂ 由匝数比决定、I₂ 由负载决定、I₁ 随 I₂ 变（原边随副边）、P₁=P₂；原副边电流粒子流速对应电流大小。', hint: '调 n₂ 看 U₂ 变化；调 R 看 I₂、I₁ 同时变而 U₂ 不变；核对 P₁=P₂' },

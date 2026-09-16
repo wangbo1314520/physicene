@@ -13,6 +13,7 @@ import { photoelectricEkNu, hydrogenLevels } from './scenes/mod1'
 import { obliqueProjectile, weightChange } from './scenes/mech5'
 import { liquidSealTube, cylinderPiston } from './scenes/thermo1'
 import { variableMassGas, uTube } from './scenes/thermo2'
+import { thinFilm, diffractionVsInterference, waveSuperposition } from './scenes/opt2'
 
 export function wrapScene(def: MechSceneDef<any>) {
   return defineComponent({
@@ -43,3 +44,6 @@ export const GkLiquidSealTube = wrapScene(liquidSealTube)
 export const GkCylinderPiston = wrapScene(cylinderPiston)
 export const GkVariableMassGas = wrapScene(variableMassGas)
 export const GkUTube = wrapScene(uTube)
+export const GkThinFilm = wrapScene(thinFilm)
+export const GkDiffractionVsInterference = wrapScene(diffractionVsInterference)
+export const GkWaveSuperposition = wrapScene(waveSuperposition)

@@ -120,6 +120,9 @@ KEYWORDS = {
     "gk-cylinder-piston": "汽缸活塞",
     "gk-variable-mass-gas": "变质量气体",
     "gk-u-tube": "U 形管",
+    "gk-thin-film": "薄膜干涉",
+    "gk-diffraction-vs-interference": "单缝衍射 vs 双缝干涉",
+    "gk-wave-superposition": "波的叠加与干涉",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -140,6 +143,7 @@ ANIMATED_IDS = {
     "gk-volt-ammeter-resistance", "gk-meter-conversion", "gk-oblique-projectile", "gk-weight-change",
     "gk-transformer-transmission", "gk-transformer-dynamic", "gk-power-transmission", "gk-ac-four-values", "gk-b-b-combo", "gk-frame-through-b", "gk-rod-incline-b",
     "gk-liquid-seal-tube", "gk-cylinder-piston", "gk-variable-mass-gas", "gk-u-tube",
+    "gk-thin-film", "gk-diffraction-vs-interference", "gk-wave-superposition",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 
@@ -505,6 +509,36 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} U 形管：x={x} cm（二次方程解 {x_th:.3f} cm）")
         if not ok:
             failures.append(f"{exp_id}: U 形管断言失败 {x} vs {x_th:.3f}")
+    if exp_id == "gk-thin-film":
+        page.wait_for_timeout(1500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"条纹间距 Δx=λ/\(2nα\)=([\d.]+) mm", txt)
+        dx = float(m.group(1)) if m else -1.0
+        ok = abs(dx - 1.5) <= 0.01
+        lines.append(f"  {'✓' if ok else '✗'} 薄膜干涉：Δx={dx} mm（理论 λ/(2nα)=1.50 mm）")
+        if not ok:
+            failures.append(f"{exp_id}: 条纹间距断言失败 {dx}")
+    if exp_id == "gk-diffraction-vs-interference":
+        page.wait_for_timeout(2500)
+        txt = page.locator(".panel").inner_text()
+        m1 = re.search(r"双缝 Δx=Lλ/d=([\d.]+) mm", txt)
+        m2 = re.search(r"2Lλ/a=([\d.]+) mm", txt)
+        dx = float(m1.group(1)) if m1 else -1.0
+        wc = float(m2.group(1)) if m2 else -1.0
+        ok = abs(dx - 3.0) <= 0.01 and abs(wc - 24.0) <= 0.01
+        lines.append(f"  {'✓' if ok else '✗'} 单缝 vs 双缝：Δx={dx} mm（3.00），中央宽 {wc} mm（24.00）")
+        if not ok:
+            failures.append(f"{exp_id}: 条纹公式断言失败 {dx}/{wc}")
+    if exp_id == "gk-wave-superposition":
+        page.wait_for_timeout(3000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"Δr=([\d.]+) m = ([\d.]+) λ → (\S+)", txt)
+        dr = float(m.group(1)) if m else -1.0
+        kind = m.group(3) if m else ""
+        ok = abs(dr - 2.0) <= 0.01 and kind.startswith("振动加强")
+        lines.append(f"  {'✓' if ok else '✗'} 波的叠加：P(1,0) Δr={dr} m = λ → {kind}")
+        if not ok:
+            failures.append(f"{exp_id}: 干涉判据断言失败 {dr}/{kind}")
     return lines
 
 
