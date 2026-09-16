@@ -129,6 +129,9 @@ KEYWORDS = {
     "gk-variable-force": "微元法 + 积分",
     "gk-small-quantity": "小量近似",
     "gk-noninertial": "非惯性系",
+    "gk-mhd-generator": "磁流体发电机",
+    "gk-em-flowmeter": "电磁流量计",
+    "gk-hall-effect": "霍尔效应",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -152,6 +155,7 @@ ANIMATED_IDS = {
     "gk-thin-film", "gk-diffraction-vs-interference", "gk-wave-superposition",
     "gk-nuclear-reaction", "gk-bohr-collision", "gk-matter-wave",
     "gk-variable-force", "gk-small-quantity", "gk-noninertial",
+    "gk-mhd-generator", "gk-em-flowmeter", "gk-hall-effect",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 
@@ -610,6 +614,37 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} 非惯性系：摆平衡角 θ={th}°（理论 arctan(a/g)={th_th:.1f}°）")
         if not ok:
             failures.append(f"{exp_id}: 平衡角断言失败 {th}")
+    if exp_id == "gk-mhd-generator":
+        page.wait_for_timeout(1500)
+        txt = page.locator(".panel").inner_text()
+        m1 = re.search(r"E=Bdv=([\d.]+) V", txt)
+        m2 = re.search(r"I=E/\(R\+r\)=([\d.]+) A", txt)
+        E = float(m1.group(1)) if m1 else -1.0
+        I = float(m2.group(1)) if m2 else -1.0
+        ok = abs(E - 3.0) <= 0.01 and abs(I - 1.0) <= 0.005
+        lines.append(f"  {'✓' if ok else '✗'} 磁流体发电机：E=Bdv={E} V（3.00），I={I} A（E/(R+r)=1.000）")
+        if not ok:
+            failures.append(f"{exp_id}: 电动势断言失败 {E}/{I}")
+    if exp_id == "gk-em-flowmeter":
+        page.wait_for_timeout(1500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"Q=πD²v/4=([\d.]+) m³/s", txt)
+        Q = float(m.group(1)) if m else -1.0
+        Q_th = 3.141592653589793 * 0.2 * 0.2 * 2 / 4
+        ok = abs(Q - Q_th) <= 0.0002 and "U=BDv=0.200 V" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 电磁流量计：U=BDv=0.200 V，Q={Q} m³/s（理论 {Q_th:.4f}）")
+        if not ok:
+            failures.append(f"{exp_id}: 流量断言失败 {Q}")
+    if exp_id == "gk-hall-effect":
+        page.wait_for_timeout(1500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"U_H=BI/\(nqd\)=([\d.]+) μV", txt)
+        U = float(m.group(1)) if m else -1.0
+        U_th = 1 * 2 / (1e28 * 1.602e-19 * 1e-3) * 1e6
+        ok = abs(U - U_th) <= 0.01 and "电势低" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 霍尔效应：U_H={U} μV（理论 BI/nqd={U_th:.2f} μV），电子导电 −z 面电势低")
+        if not ok:
+            failures.append(f"{exp_id}: 霍尔电压断言失败 {U}")
     return lines
 
 

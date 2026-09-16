@@ -10,7 +10,7 @@ import GkBoardBlock from '../defs/gaokao/GkBoardBlock.vue'
 import GkProjectileLoop from '../defs/gaokao/GkProjectileLoop.vue'
 import GkAccelSelectorB from '../defs/gaokao/GkAccelSelectorB.vue'
 import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro, GkPrismRefraction, GkWaveMultiSolution, GkVibrationWaveGraphs, GkPhotoelectricEkNu, GkHydrogenLevels, GkObliqueProjectile, GkWeightChange, GkLiquidSealTube, GkCylinderPiston, GkVariableMassGas, GkUTube, GkThinFilm, GkDiffractionVsInterference, GkWaveSuperposition, GkNuclearReaction, GkBohrCollision, GkMatterWave, GkVariableForce, GkSmallQuantity, GkNoninertial } from '../defs/gaokao/mechWrappers'
-import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti, GkCompositeField, GkCyclotron, GkRailRod, GkRodFree, GkRodForce, GkDoubleRod, GkRodCapacitor, GkVoltAmmeterResistance, GkMeterConversion, GkTransformerTransmission, GkTransformerDynamic, GkPowerTransmission, GkAcFourValues, GkBBCombo, GkFrameThroughB, GkRodInclineB } from '../defs/gaokao/emWrappers'
+import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti, GkCompositeField, GkCyclotron, GkRailRod, GkRodFree, GkRodForce, GkDoubleRod, GkRodCapacitor, GkVoltAmmeterResistance, GkMeterConversion, GkTransformerTransmission, GkTransformerDynamic, GkPowerTransmission, GkAcFourValues, GkBBCombo, GkFrameThroughB, GkRodInclineB, GkMhdGenerator, GkEmFlowmeter, GkHallEffect } from '../defs/gaokao/emWrappers'
 
 function gkSteps(operateHint: string): ExperimentModule['steps'] {
   return [
@@ -87,6 +87,9 @@ const LIVE: Record<string, Live> = {
   'gk-b-b-combo': { component: GkBBCombo, summary: '两区反向磁场 S 形轨迹 / 同向不等磁场半径突变 / 圆形磁场 r=R 磁聚焦（同一点五个方向射入全部平行射出）；过边界速率不变、半径按 B 反比。', hint: '默认磁聚焦 → ▶ 播放 → 五条轨迹平行射出；切到反向两区看 S 形，同向两区看半径突变' },
   'gk-frame-through-b': { component: GkFrameThroughB, summary: '矩形线框滑向磁场区：进入（前边切割减速）→ 完全在内（无电流匀速）→ 穿出（后边切割反向电流）五阶段；i–t 板实时；Δv=B²L²a/(mR)、q=BLa/R 与速度无关。', hint: '▶ 播放 → 看三段速度 4→3→2 与 i–t 脉冲；切到“恒外力维持匀速”看 i 变方波' },
   'gk-rod-incline-b': { component: GkRodInclineB, summary: '倾斜导轨（可选 B 垂直斜面 / 竖直）上的导体棒由静止释放：mg sinθ 与安培力竞争到终速 v_m=mgR sinθ/(B²L²)（竖直 B 多 1/cos²θ）；稳态重力功率=焦耳热功率。', hint: '▶ 播放 → 看 v 趋近 v_m 与稳态功率平衡；切 B 竖直看有效切割变 BL cosθ' },
+  'gk-mhd-generator': { component: GkMhdGenerator, summary: '等离子体通道 + 竖直磁场 + 两侧极板：正负离子被洛伦兹力分向两极板（粒子动画），稳态 E=Bdv；含内阻 r 的外电路电流、输出功率与 R=r 最大输出。', hint: '调 B、v、d 看 E=Bdv；调 R 找输出功率最大点 R=r' },
+  'gk-em-flowmeter': { component: GkEmFlowmeter, summary: '导电液体流过带磁场的绝缘管，管壁电极测得 U=BDv，换算流速与流量 Q=πD²v/4；离子横向分离动画、电压表读数随 v 线性。', hint: '调 v 看 U 线性变化；调 D、B 验证 v=U/(BD) 与 Q 公式' },
+  'gk-hall-effect': { component: GkHallEffect, summary: '通电薄片 + 垂直磁场：电子/空穴漂移方向相反但被推到同一侧面，霍尔电压 U_H=BI/(nqd) 极性相反 → 判断载流子类型；n 从金属到半导体跨 6 个量级看 U_H 变化。', hint: '切换电子/空穴看极性反转；把 n 调到 0.001（半导体量级）看 U_H 从 μV 到 mV' },
   'gk-meter-conversion': { component: GkMeterConversion, summary: '灵敏电流计 G 改装：并联 R_并=I_gR_g/(I−I_g) 成电流表（粒子流分流可见）或串联 R_串=U/I_g−R_g 成电压表；输入信号按量程比例输入，表头偏转比例一致（线性刻度）。', hint: '选改装类型 → 调 I_g、R_g、量程 → 调“输入/量程”滑杆看指针偏转比例是否一致 → 读改装后内阻' },
 }
 

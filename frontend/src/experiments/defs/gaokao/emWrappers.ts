@@ -11,6 +11,7 @@ import { railRod } from './scenes/em4'
 import { voltAmmeterResistance, meterConversion } from './scenes/em5'
 import { transformerTransmission, acFourValues } from './scenes/em6'
 import { bbCombo, frameThroughB, rodInclineB } from './scenes/em7'
+import { mhdGenerator, emFlowmeter, hallEffect } from './scenes/em8'
 
 export function wrapEM(def: EMSceneDef<any>) {
   return defineComponent({
@@ -47,3 +48,6 @@ export const GkAcFourValues = wrapEM(acFourValues)
 export const GkBBCombo = wrapEM(bbCombo)
 export const GkFrameThroughB = wrapEM(frameThroughB)
 export const GkRodInclineB = wrapEM(rodInclineB)
+export const GkMhdGenerator = wrapEM(mhdGenerator)
+export const GkEmFlowmeter = wrapEM(emFlowmeter)
+export const GkHallEffect = wrapEM(hallEffect)
