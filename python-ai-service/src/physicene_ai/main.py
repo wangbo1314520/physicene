@@ -30,3 +30,18 @@ async def root():
 @app.on_event("startup")
 async def on_startup():
     logger.info("physicene-ai-service 启动（骨架模式：AI 组件未加载）")
+    # 后台预热 RAG（bge-m3 + Chroma 约 40–80 s）：否则首个问答会撞 Java Feign 35 s 读超时，
+    # 学生看到的是“AI 暂不可用”。预热不阻塞启动；设 RAG_WARMUP=0 可关闭（离线单测）。
+    import os
+    import threading
+
+    if os.getenv("RAG_WARMUP", "1") == "1":
+        def _warm():
+            try:
+                from physicene_ai.core.rag_retriever import rag_retriever
+                rag_retriever._ensure_loaded()  # noqa: SLF001
+                logger.info("RAG 预热完成")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("RAG 预热失败（问答将退化为纯 LLM）：{}", exc)
+
+        threading.Thread(target=_warm, name="rag-warmup", daemon=True).start()

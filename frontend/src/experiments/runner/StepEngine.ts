@@ -24,6 +24,10 @@ export class StepEngine {
   private snapshot: StepSnapshot
   private lastEvent: ExperimentEventData | null = null
   private errorHint: string | null = null
+  /** 最近一次检查未通过时的提示（引导用，不阻塞前进） */
+  get hint(): string | null {
+    return this.errorHint
+  }
   private scores: Record<string, boolean> = {}
 
   constructor(module: ExperimentModule, snapshot?: Partial<StepSnapshot>) {

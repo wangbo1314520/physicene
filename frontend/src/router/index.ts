@@ -34,12 +34,6 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      path: '/teacher-review',
-      name: 'teacher-review',
-      component: () => import('../views/TeacherReviewView.vue'),
-      meta: { requiresAuth: true },
-    },
-    {
       path: '/exp/:id',
       name: 'exp-runner',
       component: () => import('../experiments/framework/ExperimentShell.vue'),

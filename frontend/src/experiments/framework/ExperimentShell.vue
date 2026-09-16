@@ -3,12 +3,13 @@
  * 实验页骨架（B0）：标题栏 + 渲染区 + 步骤条 + 结论 + 自动保存/提交 + AI 侧栏占位。
  * 串起：StepEngine（状态机）× AutosaveManager（2s 防抖）× expApi（5 接口）。
  */
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { findExperiment } from '../registry'
-import type { ExperimentModule, RunMode } from '../core/types'
+import type { ExperimentModule } from '../core/types'
 import { StepEngine } from '../runner/StepEngine'
 import { AutosaveManager, expApi, type ExpSession } from '../data/api'
+import { askAgent, withExperimentContext } from '../data/aiAgent'
 import SimRenderer2D5 from '../renderers/SimRenderer2D5.vue'
 import AiTutor from './AiTutor.vue'
 import { getSteps } from '../core/stepLibrary'
@@ -33,31 +34,7 @@ const currentIdx = computed(() => engine.value?.export().current ?? 0)
 const doneList = computed(() => engine.value?.export().completed ?? [])
 const currentStep = computed(() => stepList.value[currentIdx.value] ?? null)
 const allDone = computed(() => stepList.value.length > 0 && currentIdx.value >= stepList.value.length)
-const mode = computed<RunMode>(() => engine.value?.mode ?? 'guided')
-
-const examTimer = ref(0)
-const examScore = ref<number | null>(null)
-let examInterval = 0
-
-watch(mode, (m) => {
-  if (m === 'exam') {
-    examTimer.value = 0
-    examInterval = window.setInterval(() => { examTimer.value++ }, 1)
-  } else {
-    window.clearInterval(examInterval)
-  }
-}, { immediate: true })
-
-function formatExamTime(): string {
-  const min = Math.floor(examTimer.value / 60)
-  const sec = examTimer.value % 60
-  return `${min}:${sec.toString().padStart(2, '0')}`
-}
-
-function setMode(m: RunMode) {
-  engine.value?.setMode(m)
-  scheduleSave()
-}
+const aiFeedback = ref('')
 
 function onSimEnded(summary: Record<string, unknown>) {
   engine.value?.emitEvent({ type: 'sim-ended', payload: summary })
@@ -72,13 +49,10 @@ function recordData() {
   }
 }
 
+/** 步骤检查只做引导（不阻塞）：未通过时给出提示，仍可前进 */
 function nextStep() {
-  const ok = engine.value?.next()
-  if (ok === false) {
-    saveHint.value = '考试模式：检查点未通过，不能进入下一步'
-  } else {
-    saveHint.value = ''
-  }
+  engine.value?.next()
+  saveHint.value = engine.value?.hint ? `💡 ${engine.value.hint}（已进入下一步，可随时回看补做）` : ''
   scheduleSave()
 }
 
@@ -93,16 +67,16 @@ function scheduleSave() {
 }
 
 async function submitExperiment() {
-  if (!session.value) {
+  if (!session.value || !mod) {
     return
   }
   await autosave?.flush()
-  if (mode.value === 'exam') {
-    examScore.value = engine.value?.getScore() ?? null
-    window.clearInterval(examInterval)
-  }
   submitInfo.value = await expApi.submit(session.value.id, conclusion.value)
   submitted.value = true
+  // AI 即时反馈（原“教师批阅后生成”已按项目定位取消）
+  aiFeedback.value = '正在生成 AI 反馈…'
+  const r = await askAgent(withExperimentContext({ experiment: mod.name, records: engine.value?.export().records, ask: `我的实验结论是：「${conclusion.value}」。请点评：结论是否正确、数据是否支持结论、还有哪些改进建议。` }), { sessionId: String(session.value.id) })
+  aiFeedback.value = r && !r.fallback ? r.reply : `结论已提交。AI 服务当前离线，内置点评：对照本实验的核心规律（${mod.summary}）检查结论是否说清“变量关系 + 依据数据”；启动 python-ai-service 后可获得完整点评。`
 }
 
 onMounted(async () => {
@@ -112,6 +86,7 @@ onMounted(async () => {
   session.value = await expApi.start(mod.id)
   const enrichedMod = { ...mod, steps: getSteps(mod.id).length >= mod.steps.length ? getSteps(mod.id).map((s, i) => ({ ...mod.steps[i], ...s })) : mod.steps }
   engine.value = StepEngine.from(enrichedMod as ExperimentModule, session.value.stepState)
+  engine.value.setMode('guided')   // 引导/自由/考试三模式已取消：统一为“检查只提示、不阻塞”
   conclusion.value = session.value.conclusion ?? ''
   if (session.value.status === 'submitted') {
     submitted.value = true
@@ -141,22 +116,14 @@ onUnmounted(() => {
           {{ mod.book }} · {{ mod.chapter }}
         </p>
       </div>
-      <div class="modes">
-        <button :class="{ active: mode === 'guided' }" @click="setMode('guided')">引导模式</button>
-        <button :class="{ active: mode === 'free' }" @click="setMode('free')">自由模式</button>
-        <button :class="{ active: mode === 'exam' }" @click="setMode('exam')">考试模式</button>
-      </div>
-      <div v-if="mode === 'exam' && !submitted" class="exam-info">
-        ⏱ {{ formatExamTime() }}
-        <span v-if="examScore !== null">| 得分 {{ (examScore * 100).toFixed(0) }}%</span>
-      </div>
+      <p class="who">👩‍🏫 老师可直接投屏讲解 · 🧑‍🎓 学生可自学 · 不会的问右侧 AI</p>
     </header>
 
     <section class="body">
       <div class="main">
         <component v-if="mod.component" :is="mod.component" @ended="onSimEnded"
                    @record="(d: unknown) => { engine?.record(d); engine?.emitEvent({ type: 'data-recorded', payload: d }); scheduleSave(); }"
-                   @advance="() => { if (engine?.next() === false) saveHint = '考试模式：检查点未通过'; scheduleSave(); }" />
+                   @advance="nextStep" />
         <SimRenderer2D5 v-else-if="mod.preset" ref="simRef" :preset="mod.preset" @ended="onSimEnded" />
         <p class="summary">🎯 {{ mod.summary }}</p>
       </div>
@@ -195,11 +162,12 @@ onUnmounted(() => {
 
         <div v-else class="submitted">
           <h3>✅ 实验已提交</h3>
-          <p>报告编号 #{{ submitInfo?.reportId ?? session?.id }}（Report 已挂接，AI 反馈将于批阅后生成）</p>
+          <p>记录编号 #{{ submitInfo?.reportId ?? session?.id }}</p>
+          <div class="ai-fb"><b>🤖 AI 反馈</b><p>{{ aiFeedback }}</p></div>
         </div>
 
-        <AiTutor v-if="!submitted" :step="currentStep" :snapshot="engine?.export() ?? { current: 0, completed: [], records: {}, mode: 'guided' }"
-                 :experiment-name="mod.name" :raw-data="session?.rawData" />
+        <AiTutor :step="currentStep" :snapshot="engine?.export() ?? { current: 0, completed: [], records: {}, mode: 'guided' }"
+                 :experiment-name="mod.name" :raw-data="session?.rawData" :session-id="session?.id" />
       </aside>
     </section>
   </main>
@@ -222,9 +190,10 @@ h1 { font-size: 19px; }
 .badge.b2 { background: #1d3a2b; color: #3ecf8e; }
 .badge.b25 { background: #1d2b3a; color: #4a90d9; }
 .badge.b3 { background: #33183a; color: #b06ce6; }
-.modes button { background: #23233a; color: #8a8aa0; border: 1px solid #2f2f4a;
-  border-radius: 6px; padding: 6px 12px; margin-left: 6px; font-size: 12px; cursor: pointer; }
-.modes button.active { color: #e8e8f0; border-color: #4a90d9; background: #2b5c8f44; }
+.who { color: #6c6c85; font-size: 12px; margin-top: 6px; text-align: right; line-height: 1.5; }
+.ai-fb { margin-top: 8px; background: #191930; border: 1px solid #3d3d5e; border-radius: 8px; padding: 10px; }
+.ai-fb b { color: #4a90d9; font-size: 12px; }
+.ai-fb p { color: #b0b0cc; font-size: 12px; line-height: 1.6; white-space: pre-wrap; margin-top: 4px; }
 .body { display: grid; grid-template-columns: 1fr 320px; gap: 12px; align-items: start; }
 .main { display: flex; flex-direction: column; gap: 8px; min-height: 480px; }
 .summary { color: #8a8aa0; font-size: 13px; }
@@ -261,5 +230,4 @@ h1 { font-size: 19px; }
 .locked .dim-note { color: #6c6c85; margin: 16px 0; }
 .locked a { color: #4a90d9; }
 @media (max-width: 960px) { .body { grid-template-columns: 1fr; } }
-.exam-info { margin-top: 6px; font: 14px Consolas; color: #F5C542; text-align: right; }
 </style>
