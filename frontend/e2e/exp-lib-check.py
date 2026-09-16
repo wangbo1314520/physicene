@@ -105,6 +105,8 @@ KEYWORDS = {
     "gk-vibration-wave-graphs": "振动图像 + 波动图像",
     "gk-photoelectric-ek-nu": "光电效应 + Eₖ–ν",
     "gk-hydrogen-levels": "氢原子能级跃迁",
+    "gk-volt-ammeter-resistance": "伏安法测电阻",
+    "gk-meter-conversion": "电表改装",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -122,6 +124,7 @@ ANIMATED_IDS = {
     "gk-velocity-selector", "gk-mass-spectrometer", "gk-e-b-e-multi", "gk-composite-field", "gk-cyclotron",
     "gk-rail-rod", "gk-rod-free", "gk-rod-force", "gk-double-rod", "gk-rod-capacitor",
     "gk-prism-refraction", "gk-wave-multi-solution", "gk-vibration-wave-graphs", "gk-photoelectric-ek-nu", "gk-hydrogen-levels",
+    "gk-volt-ammeter-resistance", "gk-meter-conversion",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 
@@ -361,6 +364,26 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} 氢原子能级：3→2 ΔE={dE} eV（理论 13.6(1/4−1/9)=1.89），λ={lam} nm（Hα 656）")
         if not ok:
             failures.append(f"{exp_id}: 能级跃迁断言失败 {dE}/{lam}")
+    if exp_id == "gk-volt-ammeter-resistance":
+        page.wait_for_timeout(2000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"R_测=([\d.]+) Ω", txt)
+        r = float(m.group(1)) if m else -1.0
+        r_th = 100 * 3000 / 3100
+        ok = abs(r - r_th) <= 0.05 and "偏小" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 伏安法（外接）：R_测={r} Ω（理论 R_x∥R_V={r_th:.2f} Ω，偏小）")
+        if not ok:
+            failures.append(f"{exp_id}: 外接法读数断言失败 {r}")
+    if exp_id == "gk-meter-conversion":
+        page.wait_for_timeout(2000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"R_并=I_gR_g/\(I−I_g\)=([\d.]+) Ω", txt)
+        r = float(m.group(1)) if m else -1.0
+        r_th = 0.001 * 100 / (0.6 - 0.001)
+        ok = abs(r - r_th) <= 0.002
+        lines.append(f"  {'✓' if ok else '✗'} 电表改装（电流表）：R_并={r} Ω（理论 I_gR_g/(I−I_g)={r_th:.3f} Ω）")
+        if not ok:
+            failures.append(f"{exp_id}: 分流电阻断言失败 {r}")
     return lines
 
 

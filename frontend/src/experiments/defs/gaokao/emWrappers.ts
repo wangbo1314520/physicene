@@ -8,6 +8,7 @@ import { accelDeflectScreen, bThenE } from './scenes/em1'
 import { velocitySelector, massSpectrometer, eBEMulti } from './scenes/em2'
 import { compositeField, cyclotron } from './scenes/em3'
 import { railRod } from './scenes/em4'
+import { voltAmmeterResistance, meterConversion } from './scenes/em5'
 
 export function wrapEM(def: EMSceneDef<any>) {
   return defineComponent({
@@ -35,3 +36,5 @@ export const GkRodFree = variantEM(railRod, 'gk-rod-free', { setup: 0 })
 export const GkRodForce = variantEM(railRod, 'gk-rod-force', { setup: 1 })
 export const GkDoubleRod = variantEM(railRod, 'gk-double-rod', { setup: 2 })
 export const GkRodCapacitor = variantEM(railRod, 'gk-rod-capacitor', { setup: 3 })
+export const GkVoltAmmeterResistance = wrapEM(voltAmmeterResistance)
+export const GkMeterConversion = wrapEM(meterConversion)
