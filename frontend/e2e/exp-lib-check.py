@@ -95,6 +95,11 @@ KEYWORDS = {
     "gk-e-b-e-multi": "电场 → 磁场 → 电场",
     "gk-composite-field": "复合场",
     "gk-cyclotron": "回旋加速器",
+    "gk-rail-rod": "导轨 + 导体棒",
+    "gk-rod-free": "导轨 + 导体棒",
+    "gk-rod-force": "导轨 + 导体棒",
+    "gk-double-rod": "导轨 + 导体棒",
+    "gk-rod-capacitor": "导轨 + 导体棒",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -110,6 +115,7 @@ ANIMATED_IDS = {
     "gk-accel-deflect-screen", "gk-b-then-e",
     "gk-m21-whole-isolate", "gk-m28-circular-five", "gk-m29-collision-spring", "gk-m30-conveyor-board",
     "gk-velocity-selector", "gk-mass-spectrometer", "gk-e-b-e-multi", "gk-composite-field", "gk-cyclotron",
+    "gk-rail-rod", "gk-rod-free", "gk-rod-force", "gk-double-rod", "gk-rod-capacitor",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 
@@ -257,6 +263,43 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} 回旋加速器：引出 E_k={ek}（理论 q²B²R²/2m={ek_th:.2f}），穿越 {n} 次（理论 N=E_k/qU=9）")
         if not ok:
             failures.append(f"{exp_id}: 引出能量/穿越次数断言失败 {ek}/{n}")
+    if exp_id in ("gk-rail-rod", "gk-rod-free"):
+        page.wait_for_timeout(7000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"停止：x=([\d.]+) m", txt)
+        x = float(m.group(1)) if m else -1.0
+        ok = abs(x - 4.0) <= 0.06 and "q=" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 单杆无外力：停止位移 x={x} m（理论 mv₀R/(B²L²)=4.00 m），q、Q 已输出")
+        if not ok:
+            failures.append(f"{exp_id}: 单杆位移断言失败 {x}")
+    if exp_id == "gk-rod-force":
+        page.wait_for_timeout(6500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"v_m=\(F−μmg\)R/\(B²L²\)=([\d.]+)", txt)
+        vm = float(m.group(1)) if m else -1.0
+        ok = "达终速 99%" in txt and abs(vm - 2.0) <= 0.01
+        lines.append(f"  {'✓' if ok else '✗'} 单杆恒外力：达到终速事件，v_m={vm}（理论 FR/(B²L²)=2.00 m/s）")
+        if not ok:
+            failures.append(f"{exp_id}: 终速断言失败 {vm}")
+    if exp_id == "gk-double-rod":
+        page.wait_for_timeout(5000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"共速 v=([\d.]+) m/s", txt)
+        v = float(m.group(1)) if m else -1.0
+        ok = abs(v - 2.0) <= 0.03 and "动量" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 双杆：共速 v={v} m/s（理论 m₁v₀/(m₁+m₂)=2.00），动量守恒已核对")
+        if not ok:
+            failures.append(f"{exp_id}: 共速断言失败 {v}")
+    if exp_id == "gk-rod-capacitor":
+        page.wait_for_timeout(4000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"t=2 s：v=([\d.]+) m/s", txt)
+        v = float(m.group(1)) if m else -1.0
+        a_th = 2 / (1 + 2 * 1)
+        ok = abs(v - 2 * a_th) <= 0.03
+        lines.append(f"  {'✓' if ok else '✗'} 含容单杆：t=2 s 时 v={v} m/s（理论 a·t=F/(m+CB²L²)·2={2 * a_th:.2f}）")
+        if not ok:
+            failures.append(f"{exp_id}: 含容匀加速断言失败 {v}")
     return lines
 
 

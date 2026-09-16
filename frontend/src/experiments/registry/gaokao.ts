@@ -10,7 +10,7 @@ import GkBoardBlock from '../defs/gaokao/GkBoardBlock.vue'
 import GkProjectileLoop from '../defs/gaokao/GkProjectileLoop.vue'
 import GkAccelSelectorB from '../defs/gaokao/GkAccelSelectorB.vue'
 import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro } from '../defs/gaokao/mechWrappers'
-import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti, GkCompositeField, GkCyclotron } from '../defs/gaokao/emWrappers'
+import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti, GkCompositeField, GkCyclotron, GkRailRod, GkRodFree, GkRodForce, GkDoubleRod, GkRodCapacitor } from '../defs/gaokao/emWrappers'
 
 function gkSteps(operateHint: string): ExperimentModule['steps'] {
   return [
@@ -54,6 +54,11 @@ const LIVE: Record<string, Live> = {
   'gk-e-b-e-multi': { component: GkEBEMulti, summary: '电场区加速 → 磁场半圆 → 反向回电场区减速到零 → 再加速……每周期上移 2r 的阶梯往复；三段用时分别为 2L/v、πm/(qB)、2L/v。', hint: '调 U、B、周期数 → ▶ 播放 → 看时间轴“加速→半圆→减速”循环与每周期上移 2r' },
   'gk-composite-field': { component: GkCompositeField, summary: '重力 + 竖直电场 + 垂直磁场：①qE+qvB=mg 匀速直线 ②qE=mg 匀速圆周（T 与 v 无关）③E=0 摆线（漂移 v_d=mg/qB、最低点深度 2g/(qB/m)²）④自定义。', hint: '选情形 → 调 v、B、q/m → ▶ 播放 → 圆周情形记录周期 T 与 2πm/(qB) 对照；摆线情形看最低点深度' },
   'gk-cyclotron': { component: GkCyclotron, summary: 'D₁/D₂ 形盒 + 同步交变缝隙电压：每次穿越 +qU、半径增大、周期不变；到边缘 R 引出，E_k,max=q²B²R²/2m 与 U 无关，U 只改变穿越次数 N。', hint: '调 U、B、R → ▶ 播放 → 数穿越次数与理论 N=E_k/qU 对照；把 U 加倍看 N 减半而引出能量不变' },
+  'gk-rail-rod': { component: GkRailRod, summary: '平行导轨 + 竖直磁场 + 导体棒（电阻/电容/双杆四种搭法 = 模型 38–41）：E=BLv、I、安培力 B²L²v/R 实时箭头；动量定理求位移、终速、共速、含容匀加速。', hint: '选搭法 → 调 B、L、R、m、v₀/F → ▶ 播放 → 看电流/速度箭头与事件里的理论对照' },
+  'gk-rod-free': { component: GkRodFree, summary: '模型 38：棒以 v₀ 滑行、回路接 R，安培力 B²L²v/R 使其指数减速；动量定理 x=mv₀R/(B²L²)，q=BLx/R，Q=½mv₀²；可加导轨摩擦。', hint: '默认搭法 38 → ▶ 播放 → 停止后核对 x、q、Q 三个理论值；加 μ 观察能停下且 x 变小' },
+  'gk-rod-force': { component: GkRodForce, summary: '模型 39：恒力 F 拉棒由静止加速，安培力随 v 增大直到 F=B²L²v/R+μmg → 终速 v_m=(F−μmg)R/(B²L²)；稳态 Fv_m=I²R+μmgv_m。', hint: '默认搭法 39 → ▶ 播放 → 看 v 趋近 v_m 的过程与稳态功率平衡；改 R 看 v_m 正比于 R' },
+  'gk-double-rod': { component: GkDoubleRod, summary: '模型 40：棒 1 以 v₀ 运动、棒 2 静止，同一回路电流使两棒受等大反向安培力 → 动量守恒共速 v=m₁v₀/(m₁+m₂)，焦耳热 Q=ΔE_k。', hint: '默认搭法 40 → ▶ 播放 → 共速事件核对 v_共 与 Q；改 m₂ 看能量分配比 m₂/(m₁+m₂)' },
+  'gk-rod-capacitor': { component: GkRodCapacitor, summary: '模型 41：恒力 F 拉棒、回路接电容 C：q=CBLv → i=CBLa 恒定，F−BiL=ma → a=F/(m+CB²L²) 匀加速（与电阻回路的终速不同）。', hint: '默认搭法 41 → ▶ 播放 → t=2 s 事件核对 v=at 与 q=CBLv；把 C 调到最小对比 a→F/m' },
 }
 
 export const GAOKAO: ExperimentModule[] = PLAN50.map((pl) => {

@@ -40,6 +40,24 @@ export function bFieldZ(kit: EMKit, sign: 1 | -1, x0: number, x1: number, y0: nu
   arrowGrid(kit, { x: 0, y: 0, z: sign }, x0, x1, y0, y1, nx, ny, 2.2, C.B, 0, 0.5)
 }
 
+/** 水平面（x–z）内的箭头阵列：用于导轨类场景的竖直磁场 */
+export function arrowGridXZ(kit: EMKit, dir: Vec3, x0: number, x1: number, z0: number, z1: number, nx: number, nz: number, len: number, color: number, y = 0, opacity = 0.55) {
+  const d = new THREE.Vector3(dir.x, dir.y, dir.z)
+  for (let i = 0; i < nx; i++) for (let k = 0; k < nz; k++) {
+    const a = kit.track(arrowMesh(d, len, color, { opacity, radius: 0.035 }))
+    a.position.set(x0 + ((i + 0.5) / nx) * (x1 - x0), y, z0 + ((k + 0.5) / nz) * (z1 - z0))
+  }
+}
+
+/** 细圆柱（导轨 / 导线）：从 a 到 b */
+export function bar(kit: EMKit, a: Vec3, b: Vec3, radius: number, color: number) {
+  const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, L = Math.hypot(dx, dy, dz)
+  const m = kit.track(mkMesh(new THREE.CylinderGeometry(radius, radius, L, 10), color))
+  m.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2)
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx / L, dy / L, dz / L))
+  return m
+}
+
 export function label(kit: EMKit, text: string, x: number, y: number, z = 0, color = '#b0b0cc', scale = 1) {
   const s = kit.track(textSprite(text, { color, scale }))
   s.position.set(x, y, z)
