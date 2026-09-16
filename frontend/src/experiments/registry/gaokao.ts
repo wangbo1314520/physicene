@@ -9,7 +9,7 @@ import { PLAN50 } from './gaokao-plan'
 import GkBoardBlock from '../defs/gaokao/GkBoardBlock.vue'
 import GkProjectileLoop from '../defs/gaokao/GkProjectileLoop.vue'
 import GkAccelSelectorB from '../defs/gaokao/GkAccelSelectorB.vue'
-import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro, GkPrismRefraction, GkWaveMultiSolution, GkVibrationWaveGraphs, GkPhotoelectricEkNu, GkHydrogenLevels, GkObliqueProjectile, GkWeightChange, GkLiquidSealTube, GkCylinderPiston, GkVariableMassGas, GkUTube, GkThinFilm, GkDiffractionVsInterference, GkWaveSuperposition } from '../defs/gaokao/mechWrappers'
+import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro, GkPrismRefraction, GkWaveMultiSolution, GkVibrationWaveGraphs, GkPhotoelectricEkNu, GkHydrogenLevels, GkObliqueProjectile, GkWeightChange, GkLiquidSealTube, GkCylinderPiston, GkVariableMassGas, GkUTube, GkThinFilm, GkDiffractionVsInterference, GkWaveSuperposition, GkNuclearReaction, GkBohrCollision, GkMatterWave } from '../defs/gaokao/mechWrappers'
 import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti, GkCompositeField, GkCyclotron, GkRailRod, GkRodFree, GkRodForce, GkDoubleRod, GkRodCapacitor, GkVoltAmmeterResistance, GkMeterConversion, GkTransformerTransmission, GkTransformerDynamic, GkPowerTransmission, GkAcFourValues, GkBBCombo, GkFrameThroughB, GkRodInclineB } from '../defs/gaokao/emWrappers'
 
 function gkSteps(operateHint: string): ExperimentModule['steps'] {
@@ -73,6 +73,9 @@ const LIVE: Record<string, Live> = {
   'gk-thin-film': { component: GkThinFilm, summary: '空气劈尖等厚干涉：侧视两束反射光与半波损失、俯视条纹随探针扫描逐级点亮；Δd=λ/2n、Δx=λ/(2nα)，棱边暗纹。', hint: '调 λ、α、n → ▶ 开始 → 看探针经过各级亮纹的事件与条纹间距；α 增大条纹变密' },
   'gk-diffraction-vs-interference': { component: GkDiffractionVsInterference, summary: '同屏对比双缝干涉与单缝衍射：光子逐个随机落屏、统计直方图逼近理论光强曲线；Δx=Lλ/d 等间距 vs 中央亮纹 2Lλ/a 最宽最亮。', hint: '▶ 开始 → 看条纹从噪声中显现；调 d、a、λ 对照间距与中央宽度公式' },
   'gk-wave-superposition': { component: GkWaveSuperposition, summary: '双相干源水波叠加热图实时演化，加强/减弱双曲线族叠加显示；探针 P 的 Δr 与 λ 的关系给出加强/减弱判断；同相/反相可切换。', hint: '移动探针 P → ▶ 开始 → 读 Δr=kλ 或 (k+½)λ 的判定；切反相看结论互换' },
+  'gk-nuclear-reaction': { component: GkNuclearReaction, summary: 'α/β 衰变、聚变、裂变、人工转变五种反应：核子团接近→重组→飞离动画，A/Z 守恒计数表，真实核质量算 Δm 与 ΔE=Δmc²（931.5 MeV/u）。', hint: '选反应 → ▶ 开始 → 看计数表守恒与 ΔE；对比聚变每核子放能远大于裂变' },
+  'gk-bohr-collision': { component: GkBohrCollision, summary: '入射电子（≥ 能级差即可激发、多余带走）与入射光子（必须恰好相等）撞击基态氢原子：判断能激发到 n 几、是否电离，退激发放出 C(n,2) 种光子动画。', hint: '设电子 12.5 eV 看激发到 n=3 剩余 0.41 eV；换成 12.5 eV 光子看不被吸收；调到 12.09 eV 光子被吸收' },
+  'gk-matter-wave': { component: GkMatterWave, summary: '电子/质子/α 经 U 加速的德布罗意波长 λ=h/√(2mqU)（电子 1.226/√U nm），穿过晶体形成衍射环（粒子逐个到达统计成环），环半径随 U 减小。', hint: '调 U 看 λ 与环半径变化；换质子看同电压下 λ 缩小 √(1836) 倍' },
   'gk-volt-ammeter-resistance': { component: GkVoltAmmeterResistance, summary: '3D 实验台：电源/R_x/指针式电流表电压表/导线，电流粒子流动、指针偏转；内接 vs 外接的读数与 R_测=U/I 系统误差，√(R_AR_V) 判据（大内偏大、小外偏小）。', hint: '默认外接 R_x=100 Ω → 读 R_测 偏小；切内接看偏大；把 R_x 调到 √(R_AR_V)≈55 Ω 附近比较两种误差' },
   'gk-transformer-transmission': { component: GkTransformerTransmission, summary: '发电机 → 升压变压器 → 输电线（r）→ 降压变压器 → 用户 的 3D 链路，电流粒子按各段电流快慢流动、用户灯按效率发光；对比升压输电与直接输电的损耗（1/k²）。', hint: '默认“对比”搭法 → ▶ 播放 → 看两条事件：升压后线路电流、损耗、用户电压；把 k 从 10 调到 1 观察灯变暗' },
   'gk-transformer-dynamic': { component: GkTransformerDynamic, summary: '模型 45：铁芯 + 原副线圈 + 交流源 + 负载 R，U₂ 由匝数比决定、I₂ 由负载决定、I₁ 随 I₂ 变（原边随副边）、P₁=P₂；原副边电流粒子流速对应电流大小。', hint: '调 n₂ 看 U₂ 变化；调 R 看 I₂、I₁ 同时变而 U₂ 不变；核对 P₁=P₂' },

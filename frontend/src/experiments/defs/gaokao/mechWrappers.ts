@@ -14,6 +14,7 @@ import { obliqueProjectile, weightChange } from './scenes/mech5'
 import { liquidSealTube, cylinderPiston } from './scenes/thermo1'
 import { variableMassGas, uTube } from './scenes/thermo2'
 import { thinFilm, diffractionVsInterference, waveSuperposition } from './scenes/opt2'
+import { nuclearReaction, bohrCollision, matterWave } from './scenes/mod2'
 
 export function wrapScene(def: MechSceneDef<any>) {
   return defineComponent({
@@ -47,3 +48,6 @@ export const GkUTube = wrapScene(uTube)
 export const GkThinFilm = wrapScene(thinFilm)
 export const GkDiffractionVsInterference = wrapScene(diffractionVsInterference)
 export const GkWaveSuperposition = wrapScene(waveSuperposition)
+export const GkNuclearReaction = wrapScene(nuclearReaction)
+export const GkBohrCollision = wrapScene(bohrCollision)
+export const GkMatterWave = wrapScene(matterWave)

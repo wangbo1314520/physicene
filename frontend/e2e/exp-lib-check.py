@@ -123,6 +123,9 @@ KEYWORDS = {
     "gk-thin-film": "薄膜干涉",
     "gk-diffraction-vs-interference": "单缝衍射 vs 双缝干涉",
     "gk-wave-superposition": "波的叠加与干涉",
+    "gk-nuclear-reaction": "核反应方程",
+    "gk-bohr-collision": "玻尔模型 + 碰撞",
+    "gk-matter-wave": "物质波",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -144,6 +147,7 @@ ANIMATED_IDS = {
     "gk-transformer-transmission", "gk-transformer-dynamic", "gk-power-transmission", "gk-ac-four-values", "gk-b-b-combo", "gk-frame-through-b", "gk-rod-incline-b",
     "gk-liquid-seal-tube", "gk-cylinder-piston", "gk-variable-mass-gas", "gk-u-tube",
     "gk-thin-film", "gk-diffraction-vs-interference", "gk-wave-superposition",
+    "gk-nuclear-reaction", "gk-bohr-collision", "gk-matter-wave",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 
@@ -539,6 +543,37 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} 波的叠加：P(1,0) Δr={dr} m = λ → {kind}")
         if not ok:
             failures.append(f"{exp_id}: 干涉判据断言失败 {dr}/{kind}")
+    if exp_id == "gk-nuclear-reaction":
+        page.wait_for_timeout(1500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"ΔE=([\d.]+) MeV", txt)
+        de = float(m.group(1)) if m else -1.0
+        de_th = (2.014102 + 3.016049 - 4.002602 - 1.008665) * 931.494
+        ok = abs(de - de_th) <= 0.02 and "守恒" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 核反应（D+T）：ΔE={de} MeV（理论 Δmc²={de_th:.2f} MeV），A/Z 守恒")
+        if not ok:
+            failures.append(f"{exp_id}: 质量亏损断言失败 {de}")
+    if exp_id == "gk-bohr-collision":
+        page.wait_for_timeout(3000)
+        txt = page.locator(".panel").inner_text()
+        m1 = re.search(r"最高激发到 n=(\d)", txt)
+        m2 = re.search(r"电子剩余 ([\d.]+) eV", txt)
+        n = int(m1.group(1)) if m1 else -1
+        rem = float(m2.group(1)) if m2 else -1.0
+        ok = n == 3 and abs(rem - (12.5 - 13.6 * (1 - 1 / 9))) <= 0.01 and "C(3,2)=3" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 玻尔碰撞：12.5 eV 电子激发到 n={n}（理论 3），剩余 {rem} eV（理论 0.41），退激发 3 种光子")
+        if not ok:
+            failures.append(f"{exp_id}: 激发断言失败 {n}/{rem}")
+    if exp_id == "gk-matter-wave":
+        page.wait_for_timeout(1500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"λ=h/√\(2mqU\)=([\d.]+) nm", txt)
+        lam = float(m.group(1)) if m else -1.0
+        lam_th = 6.626e-34 / (2 * 9.109e-31 * 1.602e-19 * 100) ** 0.5 * 1e9
+        ok = abs(lam - lam_th) <= 0.0005
+        lines.append(f"  {'✓' if ok else '✗'} 物质波：电子 100 V λ={lam} nm（理论 {lam_th:.4f} nm=1.226/√U）")
+        if not ok:
+            failures.append(f"{exp_id}: 德布罗意波长断言失败 {lam}")
     return lines
 
 
