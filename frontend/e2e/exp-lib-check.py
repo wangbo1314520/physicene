@@ -109,6 +109,10 @@ KEYWORDS = {
     "gk-meter-conversion": "电表改装",
     "gk-oblique-projectile": "斜抛运动",
     "gk-weight-change": "超重与失重",
+    "gk-transformer-transmission": "变压器 + 远距离输电",
+    "gk-transformer-dynamic": "变压器 + 远距离输电",
+    "gk-power-transmission": "变压器 + 远距离输电",
+    "gk-ac-four-values": "交变电流四值",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -127,6 +131,7 @@ ANIMATED_IDS = {
     "gk-rail-rod", "gk-rod-free", "gk-rod-force", "gk-double-rod", "gk-rod-capacitor",
     "gk-prism-refraction", "gk-wave-multi-solution", "gk-vibration-wave-graphs", "gk-photoelectric-ek-nu", "gk-hydrogen-levels",
     "gk-volt-ammeter-resistance", "gk-meter-conversion", "gk-oblique-projectile", "gk-weight-change",
+    "gk-transformer-transmission", "gk-transformer-dynamic", "gk-power-transmission", "gk-ac-four-values",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 
@@ -404,6 +409,37 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} 超重失重：加速上升 N={n} N（理论 m(g+a)=708.0），匀速 N=mg=588.0")
         if not ok:
             failures.append(f"{exp_id}: 视重断言失败 {n}")
+    if exp_id in ("gk-transformer-transmission", "gk-power-transmission"):
+        page.wait_for_timeout(1500)
+        txt = page.locator(".panel").inner_text()
+        m1 = re.search(r"线路电流 I=P/\(kU\)=([\d.]+) A", txt)
+        m2 = re.search(r"P_损=I²r=([\d.]+) kW", txt)
+        i_line = float(m1.group(1)) if m1 else -1.0
+        p_loss = float(m2.group(1)) if m2 else -1.0
+        ok = abs(i_line - 20.0) <= 0.05 and abs(p_loss - 2.0) <= 0.01
+        lines.append(f"  {'✓' if ok else '✗'} 远距离输电：I={i_line} A（理论 P/(kU)=20.0），P_损={p_loss} kW（理论 I²r=2.00）")
+        if not ok:
+            failures.append(f"{exp_id}: 输电断言失败 {i_line}/{p_loss}")
+    if exp_id == "gk-transformer-dynamic":
+        page.wait_for_timeout(1500)
+        txt = page.locator(".panel").inner_text()
+        m1 = re.search(r"U₂=U₁n₂/n₁=([\d.]+) V", txt)
+        m2 = re.search(r"I₁=I₂n₂/n₁=([\d.]+) A", txt)
+        u2 = float(m1.group(1)) if m1 else -1.0
+        i1 = float(m2.group(1)) if m2 else -1.0
+        ok = abs(u2 - 55.0) <= 0.05 and abs(i1 - 0.625) <= 0.01
+        lines.append(f"  {'✓' if ok else '✗'} 变压器动态：U₂={u2} V（理论 55.0），I₁={i1} A（理论 0.625）")
+        if not ok:
+            failures.append(f"{exp_id}: 变压器断言失败 {u2}/{i1}")
+    if exp_id == "gk-ac-four-values":
+        page.wait_for_timeout(1500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"E_m=NBSω=([\d.]+) V", txt)
+        em = float(m.group(1)) if m else -1.0
+        ok = abs(em - 31.4) <= 0.1 and "22.2" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 交变电流四值：E_m={em} V（理论 NBSω=31.4），有效值 22.2 V")
+        if not ok:
+            failures.append(f"{exp_id}: 四值断言失败 {em}")
     return lines
 
 

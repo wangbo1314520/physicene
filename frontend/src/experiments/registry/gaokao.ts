@@ -10,7 +10,7 @@ import GkBoardBlock from '../defs/gaokao/GkBoardBlock.vue'
 import GkProjectileLoop from '../defs/gaokao/GkProjectileLoop.vue'
 import GkAccelSelectorB from '../defs/gaokao/GkAccelSelectorB.vue'
 import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro, GkPrismRefraction, GkWaveMultiSolution, GkVibrationWaveGraphs, GkPhotoelectricEkNu, GkHydrogenLevels, GkObliqueProjectile, GkWeightChange } from '../defs/gaokao/mechWrappers'
-import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti, GkCompositeField, GkCyclotron, GkRailRod, GkRodFree, GkRodForce, GkDoubleRod, GkRodCapacitor, GkVoltAmmeterResistance, GkMeterConversion } from '../defs/gaokao/emWrappers'
+import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti, GkCompositeField, GkCyclotron, GkRailRod, GkRodFree, GkRodForce, GkDoubleRod, GkRodCapacitor, GkVoltAmmeterResistance, GkMeterConversion, GkTransformerTransmission, GkTransformerDynamic, GkPowerTransmission, GkAcFourValues } from '../defs/gaokao/emWrappers'
 
 function gkSteps(operateHint: string): ExperimentModule['steps'] {
   return [
@@ -67,6 +67,10 @@ const LIVE: Record<string, Live> = {
   'gk-oblique-projectile': { component: GkObliqueProjectile, summary: '以 v₀、θ（可从高度 h₀）斜抛：水平匀速、竖直上抛分解，速度分量箭头实时；最高点与落地事件对照理论；可叠加余角 90°−θ 对照体验证等射程。', hint: '调 v₀、θ → ▶ 开始 → 看最高点 H、射程 R 事件；开对照抛体看 θ 与 90°−θ 射程相同、45° 最远' },
   'gk-weight-change': { component: GkWeightChange, summary: '电梯上升/下降全过程（加速→匀速→减速）或缆绳断裂：体重计读数 N=m(g±a)、匀速 N=mg、自由下落 N=0；右侧 N–t 图分超重/失重区。', hint: '选过程 → ▶ 开始 → 看每段 N 与 mg 的大小关系；注意减速下降是超重、减速上升是失重' },
   'gk-volt-ammeter-resistance': { component: GkVoltAmmeterResistance, summary: '3D 实验台：电源/R_x/指针式电流表电压表/导线，电流粒子流动、指针偏转；内接 vs 外接的读数与 R_测=U/I 系统误差，√(R_AR_V) 判据（大内偏大、小外偏小）。', hint: '默认外接 R_x=100 Ω → 读 R_测 偏小；切内接看偏大；把 R_x 调到 √(R_AR_V)≈55 Ω 附近比较两种误差' },
+  'gk-transformer-transmission': { component: GkTransformerTransmission, summary: '发电机 → 升压变压器 → 输电线（r）→ 降压变压器 → 用户 的 3D 链路，电流粒子按各段电流快慢流动、用户灯按效率发光；对比升压输电与直接输电的损耗（1/k²）。', hint: '默认“对比”搭法 → ▶ 播放 → 看两条事件：升压后线路电流、损耗、用户电压；把 k 从 10 调到 1 观察灯变暗' },
+  'gk-transformer-dynamic': { component: GkTransformerDynamic, summary: '模型 45：铁芯 + 原副线圈 + 交流源 + 负载 R，U₂ 由匝数比决定、I₂ 由负载决定、I₁ 随 I₂ 变（原边随副边）、P₁=P₂；原副边电流粒子流速对应电流大小。', hint: '调 n₂ 看 U₂ 变化；调 R 看 I₂、I₁ 同时变而 U₂ 不变；核对 P₁=P₂' },
+  'gk-power-transmission': { component: GkPowerTransmission, summary: '模型 46：I=P/(kU)、P_损=I²r、ΔU=Ir、用户电压 (kU−Ir)/k 与效率 η；调升压比 k、线路电阻 r、发电功率 P 观察损耗与用户电压。', hint: '调 k 看损耗按 1/k² 下降；调 r 看 ΔU 与 P_损 线性/平方增长' },
+  'gk-ac-four-values': { component: GkAcFourValues, summary: '矩形线圈在 B 中匀速转动（慢放）：滑环电刷输出到灯泡，e–t 曲线板实时生长；峰值 NBSω、有效值 /√2、半周期平均值 2E_m/π、瞬时值；中性面与平行位置事件。', hint: '▶ 播放 → 看线圈过中性面时 e=0、灯最暗；过平行位置 e=E_m；读四个值并对应用途（耐压/热量/电荷量/方向）' },
   'gk-meter-conversion': { component: GkMeterConversion, summary: '灵敏电流计 G 改装：并联 R_并=I_gR_g/(I−I_g) 成电流表（粒子流分流可见）或串联 R_串=U/I_g−R_g 成电压表；输入信号按量程比例输入，表头偏转比例一致（线性刻度）。', hint: '选改装类型 → 调 I_g、R_g、量程 → 调“输入/量程”滑杆看指针偏转比例是否一致 → 读改装后内阻' },
 }
 

@@ -9,6 +9,7 @@ import { velocitySelector, massSpectrometer, eBEMulti } from './scenes/em2'
 import { compositeField, cyclotron } from './scenes/em3'
 import { railRod } from './scenes/em4'
 import { voltAmmeterResistance, meterConversion } from './scenes/em5'
+import { transformerTransmission, acFourValues } from './scenes/em6'
 
 export function wrapEM(def: EMSceneDef<any>) {
   return defineComponent({
@@ -38,3 +39,7 @@ export const GkDoubleRod = variantEM(railRod, 'gk-double-rod', { setup: 2 })
 export const GkRodCapacitor = variantEM(railRod, 'gk-rod-capacitor', { setup: 3 })
 export const GkVoltAmmeterResistance = wrapEM(voltAmmeterResistance)
 export const GkMeterConversion = wrapEM(meterConversion)
+export const GkTransformerTransmission = wrapEM(transformerTransmission)
+export const GkTransformerDynamic = variantEM(transformerTransmission, 'gk-transformer-dynamic', { setup: 0 })
+export const GkPowerTransmission = variantEM(transformerTransmission, 'gk-power-transmission', { setup: 1 })
+export const GkAcFourValues = wrapEM(acFourValues)
