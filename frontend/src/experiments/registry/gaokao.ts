@@ -9,7 +9,7 @@ import { PLAN50 } from './gaokao-plan'
 import GkBoardBlock from '../defs/gaokao/GkBoardBlock.vue'
 import GkProjectileLoop from '../defs/gaokao/GkProjectileLoop.vue'
 import GkAccelSelectorB from '../defs/gaokao/GkAccelSelectorB.vue'
-import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro } from '../defs/gaokao/mechWrappers'
+import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro, GkPrismRefraction, GkWaveMultiSolution, GkVibrationWaveGraphs, GkPhotoelectricEkNu, GkHydrogenLevels } from '../defs/gaokao/mechWrappers'
 import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti, GkCompositeField, GkCyclotron, GkRailRod, GkRodFree, GkRodForce, GkDoubleRod, GkRodCapacitor } from '../defs/gaokao/emWrappers'
 
 function gkSteps(operateHint: string): ExperimentModule['steps'] {
@@ -59,6 +59,11 @@ const LIVE: Record<string, Live> = {
   'gk-rod-force': { component: GkRodForce, summary: '模型 39：恒力 F 拉棒由静止加速，安培力随 v 增大直到 F=B²L²v/R+μmg → 终速 v_m=(F−μmg)R/(B²L²)；稳态 Fv_m=I²R+μmgv_m。', hint: '默认搭法 39 → ▶ 播放 → 看 v 趋近 v_m 的过程与稳态功率平衡；改 R 看 v_m 正比于 R' },
   'gk-double-rod': { component: GkDoubleRod, summary: '模型 40：棒 1 以 v₀ 运动、棒 2 静止，同一回路电流使两棒受等大反向安培力 → 动量守恒共速 v=m₁v₀/(m₁+m₂)，焦耳热 Q=ΔE_k。', hint: '默认搭法 40 → ▶ 播放 → 共速事件核对 v_共 与 Q；改 m₂ 看能量分配比 m₂/(m₁+m₂)' },
   'gk-rod-capacitor': { component: GkRodCapacitor, summary: '模型 41：恒力 F 拉棒、回路接电容 C：q=CBLv → i=CBLa 恒定，F−BiL=ma → a=F/(m+CB²L²) 匀加速（与电阻回路的终速不同）。', hint: '默认搭法 41 → ▶ 播放 → t=2 s 事件核对 v=at 与 q=CBLv；把 C 调到最小对比 a→F/m' },
+  'gk-prism-refraction': { component: GkPrismRefraction, summary: '平行玻璃砖（出射平行、侧移 d）/ 三棱镜（两次折射偏向角 δ=θ₁+θ₄−A，右面可全反射）/ 半圆砖（沿半径入射、圆心处看临界角）；光线逐段生长、量角器、每个界面的角度事件。', hint: '选搭法 → 调 n、θ₁、A → ▶ 开始 → 看每个界面的折射角事件；棱镜把 θ₁ 调小直到右面全反射；半圆砖把 θ₁ 调过 C' },
+  'gk-wave-multi-solution': { component: GkWaveMultiSolution, summary: '实线 t₁ 波形与虚线 t₂ 波形：方向与整波长数不定 → Δx=nλ+Δx₀（+x）或 nλ+(λ−Δx₀)（−x）；选定假设后播放，t=Δt 时波形应与虚线重合；解集表列出 n=0–3 全部 v。', hint: '选方向与 n → ▶ 开始 → t=Δt 时看波形是否与虚线重合；换另一方向再验证一次多解' },
+  'gk-vibration-wave-graphs': { component: GkVibrationWaveGraphs, summary: '左 y–x 波动图像随时间平移，右 P 点 y–t 振动图像随时间生长；同侧法判断 P 的运动方向；首次到波峰时刻与 v=λ/T 事件。', hint: '调 λ、T、方向、x_P → ▶ 开始 → 对照两张图：左图读 λ、右图读 T；看 P 首次到达波峰的时刻' },
+  'gk-photoelectric-ek-nu': { component: GkPhotoelectricEkNu, summary: '光电管动画（光子按频率着色、光电子按 Eₖ 速度飞向阳极）+ 自动扫频作 Eₖ–ν 图：横截距 ν₀、纵截距 −W₀、斜率 h；五种阴极材料；扫频结束拟合直线核对 h 与 W₀。', hint: '选材料 → ▶ 开始 → 看 ν 越过 ν₀ 才出现光电子；结束后核对拟合斜率≈0.414（h）与截距 −W₀；换材料看图线平行' },
+  'gk-hydrogen-levels': { component: GkHydrogenLevels, summary: '氢原子能级图（Eₙ=−13.6/n²）+ 电子跃迁动画 + 光子波包按波长着色飞向光谱屏；单次 m→n 或大量原子处于 m 能级全部向下跃迁，谱线条数 C(m,2)、可见光条数。', hint: '单次模式设 3→2 看 656 nm 红光；切到“大量原子 m=4”看 6 条谱线并数可见光条数' },
 }
 
 export const GAOKAO: ExperimentModule[] = PLAN50.map((pl) => {

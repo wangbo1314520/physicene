@@ -8,6 +8,8 @@ import { slopeSpring, conveyorBoard, connectedBodies } from './scenes/mech1'
 import { collisionSpring, circularCritical, collisionChain } from './scenes/mech2'
 import { isochrone, clothesline } from './scenes/mech3'
 import { multistage, impulseMicro } from './scenes/mech4'
+import { prismRefraction, waveMultiSolution, vibrationWaveGraphs } from './scenes/opt1'
+import { photoelectricEkNu, hydrogenLevels } from './scenes/mod1'
 
 export function wrapScene(def: MechSceneDef<any>) {
   return defineComponent({
@@ -27,3 +29,8 @@ export const GkIsochrone = wrapScene(isochrone)
 export const GkClothesline = wrapScene(clothesline)
 export const GkMultistage = wrapScene(multistage)
 export const GkImpulseMicro = wrapScene(impulseMicro)
+export const GkPrismRefraction = wrapScene(prismRefraction)
+export const GkWaveMultiSolution = wrapScene(waveMultiSolution)
+export const GkVibrationWaveGraphs = wrapScene(vibrationWaveGraphs)
+export const GkPhotoelectricEkNu = wrapScene(photoelectricEkNu)
+export const GkHydrogenLevels = wrapScene(hydrogenLevels)

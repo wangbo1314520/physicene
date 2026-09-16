@@ -54,10 +54,12 @@ function draw() {
   // 时间轴
   tl.draw(ctx, 60, h - 30, w - 120, 10)
   labelFn(ctx, `多过程时间轴 t=${t.value.toFixed(2)} s：${tl.segments.map((s) => s.name).join(' → ')}`, w / 2, h - 40, '#8a8aa0', 11)
-  // 能量条
-  const en = props.def.energy(state, p)
-  tracker.drawBars(ctx, 16, 16, en.items, en.E0)
-  if (en.momentum) { ctx.fillStyle = '#8a8aa0'; ctx.font = '11px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(en.momentum, 16, 16 + en.items.length * 18 + 5) }
+  // 能量条（非力学场景可不提供）
+  const en = props.def.energy?.(state, p)
+  if (en) {
+    tracker.drawBars(ctx, 16, 16, en.items, en.E0)
+    if (en.momentum) { ctx.fillStyle = '#8a8aa0'; ctx.font = '11px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(en.momentum, 16, 16 + en.items.length * 18 + 5) }
+  }
 }
 
 onMounted(() => { init(); loop = makeLoop((dt) => { if (running.value) step(dt); draw() }) })

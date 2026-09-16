@@ -41,8 +41,8 @@ export interface MechSceneDef<S = Record<string, number>> {
   step(s: S, p: Params, d: number, t: number, tl: ProcessTimeline): boolean
   /** 绘制场景本体（时间轴与能量条由运行器画） */
   draw(dc: DrawCtx, s: S, p: Params, t: number): void
-  /** 能量条：各项与参考总量 E0 */
-  energy(s: S, p: Params): { items: EnergyItem[]; E0: number; momentum?: string }
+  /** 能量条：各项与参考总量 E0（非力学场景可省略，运行器不画能量条） */
+  energy?(s: S, p: Params): { items: EnergyItem[]; E0: number; momentum?: string }
   /** 理论量（面板只读区显示） */
   readout(p: Params, s: S | null): string
   solution(p: Params): SolutionTemplate

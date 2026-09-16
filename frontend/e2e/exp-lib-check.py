@@ -100,6 +100,11 @@ KEYWORDS = {
     "gk-rod-force": "导轨 + 导体棒",
     "gk-double-rod": "导轨 + 导体棒",
     "gk-rod-capacitor": "导轨 + 导体棒",
+    "gk-prism-refraction": "棱镜折射",
+    "gk-wave-multi-solution": "波的多解",
+    "gk-vibration-wave-graphs": "振动图像 + 波动图像",
+    "gk-photoelectric-ek-nu": "光电效应 + Eₖ–ν",
+    "gk-hydrogen-levels": "氢原子能级跃迁",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -116,6 +121,7 @@ ANIMATED_IDS = {
     "gk-m21-whole-isolate", "gk-m28-circular-five", "gk-m29-collision-spring", "gk-m30-conveyor-board",
     "gk-velocity-selector", "gk-mass-spectrometer", "gk-e-b-e-multi", "gk-composite-field", "gk-cyclotron",
     "gk-rail-rod", "gk-rod-free", "gk-rod-force", "gk-double-rod", "gk-rod-capacitor",
+    "gk-prism-refraction", "gk-wave-multi-solution", "gk-vibration-wave-graphs", "gk-photoelectric-ek-nu", "gk-hydrogen-levels",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 
@@ -300,6 +306,61 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} 含容单杆：t=2 s 时 v={v} m/s（理论 a·t=F/(m+CB²L²)·2={2 * a_th:.2f}）")
         if not ok:
             failures.append(f"{exp_id}: 含容匀加速断言失败 {v}")
+    if exp_id == "gk-prism-refraction":
+        page.wait_for_timeout(4500)
+        txt = page.locator(".panel").inner_text()
+        import math
+        m1 = re.search(r"折射角 θ₂=([\d.]+)°", txt)
+        m2 = re.search(r"偏向角 δ=([\d.]+)°", txt)
+        th2 = float(m1.group(1)) if m1 else -1.0
+        delta = float(m2.group(1)) if m2 else -1.0
+        n, th1, A = 1.5, 40.0, 60.0
+        th2_th = math.degrees(math.asin(math.sin(math.radians(th1)) / n))
+        th4_th = math.degrees(math.asin(n * math.sin(math.radians(A - th2_th))))
+        d_th = th1 + th4_th - A
+        ok = abs(th2 - th2_th) <= 0.05 and abs(delta - d_th) <= 0.1
+        lines.append(f"  {'✓' if ok else '✗'} 棱镜折射：θ₂={th2}°（理论 {th2_th:.2f}°），δ={delta}°（理论 θ₁+θ₄−A={d_th:.2f}°）")
+        if not ok:
+            failures.append(f"{exp_id}: 折射角/偏向角断言失败 {th2}/{delta}")
+    if exp_id == "gk-wave-multi-solution":
+        page.wait_for_timeout(2500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"v=([\d.]+) m/s（n=1", txt)
+        v = float(m.group(1)) if m else -1.0
+        ok = abs(v - 5.0) <= 0.01 and "重合" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 波的多解：n=1、+x 假设下 v={v} m/s（理论 (λ+Δx₀)/Δt=5.00），t=Δt 重合")
+        if not ok:
+            failures.append(f"{exp_id}: 多解波速断言失败 {v}")
+    if exp_id == "gk-vibration-wave-graphs":
+        page.wait_for_timeout(3000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"首次到达波峰 t=([\d.]+) s", txt)
+        t = float(m.group(1)) if m else -1.0
+        ok = abs(t - 1.0) <= 0.03 and "v=λ/T=2.00" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 振动+波动图像：P 首次到波峰 t={t} s（理论 T(1/4+x_P/λ)=1.00 s），v=λ/T=2.00 m/s")
+        if not ok:
+            failures.append(f"{exp_id}: 波峰时刻断言失败 {t}")
+    if exp_id == "gk-photoelectric-ek-nu":
+        page.wait_for_timeout(8500)
+        txt = page.locator(".panel").inner_text()
+        m1 = re.search(r"截止频率 ν₀=W₀/h=([\d.]+)", txt)
+        m2 = re.search(r"拟合直线斜率=([\d.]+)", txt)
+        nu0 = float(m1.group(1)) if m1 else -1.0
+        k = float(m2.group(1)) if m2 else -1.0
+        ok = abs(nu0 - 2.28 / 0.4136) <= 0.03 and abs(k - 0.4136) <= 0.01
+        lines.append(f"  {'✓' if ok else '✗'} 光电效应：ν₀={nu0}×10¹⁴ Hz（理论 W₀/h={2.28 / 0.4136:.2f}），拟合斜率 {k}（h=0.4136）")
+        if not ok:
+            failures.append(f"{exp_id}: 光电效应断言失败 {nu0}/{k}")
+    if exp_id == "gk-hydrogen-levels":
+        page.wait_for_timeout(3000)
+        txt = page.locator(".panel").inner_text()
+        m1 = re.search(r"ΔE=([\d.]+) eV，λ=(\d+) nm", txt)
+        dE = float(m1.group(1)) if m1 else -1.0
+        lam = int(m1.group(2)) if m1 else -1
+        ok = abs(dE - 1.89) <= 0.01 and abs(lam - 656) <= 2
+        lines.append(f"  {'✓' if ok else '✗'} 氢原子能级：3→2 ΔE={dE} eV（理论 13.6(1/4−1/9)=1.89），λ={lam} nm（Hα 656）")
+        if not ok:
+            failures.append(f"{exp_id}: 能级跃迁断言失败 {dE}/{lam}")
     return lines
 
 
