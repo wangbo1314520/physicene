@@ -93,6 +93,8 @@ KEYWORDS = {
     "gk-velocity-selector": "速度选择器",
     "gk-mass-spectrometer": "质谱仪",
     "gk-e-b-e-multi": "电场 → 磁场 → 电场",
+    "gk-composite-field": "复合场",
+    "gk-cyclotron": "回旋加速器",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -107,7 +109,7 @@ ANIMATED_IDS = {
     "gk-isochrone", "gk-clothesline", "gk-multistage", "gk-impulse-micro",
     "gk-accel-deflect-screen", "gk-b-then-e",
     "gk-m21-whole-isolate", "gk-m28-circular-five", "gk-m29-collision-spring", "gk-m30-conveyor-board",
-    "gk-velocity-selector", "gk-mass-spectrometer", "gk-e-b-e-multi",
+    "gk-velocity-selector", "gk-mass-spectrometer", "gk-e-b-e-multi", "gk-composite-field", "gk-cyclotron",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 
@@ -233,6 +235,28 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} 电→磁→电：首个半圆后上移 y={y} m（理论 2r=2·√(2qU/m)/(qB/m)={2 * r_th:.2f} m）")
         if not ok:
             failures.append(f"{exp_id}: 半圆上移断言失败 {y} vs {2 * r_th:.2f}")
+    if exp_id == "gk-composite-field":
+        page.wait_for_timeout(8000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"完成第 1 周：T=([\d.]+) s", txt)
+        T = float(m.group(1)) if m else -1.0
+        T_th = 2 * 3.141592653589793 / (1 * 2)
+        ok = abs(T - T_th) <= 0.05
+        lines.append(f"  {'✓' if ok else '✗'} 复合场（qE=mg 匀速圆周）：实测周期 T={T} s（理论 2πm/(qB)={T_th:.3f} s）")
+        if not ok:
+            failures.append(f"{exp_id}: 圆周周期断言失败 {T} vs {T_th:.3f}")
+    if exp_id == "gk-cyclotron":
+        page.wait_for_timeout(7500)
+        txt = page.locator(".panel").inner_text()
+        m1 = re.search(r"引出：E_k=([\d.]+)", txt)
+        m2 = re.search(r"穿越 (\d+) 次", txt)
+        ek = float(m1.group(1)) if m1 else -1.0
+        n = int(m2.group(1)) if m2 else -1
+        ek_th = 0.5 * (1 * 1 * 6) ** 2
+        ok = abs(ek - ek_th) <= 0.6 and n == 9
+        lines.append(f"  {'✓' if ok else '✗'} 回旋加速器：引出 E_k={ek}（理论 q²B²R²/2m={ek_th:.2f}），穿越 {n} 次（理论 N=E_k/qU=9）")
+        if not ok:
+            failures.append(f"{exp_id}: 引出能量/穿越次数断言失败 {ek}/{n}")
     return lines
 
 

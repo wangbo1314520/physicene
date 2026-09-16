@@ -10,7 +10,7 @@ import GkBoardBlock from '../defs/gaokao/GkBoardBlock.vue'
 import GkProjectileLoop from '../defs/gaokao/GkProjectileLoop.vue'
 import GkAccelSelectorB from '../defs/gaokao/GkAccelSelectorB.vue'
 import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro } from '../defs/gaokao/mechWrappers'
-import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti } from '../defs/gaokao/emWrappers'
+import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti, GkCompositeField, GkCyclotron } from '../defs/gaokao/emWrappers'
 
 function gkSteps(operateHint: string): ExperimentModule['steps'] {
   return [
@@ -52,6 +52,8 @@ const LIVE: Record<string, Live> = {
   'gk-velocity-selector': { component: GkVelocitySelector, summary: '平行板 + 垂直磁场 + 入口/出口狭缝：E=U/d，只有 v=U/(Bd) 的粒子直线通过；三粒子对比（0.7v 撞电场力侧、1.3v 撞洛伦兹力侧）；正负电荷通过条件相同。', hint: '设 U、d、B 算出 v₀=U/(Bd) → 把 v 调到 v₀ → ▶ 播放 → 中间粒子直线通过、两侧粒子分别撞板；切换负电荷再验证' },
   'gk-mass-spectrometer': { component: GkMassSpectrometer, summary: '两种同位素同 q 不同 m 经同一 U 加速 → 狭缝 → 磁场半圆 → 底片：r=√(2mU/q)/B，落点 2r，谱线间距 Δx=2(r₂−r₁)；底片带刻度。', hint: '调 U、B、m₁、m₂ → ▶ 播放 → 看两离子先后到达底片的位置与 Δx；减小 B 看分辨率提高' },
   'gk-e-b-e-multi': { component: GkEBEMulti, summary: '电场区加速 → 磁场半圆 → 反向回电场区减速到零 → 再加速……每周期上移 2r 的阶梯往复；三段用时分别为 2L/v、πm/(qB)、2L/v。', hint: '调 U、B、周期数 → ▶ 播放 → 看时间轴“加速→半圆→减速”循环与每周期上移 2r' },
+  'gk-composite-field': { component: GkCompositeField, summary: '重力 + 竖直电场 + 垂直磁场：①qE+qvB=mg 匀速直线 ②qE=mg 匀速圆周（T 与 v 无关）③E=0 摆线（漂移 v_d=mg/qB、最低点深度 2g/(qB/m)²）④自定义。', hint: '选情形 → 调 v、B、q/m → ▶ 播放 → 圆周情形记录周期 T 与 2πm/(qB) 对照；摆线情形看最低点深度' },
+  'gk-cyclotron': { component: GkCyclotron, summary: 'D₁/D₂ 形盒 + 同步交变缝隙电压：每次穿越 +qU、半径增大、周期不变；到边缘 R 引出，E_k,max=q²B²R²/2m 与 U 无关，U 只改变穿越次数 N。', hint: '调 U、B、R → ▶ 播放 → 数穿越次数与理论 N=E_k/qU 对照；把 U 加倍看 N 减半而引出能量不变' },
 }
 
 export const GAOKAO: ExperimentModule[] = PLAN50.map((pl) => {
