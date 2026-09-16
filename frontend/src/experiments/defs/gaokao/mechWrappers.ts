@@ -10,6 +10,7 @@ import { isochrone, clothesline } from './scenes/mech3'
 import { multistage, impulseMicro } from './scenes/mech4'
 import { prismRefraction, waveMultiSolution, vibrationWaveGraphs } from './scenes/opt1'
 import { photoelectricEkNu, hydrogenLevels } from './scenes/mod1'
+import { obliqueProjectile, weightChange } from './scenes/mech5'
 
 export function wrapScene(def: MechSceneDef<any>) {
   return defineComponent({
@@ -34,3 +35,5 @@ export const GkWaveMultiSolution = wrapScene(waveMultiSolution)
 export const GkVibrationWaveGraphs = wrapScene(vibrationWaveGraphs)
 export const GkPhotoelectricEkNu = wrapScene(photoelectricEkNu)
 export const GkHydrogenLevels = wrapScene(hydrogenLevels)
+export const GkObliqueProjectile = wrapScene(obliqueProjectile)
+export const GkWeightChange = wrapScene(weightChange)

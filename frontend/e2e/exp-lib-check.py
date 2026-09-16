@@ -107,6 +107,8 @@ KEYWORDS = {
     "gk-hydrogen-levels": "氢原子能级跃迁",
     "gk-volt-ammeter-resistance": "伏安法测电阻",
     "gk-meter-conversion": "电表改装",
+    "gk-oblique-projectile": "斜抛运动",
+    "gk-weight-change": "超重与失重",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -124,7 +126,7 @@ ANIMATED_IDS = {
     "gk-velocity-selector", "gk-mass-spectrometer", "gk-e-b-e-multi", "gk-composite-field", "gk-cyclotron",
     "gk-rail-rod", "gk-rod-free", "gk-rod-force", "gk-double-rod", "gk-rod-capacitor",
     "gk-prism-refraction", "gk-wave-multi-solution", "gk-vibration-wave-graphs", "gk-photoelectric-ek-nu", "gk-hydrogen-levels",
-    "gk-volt-ammeter-resistance", "gk-meter-conversion",
+    "gk-volt-ammeter-resistance", "gk-meter-conversion", "gk-oblique-projectile", "gk-weight-change",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 
@@ -384,6 +386,24 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} 电表改装（电流表）：R_并={r} Ω（理论 I_gR_g/(I−I_g)={r_th:.3f} Ω）")
         if not ok:
             failures.append(f"{exp_id}: 分流电阻断言失败 {r}")
+    if exp_id == "gk-oblique-projectile":
+        page.wait_for_timeout(3000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"θ=30° 落地：x=([\d.]+) m", txt)
+        x = float(m.group(1)) if m else -1.0
+        ok = abs(x - 100 * 0.8660254 / 9.8) <= 0.06
+        lines.append(f"  {'✓' if ok else '✗'} 斜抛：θ=30° 射程 x={x} m（理论 v₀²sin2θ/g={100 * 0.8660254 / 9.8:.2f} m）")
+        if not ok:
+            failures.append(f"{exp_id}: 射程断言失败 {x}")
+    if exp_id == "gk-weight-change":
+        page.wait_for_timeout(3500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"N=m\(g\+a\)=([\d.]+) N", txt)
+        n = float(m.group(1)) if m else -1.0
+        ok = abs(n - 60 * 11.8) <= 0.5 and "N=mg=588.0" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 超重失重：加速上升 N={n} N（理论 m(g+a)=708.0），匀速 N=mg=588.0")
+        if not ok:
+            failures.append(f"{exp_id}: 视重断言失败 {n}")
     return lines
 
 

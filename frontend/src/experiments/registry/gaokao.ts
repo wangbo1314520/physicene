@@ -9,7 +9,7 @@ import { PLAN50 } from './gaokao-plan'
 import GkBoardBlock from '../defs/gaokao/GkBoardBlock.vue'
 import GkProjectileLoop from '../defs/gaokao/GkProjectileLoop.vue'
 import GkAccelSelectorB from '../defs/gaokao/GkAccelSelectorB.vue'
-import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro, GkPrismRefraction, GkWaveMultiSolution, GkVibrationWaveGraphs, GkPhotoelectricEkNu, GkHydrogenLevels } from '../defs/gaokao/mechWrappers'
+import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro, GkPrismRefraction, GkWaveMultiSolution, GkVibrationWaveGraphs, GkPhotoelectricEkNu, GkHydrogenLevels, GkObliqueProjectile, GkWeightChange } from '../defs/gaokao/mechWrappers'
 import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti, GkCompositeField, GkCyclotron, GkRailRod, GkRodFree, GkRodForce, GkDoubleRod, GkRodCapacitor, GkVoltAmmeterResistance, GkMeterConversion } from '../defs/gaokao/emWrappers'
 
 function gkSteps(operateHint: string): ExperimentModule['steps'] {
@@ -64,6 +64,8 @@ const LIVE: Record<string, Live> = {
   'gk-vibration-wave-graphs': { component: GkVibrationWaveGraphs, summary: '左 y–x 波动图像随时间平移，右 P 点 y–t 振动图像随时间生长；同侧法判断 P 的运动方向；首次到波峰时刻与 v=λ/T 事件。', hint: '调 λ、T、方向、x_P → ▶ 开始 → 对照两张图：左图读 λ、右图读 T；看 P 首次到达波峰的时刻' },
   'gk-photoelectric-ek-nu': { component: GkPhotoelectricEkNu, summary: '光电管动画（光子按频率着色、光电子按 Eₖ 速度飞向阳极）+ 自动扫频作 Eₖ–ν 图：横截距 ν₀、纵截距 −W₀、斜率 h；五种阴极材料；扫频结束拟合直线核对 h 与 W₀。', hint: '选材料 → ▶ 开始 → 看 ν 越过 ν₀ 才出现光电子；结束后核对拟合斜率≈0.414（h）与截距 −W₀；换材料看图线平行' },
   'gk-hydrogen-levels': { component: GkHydrogenLevels, summary: '氢原子能级图（Eₙ=−13.6/n²）+ 电子跃迁动画 + 光子波包按波长着色飞向光谱屏；单次 m→n 或大量原子处于 m 能级全部向下跃迁，谱线条数 C(m,2)、可见光条数。', hint: '单次模式设 3→2 看 656 nm 红光；切到“大量原子 m=4”看 6 条谱线并数可见光条数' },
+  'gk-oblique-projectile': { component: GkObliqueProjectile, summary: '以 v₀、θ（可从高度 h₀）斜抛：水平匀速、竖直上抛分解，速度分量箭头实时；最高点与落地事件对照理论；可叠加余角 90°−θ 对照体验证等射程。', hint: '调 v₀、θ → ▶ 开始 → 看最高点 H、射程 R 事件；开对照抛体看 θ 与 90°−θ 射程相同、45° 最远' },
+  'gk-weight-change': { component: GkWeightChange, summary: '电梯上升/下降全过程（加速→匀速→减速）或缆绳断裂：体重计读数 N=m(g±a)、匀速 N=mg、自由下落 N=0；右侧 N–t 图分超重/失重区。', hint: '选过程 → ▶ 开始 → 看每段 N 与 mg 的大小关系；注意减速下降是超重、减速上升是失重' },
   'gk-volt-ammeter-resistance': { component: GkVoltAmmeterResistance, summary: '3D 实验台：电源/R_x/指针式电流表电压表/导线，电流粒子流动、指针偏转；内接 vs 外接的读数与 R_测=U/I 系统误差，√(R_AR_V) 判据（大内偏大、小外偏小）。', hint: '默认外接 R_x=100 Ω → 读 R_测 偏小；切内接看偏大；把 R_x 调到 √(R_AR_V)≈55 Ω 附近比较两种误差' },
   'gk-meter-conversion': { component: GkMeterConversion, summary: '灵敏电流计 G 改装：并联 R_并=I_gR_g/(I−I_g) 成电流表（粒子流分流可见）或串联 R_串=U/I_g−R_g 成电压表；输入信号按量程比例输入，表头偏转比例一致（线性刻度）。', hint: '选改装类型 → 调 I_g、R_g、量程 → 调“输入/量程”滑杆看指针偏转比例是否一致 → 读改装后内阻' },
 }
