@@ -86,6 +86,10 @@ KEYWORDS = {
     "gk-impulse-micro": "动量定理 + 微元法",
     "gk-accel-deflect-screen": "偏转电场",
     "gk-b-then-e": "磁场 → 电场",
+    "gk-m21-whole-isolate": "整体法",
+    "gk-m28-circular-five": "内轨",
+    "gk-m29-collision-spring": "碰撞 + 弹簧",
+    "gk-m30-conveyor-board": "传送带 + 板块",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -99,6 +103,7 @@ ANIMATED_IDS = {
     "bx2-circular-life", "bx2-motion-composition", "bx1-inertia", "bx2-energy", "gk-board-block", "gk-projectile-loop", "gk-accel-selector-b", "gk-slope-spring", "gk-conveyor-board", "gk-connected-bodies", "gk-collision-spring", "gk-circular-critical", "gk-collision-chain",
     "gk-isochrone", "gk-clothesline", "gk-multistage", "gk-impulse-micro",
     "gk-accel-deflect-screen", "gk-b-then-e",
+    "gk-m21-whole-isolate", "gk-m28-circular-five", "gk-m29-collision-spring", "gk-m30-conveyor-board",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 

@@ -1,16 +1,18 @@
 <script setup lang="ts">
-/** 高考 / 竞赛题层目录（B9–B11 的 20 个场景；与教材实验库分离，不计入 55 卡台账） */
+/** 高考 / 竞赛题层目录（方案书 v3.1 §7.1 的 50 个场景；与教材实验库分离，不计入 55 卡台账） */
 import { computed } from 'vue'
 import { GAOKAO, groupedByChapter } from '../experiments/registry'
 
 const groups = groupedByChapter(GAOKAO)
 const available = computed(() => GAOKAO.filter((e) => e.available).length)
+const byPrio = (p: string) => GAOKAO.filter((e) => e.tags?.includes(p))
+const prioText = computed(() => ['P0', 'P1', 'P2'].map((p) => `${p} ${byPrio(p).filter((e) => e.available).length}/${byPrio(p).length}`).join(' · '))
 </script>
 
 <template>
   <main class="catalog">
     <h1>高考 · 竞赛题场景</h1>
-    <p class="sub">搭场景、调参数、观察多过程、找临界，AI 讲思路与易错点。共 {{ GAOKAO.length }} 个场景（力学综合 8 · 电磁综合 8 · 竞赛扩展 4）· {{ available }} 个已开放，其余按 B11 逐个接入。</p>
+    <p class="sub">搭场景、调参数、观察多过程、找临界，AI 讲思路与易错点。共 {{ GAOKAO.length }} 个场景（力学综合 16 · 电磁综合 20 · 热学 4 · 光学振动波 6 · 近代物理 5 · 竞赛扩展 5）· 已开放 {{ available }}（{{ prioText }}），其余按 P0→P1→P2 逐个接入。</p>
     <p class="note">与教材实验层的区别：教材实验层只给阶梯提示不给答案；这里按“过程—受力—规律—临界—公式—易错—变式”讲题（AI 解题讲解器 B10 上线后开放）。</p>
 
     <section v-for="(chapters, book) in groups" :key="book" class="book">
