@@ -251,7 +251,7 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 | e39ba7a | B12 | 上线评审文档 + 65 卡截图入库 + 录屏归档脚本 `gaokao-media.py` + 方案书/总览回填 |
 | a3a76c6 | 定位更正 | 删三模式与考试评分、删教师批阅页、AI 助教接真 AI（aiAgent.ts）、提交后 AI 即时反馈、Python 启动预热 RAG、ai-tutor-check.py |
 | 261282e | B13 | 自由搭建 /sandbox：元件目录 89 / 识别器 58 规则 / 内嵌运行 / 数据面板+坐标纸 / AI 助手 / 十场景 E2E |
-| （本轮） | B13 | B13 验收报告 + 元件对账表（自动） + 模块 README + 十场景截图录屏 |
+| 5982ba2 | B13 | B13 验收报告 + 元件对账表（自动） + 模块 README + 十场景截图录屏 |
 | 9c9eeba | 实验台 | 三维度元件体系：2D/2.5D/3D 分段 + 7 元件按维度过滤 + 11 模板 + lab-check E2E |
 
 ### 实验库之前的里程碑
