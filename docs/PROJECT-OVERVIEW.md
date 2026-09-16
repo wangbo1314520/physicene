@@ -237,6 +237,15 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 | e8191d1 | B9 | 通用 2.5D 力学场景运行器 `MechScene.vue` + `MechSceneDef` 接口（参数面板/开始暂停重置/记录/事件/时间轴/能量条/讲解器统一） |
 | 13de02c | B11 | 力学场景组 1：斜面弹簧滑块 / 传送带+板块（模型30）/ 连接体整体隔离（模型21）/ 碰撞弹簧（模型29）/ 圆周临界五类（模型28）/ 多体碰撞链（9/20） |
 | 7cccbb9 | B11 | 力学场景组 2（v3.1 补充模型）：等时圆（22）/ 晾衣绳动态平衡（23）/ 多过程直线运动+实时 v–t（25）/ 动量定理微元法（31）+ 四项物理量 E2E 断言 + 运行器只读区随仿真刷新修复（13/20） |
+| 505ab99 | B9/B11 | `EMScene.vue` 通用 3D 运行器 + `EMSceneDef` 接口 + `em-kit.ts` 元件库 + #10 加速→偏转→荧光屏 / #11 磁场→电场；three-kit 文字精灵自适应宽度、透明场区不写深度 |
+| fc5753b | B11 | 注册表重排为 v3.1 §7.1 总清单（`gaokao-plan.ts` 65 项 + LIVE 合并自动占位；目录页按 P0/P1/P2 显示覆盖） |
+| 2896203 / d935075 / d65d076 | B11 电磁 P0 | #32 速度选择器 / #13 质谱仪 / #37 电→磁→电；#16 复合场 / #12 回旋加速器；#14 导轨导体棒 + 模型 38–41 四变体（`variantEM`） |
+| 7a55c45 / 839e547 | B11 P0 收口 | 光学 #55/#58/#59、近代 #61/#62（MechScene 能量条可选）；3D 电路实验台 #49 伏安法 / #48 电表改装 → **P0 全部上线** |
+| eeba9f8 / 4ea75b2 / 8dfedd1 | B11 P1 | 力学 #26 斜抛 / #24 超重失重（力学 18/18）；变压器输电族 #15/#45/#46 + #47 交变四值；#36 磁聚焦 / #42 线框进出 / #44 斜面导轨 |
+| 0fbb6e6 / 7798857 / f136457 / 7189ce9 | B11 P1 | 热学 #51–54；光学 #56/#57/#60；近代 #63/#64/#65；竞赛 #66/#67/#68 |
+| 19727f1 / 714ffe0 | B11 P2 收官 | #33 磁流体 / #34 流量计 / #35 霍尔；#43 导体棒弹簧 / #50 黑箱 / #69 刚体 / #70 感应 ODE → **v3.1 清单 65/65 全部上线** |
+| 9673b96 | B12 | `gaokao-ledger.test.ts` 自动对账（65 卡覆盖 + 讲解模板 11 段 + 生成对账表）；力学四别名改为变体；组 1 十二卡补物理断言（65/65 均有解析解比对） |
+| （本轮） | B12 | 上线评审文档 + 65 卡截图/录屏归档脚本 `gaokao-media.py` + 方案书/总览回填 |
 | 9c9eeba | 实验台 | 三维度元件体系：2D/2.5D/3D 分段 + 7 元件按维度过滤 + 11 模板 + lab-check E2E |
 
 ### 实验库之前的里程碑
@@ -258,12 +267,13 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 | TapeSampler 单测 | 10 | ✅ 全过 | `renderers/sim25d/TapeSampler.test.ts` |
 | FieldEngine 单测 | 19 | ✅ 全过 | `renderers/canvas3d/FieldEngine.test.ts` |
 | merge 单测 | 15 | ✅ 全过 | `core/merge.test.ts` |
-| **单测合计** | **64** | **✅ 全过** | 前端 56 个：`cd frontend && pnpm test`（vitest 5） |
+| **单测合计** | **92** | **✅ 全过** | `cd frontend && npx vitest run`（vitest 5；含 `engine/multiProcess.test.ts`、电路 MNA 单测、`registry/gaokao-ledger.test.ts` 高考层对账——覆盖 65/65 + 讲解模板 11 段 + readout 无 NaN，并生成 `docs/高考竞赛层-元件与题型对账表.md`） |
 | 类型检查 | — | ✅ 0 错 | `pnpm exec vue-tsc --noEmit`（typescript 须 5.9.x，7.x 与 vue-tsc 3.3 不兼容） |
 | B0-B8 E2E | 每批次 | ✅ 0 控制台错误 | Playwright（浏览器在 E:\Program\playwright-browsers） |
 | 55 卡逐卡 E2E | 55 | ✅ 55/55 | 同上 |
-| 演示页无头 E2E | 14 项 | ✅ 全过，0 控制台错误 | `set PLAYWRIGHT_BROWSERS_PATH=E:\Program\playwright-browsers && python frontend/e2e/sim-demo-check.py`（需 Vite 在 5174） |
-| 实验库逐实验无头 E2E | 58（教材 55 + 高考层 3） | ✅ 58/58，内容一致，动画多帧，专项断言（α散射 7 元件对账+轨迹数；板块共速事件），0 控制台错误 | `python -u frontend/e2e/exp-lib-check.py [--ids a,b] [--url http://localhost:5173]`（API 登录 demo 账号后逐个打开 /exp/:id，断言仪器画布、**面板标题含该实验专属关键词（标题↔内容一致）**、**21 个应动实验点主按钮后间隔 400ms 两帧必须不同（动画正确性）**、点主按钮与记录按钮、收集控制台错误；需 Java 8080）。抓动画时间窗口帧用 `frontend/e2e/snap-stage.py --id <id> --click-main --at 600,1500,2600`（输出 ANIMATED/STATIC 判定） |
+| 演示页无头 E2E | 14 项 | ✅ 全过，0 控制台错误 | `set PLAYWRIGHT_BROWSERS_PATH=E:\Program\playwright-browsers && python frontend/e2e/sim-demo-check.py`（Vite 5173） |
+| 实验库逐实验无头 E2E | **120（教材 55 + 高考层 65）** | ✅ 120/120，内容一致，动画多帧，**高考层 65 卡每卡一项与解析解比对的物理量断言**（等时圆 √(4R/g)、回旋 q²B²R²/2m、磁聚焦 90°×5、伏安法 R_x∥R_V、棱镜 δ、光电 h 斜率…），0 控制台错误 | `python -u frontend/e2e/exp-lib-check.py [--ids a,b] [--url http://localhost:5173]`（API 登录 demo 账号后逐个打开 /exp/:id，断言仪器画布、**面板标题含该实验专属关键词（标题↔内容一致）**、**应动实验点主按钮后间隔 400ms 两帧必须不同（动画正确性）**、点主按钮与记录按钮、收集控制台错误、`extra_checks()` 专项物理断言；需 Java 8080）。抓动画时间窗口帧用 `frontend/e2e/snap-stage.py --id <id> --click-main --at 600,1500,2600`（输出 ANIMATED/STATIC 判定） |
+| **高考层媒体归档** | 65 截图 + 65 录屏 | ✅ | `python -u frontend/e2e/gaokao-media.py [--ids] [--no-video]`：逐卡运行，截图 → `docs/media/gaokao/<id>.png`（入库），录屏 → `frontend/e2e/out/video/<id>.webm`（本地） |
 | **电路正确性 E2E**（P0-2 验收项） | 11 实验 / 45 断言 | ✅ 11/11 | `python -u frontend/e2e/circuit-check.py [--ids a,b]`：经 DEV 钩子 `window.__circuitEditor` 脚本化搭电路，断言正确接法读数与理论一致（伏安法拟合 E/r、外接法 R、欧姆挡读数、RC τ、自感 τ、感抗）、判分通过、典型错接被故障检测抓住（电流表并联/带电测电阻）、暂态回放两帧不同；截图归档 `e2e/out/circuit-*.png` |
 | **实验台三维度 E2E** | 3 维度 / 16 断言（含贴紧提示） | ✅ 16/16 | `python -u frontend/e2e/lab-check.py [--no-run]`：登录后 /lab 逐维度切换，断言托盘元件集、模板数、模板载入后场景元件数、画布存在；2D「平抛运动」真实经 Java dyn4j 运行到 ended；截图 `e2e/out/lab-*.png` |
 
@@ -288,7 +298,8 @@ main ← feature/exp-b0 ← feature/exp-b1 ← feature/exp-b2 ← feature/exp-b3
 - ✅ **B9/B10/B11 首批（2026-09-16）**：多过程引擎模块 `engine/multiProcess.ts`、AI 解题讲解器 `SolutionExplainer.vue`（提示/完整/变式）、高考场景 3/20（板块模型 · 平抛+竖直圆周 · 加速→筛选→磁场），每场景带时间轴、临界事件、能量条、十段讲解模板
 - ✅ **B9 通用运行器 + B11 力学 12 场景（2026-09-16/17）**：`MechSceneDef` 接口 + `MechScene.vue` 运行器（e8191d1）后，力学场景以纯数据模块接入（`defs/gaokao/scenes/mech1–4.ts`，每个 200–300 行：init/step/draw/energy/readout/solution）。组 1（13de02c）：斜面弹簧 / 传送带+板块 / 连接体 / 碰撞弹簧 / 圆周临界五类 / 碰撞链；组 2（v3.1 补充模型）：等时圆 / 晾衣绳动态平衡 / 多过程直线运动+实时 v–t / 动量定理微元法。E2E 对每个模型做**物理量断言**（与解析解比对），不只看动画。B11 进度 13/20，剩电磁组 7 个（需 3D 运行器 EMScene）
 - 🛠 **运行器缺陷修复（本轮）**：`MechScene.vue` 只读区 `readout` 原为仅依赖参数的 computed，仿真运行中不刷新（所有场景受影响）；现显式依赖 `t` 逐帧刷新。同类坑：非响应式 `state` 被 computed 引用时必须手动加依赖
-- 📘 **方案书 v3.0 已落盘** `docs/实验库完整修复与扩展方案书-v3.0.md`（三层架构、P0、B9–B12、20 场景、AI 讲解器规格、验收 v3.0）；**上线暂停至 B12 通过**
+- 📘 **方案书 v3.0 已落盘** `docs/实验库完整修复与扩展方案书-v3.0.md`（三层架构、P0、B9–B12、20 场景、AI 讲解器规格、验收 v3.0）；~~上线暂停至 B12 通过~~ → **B12 已通过（2026-09-17），见下条**
+- ✅ **B11 全量 + B12 通过（2026-09-17）**：用户随后给出完整版 v3.1（分册清单合计 65 项，非标题所写 50）。注册表按清单重排（`gaokao-plan.ts`），新增 `EMScene.vue` 通用 3D 运行器与 `em-kit.ts`，两天内按 P0→P1→P2 交付 **65/65**：力学 18、电磁 27（含 3D 电路实验台：伏安法/电表改装/黑箱/变压器输电链路）、热学 4、光学振动波 6、近代物理 5、竞赛 5。每卡：讲解模板十一段 + 一项与解析解比对的 E2E 物理断言（`extra_checks()`）+ 截图（`docs/media/gaokao/`）+ 录屏（本地）。B12：vitest 92 / build / 实验库 120 / 电路 11 / 实验台 16 / 演示 14 全绿；`gaokao-ledger.test.ts` 自动对账并生成《高考竞赛层-元件与题型对账表》；上线评审 `docs/上线评审-v3.1-高考竞赛层.md`（结论：解除停上线，待用户人工验收）
 - ⚠️ **2026-09-15 复盘发现 P0-2：自由电路搭建引擎（CircuitEngine）从未交付**——B1 开工令明确要求“自由拖元件搭电路，必须做”，B1–B8 全程缺席，上线评审未查；12 个电路类实验现为“固定电路图 + 调参 + 坐标纸”模板，自由搭建为零。已立项修复，缺陷报告/元件清单/引擎规格见 `frontend/src/experiments/docs/p0-circuit/defect-report.md`。P0-1（3D 静图）已于 ced7e22 修复并经 9/9 帧采样实证关闭
 
 ### 待做（毕设主线，非实验库）
@@ -320,12 +331,16 @@ B4（电路引擎）和 B5（光学引擎）未独立开工，相关实验已用
 10. **共享组件必须经薄包装挂载（硬性）**：`ExperimentShell` 挂载实验组件时不传任何 props。凡是带必填 `mode`/配置 prop 的共享组件（`ExpConstraint`、`Exp3D`、`ExpHookePhoto`、`ExpTape`、`ExpCanvasPanels`…），注册表**禁止直接引用**，必须通过 `ExpPendulumG.vue` 这类 6 行薄包装传参（Vue 单根组件会把 shell 的 `@record` 等监听自动透传，无需手写转发）。曾因 `bx1-hooke` 直接挂 `ExpHookePhoto` 导致胡克定律页显示光电效应；E2E 的内容一致性断言（每实验一条关键词）是这条规则的自动守卫，新增实验必须同步在 `exp-lib-check.py` 的 `KEYWORDS` 里加一条
 11. **只保留一个前端 dev server**：Vite 端口被占时会自动漂到 5174，导致“改了代码但浏览器看的是旧端口的旧模块图”（2026-09-15 用户截图问题的直接原因）。开新会话前先 `netstat -ano | grep 5173`，有残留进程就先停掉再 `pnpm dev`；浏览器侧用 Ctrl+F5 强刷
 12. **验收制度（永久，2026-09-15 两个 P0 复盘后确立）**：P0-1“3D 动画是静图”与 P0-2“自由电路搭建引擎从未交付”暴露同一病根——验收只看流程不看教学本质。此后每批次验收必须同时满足：① **元件清单对账**（应有元件 vs 实际元件对账表，缺一不验）；② **动画正确性 E2E**（多帧采样，已固化为 `exp-lib-check.py` 的 `ANIMATED_IDS` 两帧必须不同）；③ **电路正确性 E2E**（连线/故障/判分实测，随 CircuitEngine 交付）；④ **物理正确性抽检**（每实验 ≥1 项物理量对比理论值，阈值写进用例）；⑤ **人工验收**（每批次人工逐实验操作，不得只靠自动化）；⑥ **截图/录屏归档**（每实验 ≥1 张运行截图 + 1 段多帧采样，`e2e/out/` + `snap-stage.py`）；⑦ **教学本质检查**（每实验问“学生能不能做这个实验的核心操作”，不能只问“能不能打开”）。开工令里的每条能力要求都必须出现在对应批次 DoD 里，DoD 缺项视为验收无效
+13. **高考/竞赛题层场景契约（2026-09-17，B11 全量交付后固化）**：① 清单唯一来源是 `registry/gaokao-plan.ts`（v3.1 §7.1 逐项编码；文档标题写 50 但分册合计 **65**，一律按 65 对账）；② 新场景 = 一个 `MechSceneDef`（2D/2.5D，`defs/gaokao/scenes/*.ts`）或 `EMSceneDef`（3D）数据模块 + `wrapScene/wrapEM` 薄包装 + `gaokao.ts` 的 `LIVE` 一行；同一物理模型的多个清单编号用 `variantScene/variantEM` 给不同默认搭法，禁止两个 id 直挂同一组件；③ 必须同时提交：`exp-lib-check.py` 的 `KEYWORDS`（标题关键词）+ `ANIMATED_IDS` + `extra_checks()` 里**一项与解析解比对的物理量断言**（阈值写死）；④ 讲解模板十一段全部非空、`readout(p, null)` 可用且无 NaN——`gaokao-ledger.test.ts` 会拦；⑤ 长会话写大文件曾连续三次“写入执行失败”（单次 Write 超大载荷被截断后原样重试），此后每个场景文件 ≤ 300 行、每组 2–3 场景一提交，接线用一次性 Python 补丁脚本而非十几次小编辑
+14. **3D 场景两条渲染坑（three.js）**：透明场区盒必须 `depthWrite=false`，否则盒内比前表面近的箭头/粒子被深度测试吃掉（表现为“电场箭头不见了”）；箭头组要沿局部 +y 建模再用四元数指向目标，`scale.y` 才沿箭头轴伸缩（沿其它方向建模再缩放会歪）。`textSprite` 已改为按文本宽度自适应画布，长中文标签不再裁切
 
 ## 十二、实验库文档索引
 
 | 文档 | 位置 |
 |:---|:---|
 | **实验库完整修复与扩展方案书 v3.0**（三层架构 / P0 / B9–B12 / 20 场景 / AI 讲解器 / 验收 v3.0，含执行状态表） | docs/实验库完整修复与扩展方案书-v3.0.md |
+| **上线评审 · v3.1 高考/竞赛题层（B11 65/65 + B12 全平台回归；结论：解除停上线）** | docs/上线评审-v3.1-高考竞赛层.md |
+| **高考竞赛层 · 元件与题型对账表**（自动生成：65 卡 × 运行器/元件参数/E2E 物理断言/讲解模板/截图） | docs/高考竞赛层-元件与题型对账表.md（`gaokao-ledger.test.ts` 生成）；截图 docs/media/gaokao/ |
 | **P0-2 缺陷报告：CircuitEngine 从未交付**（现状对账/12 元件清单/引擎规格/修复顺序/验收制度） | frontend/src/experiments/docs/p0-circuit/defect-report.md |
 | 需求规格说明书 v3.4.1（冻结） | docs/01-需求规格说明书_v3.4.1.md |
 | 教材实验清单 | docs/教材实验清单与平台覆盖.md |
