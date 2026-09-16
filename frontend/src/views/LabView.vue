@@ -642,6 +642,27 @@ onMounted(async () => {
     renderer = createSimRenderer(canvasRef.value)
     renderer.setDimension(dim.value)
   }
+  // 自由搭建（/sandbox）刚体沙盒交接：把沙盒元件换成 dyn4j 元件后直接进入本页
+  const handoff = localStorage.getItem('ps_sandbox_handoff')
+  if (handoff) {
+    localStorage.removeItem('ps_sandbox_handoff')
+    try {
+      const j = JSON.parse(handoff) as { name: string; elements: { type: string; x: number; y: number; params: Record<string, number> }[] }
+      const MAP: Record<string, string> = { particle: 'sphere', block: 'cube', slider: 'cube', cart: 'cube', incline: 'slope', ground: 'wall', wall: 'wall', particle_q: 'point_charge', b_region: 'b_field', deflect_field: 'e_field', accel_field: 'e_field', composite: 'b_field' }
+      const els: PhysicsElementInput[] = []
+      for (const e of j.elements) {
+        const type = MAP[e.type]; if (!type) continue
+        const d = defaultElement(type, (e.x - 300) / 40, type === 'wall' ? 0 : Math.max(0.6, (420 - e.y) / 40))
+        d.properties = { ...d.properties, mass: e.params.m ?? e.params.M ?? d.properties?.mass, friction: e.params.mu ?? d.properties?.friction, ...(e.params.qm !== undefined ? { charge: e.params.qm } : {}), ...(e.params.B !== undefined ? { bField: e.params.B } : {}) }
+        if (e.params.v0 !== undefined || e.params.v !== undefined) d.initialState = { velocity: { x: e.params.v0 ?? e.params.v ?? 0, y: 0 } }
+        if (type === 'slope') { const L = e.params.L ?? 4, th = ((e.params.th ?? 30) * Math.PI) / 180; d.scale = { x: L * Math.cos(th), y: L * Math.sin(th) } }
+        if (type === 'wall') { d.position = { x: 0, y: -0.1 }; d.scale = { x: 40, y: 0.2 } }
+        els.push(d)
+      }
+      if (els.length && !els.some((x) => x.type === 'wall')) els.push(defaultElement('wall', 0, -0.1))
+      if (els.length) { scene.name = j.name; scene.elements = els; toast.value = `已从自由搭建接入 ${els.length} 个元件，按 ▶ 运行`; nextTick(() => syncRenderer()) }
+    } catch { /* 交接数据损坏则忽略 */ }
+  }
   if (chartRef.value) {
     chart = echarts.init(chartRef.value)
     chart.setOption({

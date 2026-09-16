@@ -4,7 +4,8 @@
 <template>
   <nav class="topbar">
     <router-link to="/" class="brand">PhysiScene</router-link>
-    <router-link to="/lab">自由搭建</router-link>
+    <router-link to="/sandbox">自由搭建</router-link>
+    <router-link to="/lab">刚体实验台</router-link>
     <router-link to="/scenes">我的场景</router-link>
     <router-link to="/exp">实验库</router-link>
     <router-link to="/gaokao">高考竞赛</router-link>

@@ -34,6 +34,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/sandbox',
+      name: 'sandbox',
+      component: () => import('../sandbox/SandboxView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/exp/:id',
       name: 'exp-runner',
       component: () => import('../experiments/framework/ExperimentShell.vue'),
