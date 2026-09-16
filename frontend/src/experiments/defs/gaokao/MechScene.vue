@@ -62,7 +62,8 @@ function draw() {
 
 onMounted(() => { init(); loop = makeLoop((dt) => { if (running.value) step(dt); draw() }) })
 onUnmounted(() => loop?.stop())
-const readout = computed(() => props.def.readout({ ...p }, state))
+// state 不是响应式对象：显式依赖 t，使只读区随仿真逐帧刷新
+const readout = computed(() => { void t.value; void finished.value; return props.def.readout({ ...p }, state) })
 const solution = computed(() => props.def.solution({ ...p }))
 const fmtVal = (d: { step: number }, v: number) => (d.step >= 1 ? String(Math.round(v)) : v.toFixed(d.step < 0.1 ? 2 : 1))
 </script>

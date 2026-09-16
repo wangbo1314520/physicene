@@ -6,6 +6,8 @@ import MechScene from './MechScene.vue'
 import type { MechSceneDef } from '../../engine/mechScene'
 import { slopeSpring, conveyorBoard, connectedBodies } from './scenes/mech1'
 import { collisionSpring, circularCritical, collisionChain } from './scenes/mech2'
+import { isochrone, clothesline } from './scenes/mech3'
+import { multistage, impulseMicro } from './scenes/mech4'
 
 export function wrapScene(def: MechSceneDef<any>) {
   return defineComponent({
@@ -21,3 +23,7 @@ export const GkConnectedBodies = wrapScene(connectedBodies)
 export const GkCollisionSpring = wrapScene(collisionSpring)
 export const GkCircularCritical = wrapScene(circularCritical)
 export const GkCollisionChain = wrapScene(collisionChain)
+export const GkIsochrone = wrapScene(isochrone)
+export const GkClothesline = wrapScene(clothesline)
+export const GkMultistage = wrapScene(multistage)
+export const GkImpulseMicro = wrapScene(impulseMicro)

@@ -7,7 +7,7 @@ import type { ExperimentModule } from '../core/types'
 import GkBoardBlock from '../defs/gaokao/GkBoardBlock.vue'
 import GkProjectileLoop from '../defs/gaokao/GkProjectileLoop.vue'
 import GkAccelSelectorB from '../defs/gaokao/GkAccelSelectorB.vue'
-import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain } from '../defs/gaokao/mechWrappers'
+import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro } from '../defs/gaokao/mechWrappers'
 
 function gkSteps(operateHint: string): ExperimentModule['steps'] {
   return [
@@ -74,6 +74,22 @@ export const GAOKAO: ExperimentModule[] = [
     summary: '2–5 个球的碰撞链，质量相等/递增/递减，恢复系数 0–1：逐次碰撞事件、总动量守恒、动能损失；等质量弹性=牛顿摆。', available: true, batch: 'B11', layer: 'gaokao',
     tags: ['两体碰撞公式', '恢复系数', '速度传递', '二次碰撞'], component: GkCollisionChain as unknown as Component,
     steps: gkSteps('选个数与质量分布、e → ▶ 开始 → 看每次碰撞后的速度与能量条；e=1 等质量时末球得到 v₀') },
+  { id: 'gk-isochrone', name: '等时圆：多弦同时到达（模型 22）', book: MECH, chapter: '9 弦长 2Rcosα · a=gcosα · t=√(4R/g) 与弦无关', dimension: '2.5D',
+    summary: '从圆最高点沿多条光滑弦同时释放：弦长与加速度同比例缩小，全部同时到达圆周（t=√(4R/g)）；虚线对照轨更长、明显迟到。', available: true, batch: 'B11', layer: 'gaokao',
+    tags: ['等时圆', 'cosα 消去', '光滑弦', '对照轨', 'v3.1'], component: GkIsochrone as unknown as Component,
+    steps: gkSteps('调 R → ▶ 开始 → 看各球到达时刻（全等于 √(4R/g)）→ 对照轨更晚到 → 调 R 验证 t 只依赖 R') },
+  { id: 'gk-clothesline', name: '晾衣绳动态平衡（模型 23）', book: MECH, chapter: '10 共点力平衡 · T=mg/(2cosα) 与杆高无关 · 拉断判据', dimension: '2.5D',
+    summary: '绳两端挂杆、衣服居中：①拉开两杆 d 增大 → sinα=d/L 增大、cosα 减小 → T 增大；②同步降杆验证张力与杆高无关；③继续拉到 T>T_max 绳断 → ④自由落体。', available: true, batch: 'B11', layer: 'gaokao',
+    tags: ['共点力平衡', 'sinα=d/L', '与杆高无关', '断绳临界', 'v3.1'], component: GkClothesline as unknown as Component,
+    steps: gkSteps('调 L、m、T_max、d₀ → ▶ 开始 → 看 T 条随 d 增长；阶段②降杆观察 T 不变；对照断绳临界 d=L√(1−(mg/2T_max)²)') },
+  { id: 'gk-multistage', name: '多过程直线运动 + 实时 v–t（模型 25）', book: MECH, chapter: '11 分段运动学 · v–t 面积=位移 · 往返穿轴', dimension: '2.5D',
+    summary: '加速→匀速→刹车 / 加速→立即减速（三角形）/ 正向减速→反向加速（往返）三种搭法；v–t 图实时生长、分段底色、分段数据表、面积=位移。', available: true, batch: 'B11', layer: 'gaokao',
+    tags: ['多过程', 'v–t 图', '面积=位移', '往返', '分段数据表', 'v3.1'], component: GkMultistage as unknown as Component,
+    steps: gkSteps('选搭法 → 调 a₁、t₁、t₂、a₂/v₀ → ▶ 开始 → 盯 v–t 曲线生长与分段表；往返搭法看图线穿过 t 轴、回到 x=0') },
+  { id: 'gk-impulse-micro', name: '动量定理 + 微元法（模型 31）', book: MECH, chapter: '12 I=∫Fdt=ΣF·Δt=Δp · F–t 图微元矩形', dimension: '2.5D',
+    summary: '四种 F(t)（恒力/斜坡/半正弦/窄尖峰）：把作用时间切成宽 Δt 的微元矩形逐个累积 I，与 Δp=mΔv、解析 ∫Fdt 三方对照；Δt 越小误差越小。', available: true, batch: 'B11', layer: 'gaokao',
+    tags: ['动量定理', '微元法', '冲量=面积', '变力', 'Δt 收敛', 'v3.1'], component: GkImpulseMicro as unknown as Component,
+    steps: gkSteps('选 F(t) 形状 → 调 F₀、T、Δt → ▶ 开始 → 看绿色微元矩形逐个累积；结束后把 Δt 调小一半重跑，看误差减小') },
   {
     id: 'gk-accel-selector-b', name: '加速电场 → 速度筛选器 → 磁场', book: EM, chapter: '9 动能定理 · E/B 平衡 · 洛伦兹力', dimension: '3D',
     summary: '三区域多过程：qU=½mv² → v=E/B 才能直线通过筛选器 → 磁场中半圆 r=mv/(qB₃) 打到底片；含 AI 解题讲解。',

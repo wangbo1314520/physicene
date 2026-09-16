@@ -80,6 +80,10 @@ KEYWORDS = {
     "gk-collision-spring": "碰撞 + 弹簧",
     "gk-circular-critical": "竖直圆周临界",
     "gk-collision-chain": "碰撞链",
+    "gk-isochrone": "等时圆",
+    "gk-clothesline": "晾衣绳",
+    "gk-multistage": "多过程直线运动",
+    "gk-impulse-micro": "动量定理 + 微元法",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -91,6 +95,7 @@ ANIMATED_IDS = {
     "bx1-action-reaction", "bx1-conical-pendulum", "bx2-centripetal", "bx1-newton-tube",
     "bx2-work-velocity", "xb3-gas-isotherm", "bx1-galileo-ramp", "xb2-em-oscillation",
     "bx2-circular-life", "bx2-motion-composition", "bx1-inertia", "bx2-energy", "gk-board-block", "gk-projectile-loop", "gk-accel-selector-b", "gk-slope-spring", "gk-conveyor-board", "gk-connected-bodies", "gk-collision-spring", "gk-circular-critical", "gk-collision-chain",
+    "gk-isochrone", "gk-clothesline", "gk-multistage", "gk-impulse-micro",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 
@@ -122,6 +127,46 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} 板块模型：运行后出现共速事件与理论对照")
         if not ok:
             failures.append(f"{exp_id}: 未出现共速事件")
+    if exp_id == "gk-isochrone":
+        page.wait_for_timeout(2500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"到达时刻实测：([\d.]+(?: , [\d.]+)*) s", txt)
+        ts = [float(x) for x in m.group(1).split(" , ")] if m else []
+        t_th = (4 * 0.8 / 9.8) ** 0.5
+        ok = len(ts) >= 5 and max(ts) - min(ts) <= 0.02 and abs(sum(ts) / len(ts) - t_th) <= 0.03 and "对照轨到达" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 等时圆：{len(ts)} 球到达时刻 {ts}，理论 √(4R/g)={t_th:.3f} s，对照轨迟到")
+        if not ok:
+            failures.append(f"{exp_id}: 等时性断言失败 {ts}")
+    if exp_id == "gk-clothesline":
+        page.wait_for_timeout(8000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"T 恒为 ([\d.]+) N", txt)
+        t_meas = float(m.group(1)) if m else -1.0
+        d, L, mg = 0.8 * 2.0, 2.0, 2 * 9.8
+        t_th = mg * L / (2 * (L * L - d * d) ** 0.5)
+        ok = "与杆高无关" in txt and abs(t_meas - t_th) <= 0.3
+        lines.append(f"  {'✓' if ok else '✗'} 晾衣绳：降杆阶段 T 恒为 {t_meas} N（理论 mgL/2√(L²−d²)={t_th:.2f} N），与杆高无关")
+        if not ok:
+            failures.append(f"{exp_id}: 张力断言失败 {t_meas} vs {t_th:.2f}")
+    if exp_id == "gk-multistage":
+        page.wait_for_timeout(6500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"停止：总位移 x=([\d.]+) m", txt)
+        x = float(m.group(1)) if m else -1.0
+        ok = abs(x - 15.2) <= 0.15
+        lines.append(f"  {'✓' if ok else '✗'} 多过程直线运动：停止时总位移 {x} m（理论 ½a₁t₁²+v_max·t₂+v_max²/2a₂=15.20 m）")
+        if not ok:
+            failures.append(f"{exp_id}: 总位移断言失败 {x}")
+    if exp_id == "gk-impulse-micro":
+        page.wait_for_timeout(4000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"Δp=m·Δv=([\d.]+)", txt)
+        dp = float(m.group(1)) if m else -1.0
+        i_th = 2 * 20 * 2 / 3.141592653589793
+        ok = abs(dp - i_th) <= 0.3 and "解析 I=∫Fdt=" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 动量定理：Δp={dp} kg·m/s vs 解析冲量 2F₀T/π={i_th:.2f} N·s，微元误差行已输出")
+        if not ok:
+            failures.append(f"{exp_id}: 动量定理断言失败 {dp} vs {i_th:.2f}")
     return lines
 
 
