@@ -8,6 +8,7 @@ import GkBoardBlock from '../defs/gaokao/GkBoardBlock.vue'
 import GkProjectileLoop from '../defs/gaokao/GkProjectileLoop.vue'
 import GkAccelSelectorB from '../defs/gaokao/GkAccelSelectorB.vue'
 import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro } from '../defs/gaokao/mechWrappers'
+import { GkAccelDeflectScreen, GkBThenE } from '../defs/gaokao/emWrappers'
 
 function gkSteps(operateHint: string): ExperimentModule['steps'] {
   return [
@@ -97,8 +98,14 @@ export const GAOKAO: ExperimentModule[] = [
     component: GkAccelSelectorB as unknown as Component,
     steps: gkSteps('调 U 使 v=√(2qU/m) 等于 E/B → ▶ 播放 → 看粒子能否直线通过筛选器、磁场中半径 → 改 B₃ 看落点 2r'),
   },
-  planned('gk-accel-deflect-screen', '加速电场 → 偏转电场 → 荧光屏', '10 类平抛 · 偏转角 · 侧移', '3D', ['类平抛', '偏转角', '侧移'], EM),
-  planned('gk-b-then-e', '磁场 → 电场组合', '11 圆周 + 类平抛切换', '3D', ['圆周运动', '类平抛', '过程切换'], EM),
+  { id: 'gk-accel-deflect-screen', name: '加速电场 → 偏转电场 → 荧光屏', book: EM, chapter: '10 类平抛 · 偏转角 · 侧移', dimension: '3D',
+    summary: '示波管原型：qU₁=½mv₀² 加速 → 平行板内类平抛（y₁=U₂L²/4dU₁、tanθ=U₂L/2dU₁，与比荷无关）→ 出板直线打屏 Y=y₁+D·tanθ；撞板临界 y₁>d/2。', available: true, batch: 'B11', layer: 'gaokao',
+    tags: ['类平抛', '偏转角', '侧移', '反向延长线过板中点', '与比荷无关'], component: GkAccelDeflectScreen as unknown as Component,
+    steps: gkSteps('调 U₁、U₂、L、D → ▶ 播放 → 看出板时的 y₁、θ 与屏上 Y 是否与理论一致；调大 U₂ 直到撞板') },
+  { id: 'gk-b-then-e', name: '磁场 → 电场组合', book: EM, chapter: '11 圆周 + 类平抛切换', dimension: '3D',
+    summary: '先磁后电：有界磁场中 r=mv/(qB)，r>W 以 sinθ=W/r 穿出（出射点上移 r(1−cosθ)），进入竖直电场类平抛打屏；r≤W 转半圆折返。', available: true, batch: 'B11', layer: 'gaokao',
+    tags: ['圆周运动', '类平抛', '过程切换', '穿出条件 r>W', '偏转角 sinθ=W/r'], component: GkBThenE as unknown as Component,
+    steps: gkSteps('调 v、B 使 r>W 或 r≤W → ▶ 播放 → 看穿出角 θ 与出射点；调 E 看屏上落点变化') },
   planned('gk-cyclotron', '回旋加速器', '12 交变电场 · 最大动能 · 周期', '3D', ['交变电场', '最大动能', '周期'], EM),
   planned('gk-mass-spectrometer', '质谱仪', '13 加速 · 筛选 · 偏转 · 质量分辨', '3D', ['加速', '速度筛选', '偏转', '质量分辨'], EM),
   planned('gk-rail-rod', '电磁感应 + 导轨 + 导体棒', '14 楞次 · 安培力 · 动量 · 能量', '3D', ['楞次定律', '安培力', '动量', '能量'], EM),

@@ -97,19 +97,22 @@ export function makeTracker(getScene: () => THREE.Scene | null) {
   }
 }
 
-/** 文字贴图精灵（用于刻度、元件名） */
+/** 文字贴图精灵（用于刻度、元件名）：画布宽度按文本自适应，长标签不裁切 */
 export function textSprite(text: string, opts: { color?: string; size?: number; scale?: number } = {}): THREE.Sprite {
-  const cv = document.createElement('canvas')
   const px = opts.size ?? 28
-  cv.width = 256; cv.height = 64
+  const probe = document.createElement('canvas').getContext('2d')!
+  probe.font = `${px}px system-ui, sans-serif`
+  const width = Math.max(256, Math.ceil(probe.measureText(text).width) + 24)
+  const cv = document.createElement('canvas')
+  cv.width = width; cv.height = 64
   const ctx = cv.getContext('2d')!
   ctx.font = `${px}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-  ctx.fillStyle = opts.color ?? '#b0b0cc'; ctx.fillText(text, 128, 32)
+  ctx.fillStyle = opts.color ?? '#b0b0cc'; ctx.fillText(text, width / 2, 32)
   const tex = new THREE.CanvasTexture(cv)
   tex.minFilter = THREE.LinearFilter
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }))
   const s = opts.scale ?? 1
-  sp.scale.set(4 * s, 1 * s, 1)
+  sp.scale.set((4 * s * width) / 256, 1 * s, 1)
   return sp
 }
 

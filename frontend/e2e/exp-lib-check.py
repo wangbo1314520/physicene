@@ -84,6 +84,8 @@ KEYWORDS = {
     "gk-clothesline": "晾衣绳",
     "gk-multistage": "多过程直线运动",
     "gk-impulse-micro": "动量定理 + 微元法",
+    "gk-accel-deflect-screen": "偏转电场",
+    "gk-b-then-e": "磁场 → 电场",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -96,6 +98,7 @@ ANIMATED_IDS = {
     "bx2-work-velocity", "xb3-gas-isotherm", "bx1-galileo-ramp", "xb2-em-oscillation",
     "bx2-circular-life", "bx2-motion-composition", "bx1-inertia", "bx2-energy", "gk-board-block", "gk-projectile-loop", "gk-accel-selector-b", "gk-slope-spring", "gk-conveyor-board", "gk-connected-bodies", "gk-collision-spring", "gk-circular-critical", "gk-collision-chain",
     "gk-isochrone", "gk-clothesline", "gk-multistage", "gk-impulse-micro",
+    "gk-accel-deflect-screen", "gk-b-then-e",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 
@@ -167,6 +170,32 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} 动量定理：Δp={dp} kg·m/s vs 解析冲量 2F₀T/π={i_th:.2f} N·s，微元误差行已输出")
         if not ok:
             failures.append(f"{exp_id}: 动量定理断言失败 {dp} vs {i_th:.2f}")
+    if exp_id == "gk-accel-deflect-screen":
+        page.wait_for_timeout(6500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"打到荧光屏：Y=(-?[\d.]+) m", txt)
+        y = float(m.group(1)) if m else -99.0
+        u1, u2, L, D, d = 10, 2, 4, 4, 2
+        y_th = (u2 * L / (2 * d * u1)) * (L / 2 + D)
+        ok = abs(y - y_th) <= 0.06
+        lines.append(f"  {'✓' if ok else '✗'} 偏转电场荧光屏：Y={y} m（理论 (U₂L/2dU₁)(L/2+D)={y_th:.2f} m）")
+        if not ok:
+            failures.append(f"{exp_id}: 屏上侧移断言失败 {y} vs {y_th:.2f}")
+    if exp_id == "gk-b-then-e":
+        page.wait_for_timeout(5500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"打到屏：y=(-?[\d.]+) m", txt)
+        y = float(m.group(1)) if m else -99.0
+        v, B, E, W, y0 = 8.0, 0.6, 3.0, 8.0, -3.0
+        r = v / B
+        sin_t = W / r
+        cos_t = (1 - sin_t ** 2) ** 0.5
+        t_e = 8.0 / (v * cos_t)
+        y_th = y0 + r * (1 - cos_t) + v * sin_t * t_e - 0.5 * E * t_e ** 2
+        ok = abs(y - y_th) <= 0.1 and "穿出磁场" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 磁场→电场：屏上 y={y} m（理论 {y_th:.2f} m，r={r:.2f}>W 穿出 θ={__import__('math').degrees(__import__('math').asin(sin_t)):.1f}°）")
+        if not ok:
+            failures.append(f"{exp_id}: 组合场落点断言失败 {y} vs {y_th:.2f}")
     return lines
 
 
