@@ -10,7 +10,7 @@ import GkBoardBlock from '../defs/gaokao/GkBoardBlock.vue'
 import GkProjectileLoop from '../defs/gaokao/GkProjectileLoop.vue'
 import GkAccelSelectorB from '../defs/gaokao/GkAccelSelectorB.vue'
 import { GkSlopeSpring, GkConveyorBoard, GkConnectedBodies, GkCollisionSpring, GkCircularCritical, GkCollisionChain, GkIsochrone, GkClothesline, GkMultistage, GkImpulseMicro, GkPrismRefraction, GkWaveMultiSolution, GkVibrationWaveGraphs, GkPhotoelectricEkNu, GkHydrogenLevels, GkObliqueProjectile, GkWeightChange } from '../defs/gaokao/mechWrappers'
-import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti, GkCompositeField, GkCyclotron, GkRailRod, GkRodFree, GkRodForce, GkDoubleRod, GkRodCapacitor, GkVoltAmmeterResistance, GkMeterConversion, GkTransformerTransmission, GkTransformerDynamic, GkPowerTransmission, GkAcFourValues } from '../defs/gaokao/emWrappers'
+import { GkAccelDeflectScreen, GkBThenE, GkVelocitySelector, GkMassSpectrometer, GkEBEMulti, GkCompositeField, GkCyclotron, GkRailRod, GkRodFree, GkRodForce, GkDoubleRod, GkRodCapacitor, GkVoltAmmeterResistance, GkMeterConversion, GkTransformerTransmission, GkTransformerDynamic, GkPowerTransmission, GkAcFourValues, GkBBCombo, GkFrameThroughB, GkRodInclineB } from '../defs/gaokao/emWrappers'
 
 function gkSteps(operateHint: string): ExperimentModule['steps'] {
   return [
@@ -71,6 +71,9 @@ const LIVE: Record<string, Live> = {
   'gk-transformer-dynamic': { component: GkTransformerDynamic, summary: '模型 45：铁芯 + 原副线圈 + 交流源 + 负载 R，U₂ 由匝数比决定、I₂ 由负载决定、I₁ 随 I₂ 变（原边随副边）、P₁=P₂；原副边电流粒子流速对应电流大小。', hint: '调 n₂ 看 U₂ 变化；调 R 看 I₂、I₁ 同时变而 U₂ 不变；核对 P₁=P₂' },
   'gk-power-transmission': { component: GkPowerTransmission, summary: '模型 46：I=P/(kU)、P_损=I²r、ΔU=Ir、用户电压 (kU−Ir)/k 与效率 η；调升压比 k、线路电阻 r、发电功率 P 观察损耗与用户电压。', hint: '调 k 看损耗按 1/k² 下降；调 r 看 ΔU 与 P_损 线性/平方增长' },
   'gk-ac-four-values': { component: GkAcFourValues, summary: '矩形线圈在 B 中匀速转动（慢放）：滑环电刷输出到灯泡，e–t 曲线板实时生长；峰值 NBSω、有效值 /√2、半周期平均值 2E_m/π、瞬时值；中性面与平行位置事件。', hint: '▶ 播放 → 看线圈过中性面时 e=0、灯最暗；过平行位置 e=E_m；读四个值并对应用途（耐压/热量/电荷量/方向）' },
+  'gk-b-b-combo': { component: GkBBCombo, summary: '两区反向磁场 S 形轨迹 / 同向不等磁场半径突变 / 圆形磁场 r=R 磁聚焦（同一点五个方向射入全部平行射出）；过边界速率不变、半径按 B 反比。', hint: '默认磁聚焦 → ▶ 播放 → 五条轨迹平行射出；切到反向两区看 S 形，同向两区看半径突变' },
+  'gk-frame-through-b': { component: GkFrameThroughB, summary: '矩形线框滑向磁场区：进入（前边切割减速）→ 完全在内（无电流匀速）→ 穿出（后边切割反向电流）五阶段；i–t 板实时；Δv=B²L²a/(mR)、q=BLa/R 与速度无关。', hint: '▶ 播放 → 看三段速度 4→3→2 与 i–t 脉冲；切到“恒外力维持匀速”看 i 变方波' },
+  'gk-rod-incline-b': { component: GkRodInclineB, summary: '倾斜导轨（可选 B 垂直斜面 / 竖直）上的导体棒由静止释放：mg sinθ 与安培力竞争到终速 v_m=mgR sinθ/(B²L²)（竖直 B 多 1/cos²θ）；稳态重力功率=焦耳热功率。', hint: '▶ 播放 → 看 v 趋近 v_m 与稳态功率平衡；切 B 竖直看有效切割变 BL cosθ' },
   'gk-meter-conversion': { component: GkMeterConversion, summary: '灵敏电流计 G 改装：并联 R_并=I_gR_g/(I−I_g) 成电流表（粒子流分流可见）或串联 R_串=U/I_g−R_g 成电压表；输入信号按量程比例输入，表头偏转比例一致（线性刻度）。', hint: '选改装类型 → 调 I_g、R_g、量程 → 调“输入/量程”滑杆看指针偏转比例是否一致 → 读改装后内阻' },
 }
 

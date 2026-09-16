@@ -113,6 +113,9 @@ KEYWORDS = {
     "gk-transformer-dynamic": "变压器 + 远距离输电",
     "gk-power-transmission": "变压器 + 远距离输电",
     "gk-ac-four-values": "交变电流四值",
+    "gk-b-b-combo": "磁场与磁场组合",
+    "gk-frame-through-b": "线框进出磁场",
+    "gk-rod-incline-b": "倾斜导轨",
 }
 
 ALL_IDS = list(KEYWORDS.keys())
@@ -131,7 +134,7 @@ ANIMATED_IDS = {
     "gk-rail-rod", "gk-rod-free", "gk-rod-force", "gk-double-rod", "gk-rod-capacitor",
     "gk-prism-refraction", "gk-wave-multi-solution", "gk-vibration-wave-graphs", "gk-photoelectric-ek-nu", "gk-hydrogen-levels",
     "gk-volt-ammeter-resistance", "gk-meter-conversion", "gk-oblique-projectile", "gk-weight-change",
-    "gk-transformer-transmission", "gk-transformer-dynamic", "gk-power-transmission", "gk-ac-four-values",
+    "gk-transformer-transmission", "gk-transformer-dynamic", "gk-power-transmission", "gk-ac-four-values", "gk-b-b-combo", "gk-frame-through-b", "gk-rod-incline-b",
 }
 STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d canvas, .clab canvas"
 
@@ -440,6 +443,32 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} 交变电流四值：E_m={em} V（理论 NBSω=31.4），有效值 22.2 V")
         if not ok:
             failures.append(f"{exp_id}: 四值断言失败 {em}")
+    if exp_id == "gk-b-b-combo":
+        page.wait_for_timeout(3500)
+        txt = page.locator(".panel").inner_text()
+        angs = [float(a) for a in re.findall(r"速度方向 (-?[\d.]+)°（都平行", txt)]
+        ok = len(angs) == 5 and all(abs(a - 90) <= 1.0 for a in angs)
+        lines.append(f"  {'✓' if ok else '✗'} 磁聚焦：5 条轨迹出射方向 {angs}（理论全部 90°，平行于 +y）")
+        if not ok:
+            failures.append(f"{exp_id}: 磁聚焦断言失败 {angs}")
+    if exp_id == "gk-frame-through-b":
+        page.wait_for_timeout(3000)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"完全进入：v=([\d.]+) m/s", txt)
+        v = float(m.group(1)) if m else -1.0
+        ok = abs(v - 3.0) <= 0.03 and "q=1.000" in txt
+        lines.append(f"  {'✓' if ok else '✗'} 线框进入：完全进入时 v={v} m/s（理论 v₀−B²L²a/mR=3.00），q=BLa/R=1.000 C")
+        if not ok:
+            failures.append(f"{exp_id}: 线框进入断言失败 {v}")
+    if exp_id == "gk-rod-incline-b":
+        page.wait_for_timeout(6500)
+        txt = page.locator(".panel").inner_text()
+        m = re.search(r"达终速 99%：v_m=([\d.]+) m/s", txt)
+        vm = float(m.group(1)) if m else -1.0
+        ok = abs(vm - 4.9) <= 0.01
+        lines.append(f"  {'✓' if ok else '✗'} 斜面导轨：终速 v_m={vm} m/s（理论 mgR sinθ/(B²L²)=4.90）")
+        if not ok:
+            failures.append(f"{exp_id}: 斜面终速断言失败 {vm}")
     return lines
 
 

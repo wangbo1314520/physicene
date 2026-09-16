@@ -10,6 +10,7 @@ import { compositeField, cyclotron } from './scenes/em3'
 import { railRod } from './scenes/em4'
 import { voltAmmeterResistance, meterConversion } from './scenes/em5'
 import { transformerTransmission, acFourValues } from './scenes/em6'
+import { bbCombo, frameThroughB, rodInclineB } from './scenes/em7'
 
 export function wrapEM(def: EMSceneDef<any>) {
   return defineComponent({
@@ -43,3 +44,6 @@ export const GkTransformerTransmission = wrapEM(transformerTransmission)
 export const GkTransformerDynamic = variantEM(transformerTransmission, 'gk-transformer-dynamic', { setup: 0 })
 export const GkPowerTransmission = variantEM(transformerTransmission, 'gk-power-transmission', { setup: 1 })
 export const GkAcFourValues = wrapEM(acFourValues)
+export const GkBBCombo = wrapEM(bbCombo)
+export const GkFrameThroughB = wrapEM(frameThroughB)
+export const GkRodInclineB = wrapEM(rodInclineB)
