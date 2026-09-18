@@ -36,7 +36,7 @@ let camera: THREE.OrthographicCamera
 let rafId = 0
 let disposed = false
 
-const meshMap = new Map<string, { obj: THREE.Object3D; baseAngle: number; tick?: (dt: number) => void }>()
+const meshMap = new Map<string, { obj: THREE.Object3D; baseAngle: number; tick?: (dt: number) => void; sig: string }>()
 const lineMap = new Map<string, THREE.Line>()
 let anchorGroup: THREE.Group
 let overlayGroup: THREE.Group   // 吸附预览（黄线 + 锚点圈）
@@ -103,7 +103,7 @@ function toWorld(clientX: number, clientY: number): { x: number; y: number } {
   return { x: worldPt.x, y: worldPt.y }
 }
 
-/** 命中测试：返回元件 id（含子网格向上回溯） */
+/** 命中测试：先精确射线；未命中时回退到包围盒邻近（0.8m）——斜面等原点在角点的元件指针恰落在网格边界上 */
 function hitElement(clientX: number, clientY: number): string | null {
   const el = rootEl.value!
   const r = el.getBoundingClientRect()
@@ -113,7 +113,16 @@ function hitElement(clientX: number, clientY: number): string | null {
     const hits = raycaster.intersectObject(entry.obj, true)
     if (hits.length) return id
   }
-  return null
+  const p = toWorld(clientX, clientY)
+  let bestId: string | null = null
+  let bestDist = 0.8
+  const box = new THREE.Box3()
+  for (const [id, entry] of meshMap) {
+    box.setFromObject(entry.obj)
+    const d = box.distanceToPoint(new THREE.Vector3(p.x, p.y, 0))
+    if (d < bestDist) { bestDist = d; bestId = id }
+  }
+  return bestId
 }
 
 /** 命中锚点手柄（连线模式） */
@@ -140,12 +149,23 @@ function syncMeshes() {
   const seen = new Set<string>()
   for (const e of props.elements) {
     seen.add(e.id)
+    const sig = `${e.type}:${JSON.stringify(e.params)}`
     let entry = meshMap.get(e.id)
+    if (entry && entry.sig !== sig) {
+      // 参数变更 → 重建几何（尺寸类参数 L/R/k 等决定网格形状）
+      scene.remove(entry.obj)
+      entry.obj.traverse((o) => {
+        const m = o as THREE.Mesh
+        if (m.geometry) m.geometry.dispose()
+      })
+      meshMap.delete(e.id)
+      entry = undefined
+    }
     if (!entry) {
       const built = buildUnifiedMesh(e)
       built.mesh.userData.elemId = e.id
       scene.add(built.mesh)
-      entry = { obj: built.mesh, baseAngle: built.baseAngle, tick: built.tick }
+      entry = { obj: built.mesh, baseAngle: built.baseAngle, tick: built.tick, sig }
       meshMap.set(e.id, entry)
     }
     const pose = poseOf(e)
@@ -322,6 +342,7 @@ function loop(t: number) {
   const dt = lastT ? Math.min(0.1, (t - lastT) / 1000) : 0
   lastT = t
   for (const entry of meshMap.values()) entry.tick?.(dt)
+  syncMeshes() // 每帧同步：运行态 runStates 帧位姿驱动网格（编辑态值不变无开销）
   syncLinks()
   syncAnchors()
   syncSelection()
