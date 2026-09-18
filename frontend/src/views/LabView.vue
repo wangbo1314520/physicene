@@ -254,8 +254,8 @@ const TEMPLATES: Record<SimDimension, LabTemplate[]> = {
   '3D': [
     { name: '正负点电荷的电场线', desc: '两个固定异号电荷（电偶极子），旋转视角看空间电场线从正到负',
       gravity: 0,
-      elements: [mk('point_charge', 'qp', -3, 0, { isFixed: true, color: '#E05555', properties: { mass: 1, charge: 2 } }),
-        mk('point_charge', 'qn', 3, 0, { isFixed: true, color: '#4A90D9', properties: { mass: 1, charge: -2 } })] },
+      elements: [mk('point_charge', 'qp', -3, 0, { fixed: true, color: '#E05555', properties: { mass: 1, charge: 2 } }),
+        mk('point_charge', 'qn', 3, 0, { fixed: true, color: '#4A90D9', properties: { mass: 1, charge: -2 } })] },
     { name: '匀强电场中的加速与偏转', desc: '带电小球沿场方向加速；再给它横向初速看抛物线偏转',
       gravity: 0,
       elements: [mk('e_field', 'ef', 0, 0, { scale: { x: 16, y: 8 }, properties: { eFieldX: 1, eFieldY: 0 } }),
@@ -294,24 +294,24 @@ function defaultElement(type: string, x: number, y: number): PhysicsElementInput
 
   typeCounter[type] = (typeCounter[type] ?? 0) + 1
   const base = type === 'wall'
-    ? { scale: { x: 20, y: 0.2 }, isFixed: true, color: '#8a8aa0' }
+    ? { scale: { x: 20, y: 0.2 }, fixed: true, color: '#8a8aa0' }
     : type === 'slope'
-      ? { scale: { x: 2, y: 2.3 }, isFixed: true, color: '#3ecf8e' }
+      ? { scale: { x: 2, y: 2.3 }, fixed: true, color: '#3ecf8e' }
       : type === 'sphere'
-        ? { scale: { x: 1, y: 1 }, isFixed: false, color: '#F5C542' }
+        ? { scale: { x: 1, y: 1 }, fixed: false, color: '#F5C542' }
         : type === 'point_charge'
-          ? { scale: { x: 0.6, y: 0.6 }, isFixed: false, color: '#E05555' }
+          ? { scale: { x: 0.6, y: 0.6 }, fixed: false, color: '#E05555' }
           : type === 'e_field'
-            ? { scale: { x: 12, y: 6 }, isFixed: true, color: '#7fb3ff' }
+            ? { scale: { x: 12, y: 6 }, fixed: true, color: '#7fb3ff' }
             : type === 'b_field'
-              ? { scale: { x: 12, y: 12 }, isFixed: true, color: '#c78bff' }
+              ? { scale: { x: 12, y: 12 }, fixed: true, color: '#c78bff' }
               : type === 'belt'
-                ? { scale: { x: 4, y: 0.3 }, isFixed: true, color: '#3ecf8e' }
+                ? { scale: { x: 4, y: 0.3 }, fixed: true, color: '#3ecf8e' }
                 : type === 'loop_track'
-                  ? { scale: { x: 2, y: 2 }, isFixed: true, color: '#b06ce6' }
+                  ? { scale: { x: 2, y: 2 }, fixed: true, color: '#b06ce6' }
                   : type === 'rope' || type === 'spring' || type === 'pulley'
-                    ? { scale: { x: 1, y: 1 }, isFixed: true, color: '#d9a05a' }
-                    : { scale: { x: 1, y: 1 }, isFixed: false, color: '#4A90D9' }
+                    ? { scale: { x: 1, y: 1 }, fixed: true, color: '#d9a05a' }
+                    : { scale: { x: 1, y: 1 }, fixed: false, color: '#4A90D9' }
   const properties: Record<string, any> = type === 'e_field' ? { eFieldX: 1, eFieldY: 0 }
     : type === 'b_field' ? { bField: 1, bDirection: 'out' }
       : type === 'point_charge' ? { mass: 1, charge: 1, friction: 0, restitution: 0 }
@@ -329,7 +329,7 @@ function defaultElement(type: string, x: number, y: number): PhysicsElementInput
     properties,
     params,
     initialState: { velocity: { x: 0, y: 0 } },
-    isFixed: type === 'belt' || type === 'loop_track' ? true : base.isFixed,
+    fixed: type === 'belt' || type === 'loop_track' ? true : base.fixed,
     color: base.color,
   }
 }
@@ -851,7 +851,7 @@ onUnmounted(() => {
               <label>区域高 (m) <input type="number" step="1" min="1" v-model.number="selected.scale!.y" :disabled="busy"></label>
             </div>
           </template>
-          <template v-else-if="!selected.isFixed">
+          <template v-else-if="!selected.fixed">
             <div class="row">
               <label>质量 (kg) <input type="number" step="0.5" min="0.01" v-model.number="selected.properties!.mass" :disabled="busy"></label>
               <label>摩擦 μ <input type="number" step="0.05" min="0" max="1" v-model.number="selected.properties!.friction" :disabled="busy"></label>
@@ -864,12 +864,12 @@ onUnmounted(() => {
               <label>初速 vy (m/s) <input type="number" step="1" v-model.number="selected.initialState!.velocity!.y" :disabled="busy"></label>
               <label v-if="selected.type === 'point_charge' || dim === '3D'">电荷量 q (C) <input type="number" step="0.5" v-model.number="selected.properties!.charge" :disabled="busy"></label>
             </div>
-            <label v-if="selected.type === 'point_charge'" class="chk"><input type="checkbox" v-model="selected.isFixed" :disabled="busy"> 固定为场源（不运动）</label>
+            <label v-if="selected.type === 'point_charge'" class="chk"><input type="checkbox" v-model="selected.fixed" :disabled="busy"> 固定为场源（不运动）</label>
           </template>
           <template v-else>
             <p class="hint">固定元件（不参与运动统计）</p>
             <label v-if="selected.type === 'point_charge'">电荷量 q (C) <input type="number" step="0.5" v-model.number="selected.properties!.charge" :disabled="busy"></label>
-            <label v-if="selected.type === 'point_charge'" class="chk"><input type="checkbox" v-model="selected.isFixed" :disabled="busy"> 固定为场源</label>
+            <label v-if="selected.type === 'point_charge'" class="chk"><input type="checkbox" v-model="selected.fixed" :disabled="busy"> 固定为场源</label>
           </template>
           <button class="danger" :disabled="busy" @click="removeSelected">删除元件</button>
         </template>

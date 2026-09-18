@@ -384,7 +384,7 @@ const presets = reactive<Record<string, Preset>>({
       // 对应偏转角约 5° / 8.5° / 28° / 65° / 155°（tan(θ/2)=KQq/(mv²b)）。
       // x 错开发射：避开 α 粒子之间的库仑斥力互相干扰（同 x 时近距对会明显互斥）
       { id: 'nucleus', type: 'point_charge', position: { x: 0, y: 0 }, color: '#E05555',
-        properties: { mass: 1000, charge: 8 }, initialState: { velocity: { x: 0, y: 0 } }, isFixed: true },
+        properties: { mass: 1000, charge: 8 }, initialState: { velocity: { x: 0, y: 0 } }, fixed: true },
       { id: 'a_far', type: 'point_charge', position: { x: -12, y: 5 }, color: '#b0b0cc',
         properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 6, y: 0 } } },
       { id: 'a_top', type: 'point_charge', position: { x: -13, y: 3 }, color: '#4A90D9',

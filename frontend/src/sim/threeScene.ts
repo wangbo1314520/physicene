@@ -461,7 +461,7 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     meshes.clear()
     currentElements = elements
     for (const el of elements) {
-      if (el.isVisible === false) continue
+      if (el.visible === false) continue
       const mesh = buildMesh(el)
       meshes.set(el.id, mesh)
       scene.add(mesh)
@@ -469,7 +469,7 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     // 3D 模式：固定点电荷画辐射状电场线（叠加场流线；运动电荷作检验粒子不画）
     if (viewMode === 'orbit3d') {
       const sources = elements.filter((el) => el.type === 'point_charge'
-        && el.isFixed && Math.abs(el.properties?.charge ?? 0) > 1e-6)
+        && el.fixed && Math.abs(el.properties?.charge ?? 0) > 1e-6)
       if (sources.length) {
         let bound = 12
         for (const mesh of meshes.values()) {

@@ -21,10 +21,10 @@ export interface PhysicsElementInput {
   romeParamsNote?: never
   params?: Record<string, number>
   initialState?: { velocity?: { x: number; y: number } }
-  isFixed?: boolean
-  /** Java 侧真实序列化名：Lombok `boolean isFixed` → Jackson 属性为 "fixed"（isFixed 键会被静默忽略！） */
+  /** 固定（Java Lombok `boolean isFixed` → Jackson 属性名 "fixed"；发 isFixed 会被静默忽略） */
   fixed?: boolean
-  isVisible?: boolean
+  /** 可见性（同上规则：Java isVisible → "visible"） */
+  visible?: boolean
   color?: string
   /** 统一搭建台关节（阶段一契约）：rope/rod/spring 连体 A / pulley 施力端 */
   connectTo?: string
