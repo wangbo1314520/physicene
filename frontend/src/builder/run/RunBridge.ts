@@ -17,7 +17,7 @@ import type { Analysis } from '../analysis/EngineAnalyzer'
 const PHASE4 = new Set(['cylinder', 'piston', 'gas_cell', 'heater', 'rail_pair', 'rod_bar',
   'light_source', 'prism', 'optic_screen', 'photo_tube', 'h_atom'])
 /** 不建刚体的显示/检测类（静默跳过） */
-const NO_BODY = new Set(['photogate', 'force_sensor', 'trail', 'energy_meter', 'timeline'])
+const NO_BODY = new Set(['photogate', 'force_sensor', 'trail', 'energy_meter', 'timeline', 'anchor_point'])
 
 export interface RunPose { x: number; y: number; angle?: number }
 
@@ -89,6 +89,14 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
       case 'ground':
         asBody({ type: 'wall', scale: { x: 20, y: 0.2 }, fixed: true,
           properties: { friction: num(p.mu, 0.3) } })
+        break
+      case 'vwall': // 竖直墙面（整改1）：wall 旋转 90°，高度 H
+        asBody({ type: 'wall', scale: { x: num(p.H, 6), y: 0.2 }, fixed: true, angle: e.angle + Math.PI / 2,
+          properties: { friction: 0 } })
+        break
+      case 'lead_in': // 切线导入段（整改1）：小 wall 沿段方向
+        asBody({ type: 'wall', scale: { x: num(p.L, 2), y: 0.1 }, fixed: true,
+          properties: { friction: 0 } })
         break
       case 'projectile_platform':
         asBody({ type: 'wall', scale: { x: 3, y: 0.3 }, fixed: true, properties: { friction: 0 } })

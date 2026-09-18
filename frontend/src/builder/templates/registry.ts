@@ -77,8 +77,9 @@ const gkConveyorBoard = (): GeoTemplate => ({
   id: 'gk-conveyor-board', card: '4', group: '力学', name: '传送带·物块（摩擦共速）',
   tags: ['传送带', '物块'],
   elements: [
-    mk('belt', 0, -1, { vb: BELT_VB, th: 0, mu: 0.4, L: 8 }),
-    mk('block', 0, -0.35, { m: 1, v0: 0, mu: 0.4 }),
+    mk('ground', 0, -1.35, { mu: 0.3 }),
+    mk('belt', 0, -1, { vb: BELT_VB, th: 0, mu: 0.4, L: 12 }),
+    mk('block', 0, -0.34, { m: 1, v0: 0, mu: 0.4 }),
   ],
   criticalChecks: [
     { label: '共速 v* = 带速 vb', theory: BELT_VB, tol: 0.02, from: { kind: 'event', eventType: 'belt_common_speed', payloadKey: 'v' } },
@@ -167,7 +168,7 @@ const gkProjectileLoop = (): GeoTemplate => ({
   id: 'gk-projectile-loop', card: '2', group: '力学', name: '平抛切入圆轨道',
   tags: ['平抛', '圆轨道'],
   elements: [
-    mk('projectile_platform', -1.5, -0.95, { h: 1, v0: 7 }),
+    mk('projectile_platform', -1.5, -1.2, { h: 1, v0: 7 }),  // 顶面 −1.05：低于球底轨道 −1.0，防刮擦冻结
     mk('loop_track', 0, 0, { radius: PL_R, side: 0 }),
     mk('particle', 0.3, -(PL_R - 0.2), { m: 1, v0: 7, ang: 0 }),
   ],

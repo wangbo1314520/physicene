@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-阶段四 builder-check.py：几何模板逐个载入→运行→criticalChecks 断言（§7 回归矩阵 #8 前身）。
-check.from 四类：event(payloadKey)/final(subject,pick)/max-y(subject)/no-event。
-用法：python e2e/builder-check.py [--ids gk-slope-spring,gk-conveyor-board] [--shot-dir ...]
+阶段四 builder-check.py：几何模板逐个载入→运行→criticalChecks 断言（§7 回归矩阵 #8）。
+check.from 五类：event(payloadKey)/final(subject,pick)/max-y(subject)/max-x(subject)/no-event。
+容差：|got−theory| ≤ |theory|·tol + tolAbs（交付标准 §0.1）。
+用法：python e2e/builder-check.py [--ids gk-slope-spring,...] [--shot-dir ...]
 """
 import argparse, json, sys, urllib.request
 from playwright.sync_api import sync_playwright
@@ -20,8 +21,7 @@ def login_api():
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--ids", default="", help="逗号分隔模板 id（默认全部）")
-    ap.add_argument("--shot-dir", default=r"E:\Program\physicene\frontend\e2e\shots\templates",
-                    help="每模板运行中截图目录")
+    ap.add_argument("--shot-dir", default=r"E:\Program\physicene\frontend\e2e\shots\templates")
     args = ap.parse_args()
     failures = []
 
@@ -48,20 +48,28 @@ def main() -> int:
               const B = window.__builder;
               B.clear(); B.loadTemplate(tid); B.run();
               const wait = (ms) => new Promise(r => setTimeout(r, ms));
-              let maxY = -99;
+              const maxY = [], maxX = [];
               for (let i = 0; i < 90; i++) {
                 await wait(200);
                 const st = B.simStatus();
-                for (const s of B.subjects()) maxY = Math.max(maxY, s.y);
+                B.subjects().forEach((s, k) => {
+                  maxY[k] = Math.max(maxY[k] ?? -99, s.y);
+                  maxX[k] = Math.max(maxX[k] ?? -99, s.x);
+                });
                 if (st === 'ended') break;
               }
-              return { status: B.simStatus(), t: B.simT(), events: B.keyEvents(), subjects: B.subjects(), maxY };
+              return { status: B.simStatus(), t: B.simT(), events: B.keyEvents(),
+                       subjects: B.subjects(), maxY, maxX };
             }""", tid)
-            # 运行中截图（t≥1s 由调用时机近似）
             page.screenshot(path=f"{args.shot_dir}\\{tid}.png")
             if r["status"] != "ended":
                 ok_all = False
                 details.append(f"未结束 status={r['status']} t={r['t']:.1f}")
+
+            def within(got, c):
+                lim = abs(c["theory"]) * c["tol"] + c.get("tolAbs", 0) + 1e-9
+                return got is not None and abs(got - c["theory"]) <= lim, lim
+
             for c in t["checks"]:
                 frm = c["from"]
                 if frm["kind"] == "event":
@@ -69,21 +77,25 @@ def main() -> int:
                     got = (ev or {}).get("payload", {}).get(frm.get("payloadKey")) if ev else None
                     if got is None and ev is not None and frm.get("payloadKey") is None:
                         got = 1
-                    ok = got is not None and abs(got - c["theory"]) <= abs(c["theory"]) * c["tol"] + 1e-9
-                    d = f"event {frm['eventType']}({frm.get('payloadKey')}) got={got} theory={c['theory']}±{c['tol']:.0%}"
+                    ok, lim = within(got, c)
+                    d = f"event {frm['eventType']} got={got} theory={c['theory']}±{lim:.3f}"
                 elif frm["kind"] == "no-event":
                     got = next((e for e in r["events"] if e["eventType"] == frm["eventType"]), None)
                     ok = got is None
                     d = f"no {frm['eventType']} got={'有' if got else '无'}"
                 elif frm["kind"] == "final":
-                    s = r["subjects"][frm["subject"]] if frm["subject"] < len(r["subjects"]) else None
-                    got = s[frm["pick"]] if s else None
-                    ok = got is not None and abs(got - c["theory"]) <= abs(c["theory"]) * c["tol"] + 1e-9
-                    d = f"final s{frm['subject']}.{frm['pick']}={got if got is None else round(got,3)} theory={c['theory']}±{c['tol']:.0%}"
-                else:  # max-y
-                    got = r["maxY"]
-                    ok = abs(got - c["theory"]) <= c["tol"]
-                    d = f"maxY={got:.3f} theory={c['theory']}±{c['tol']}"
+                    sb = r["subjects"][frm["subject"]] if frm["subject"] < len(r["subjects"]) else None
+                    got = sb[frm["pick"]] if sb else None
+                    ok, lim = within(got, c)
+                    d = f"final s{frm['subject']}.{frm['pick']}={None if got is None else round(got,3)} theory={round(c['theory'],3)}±{lim:.3f}"
+                elif frm["kind"] == "max-y":
+                    got = r["maxY"][frm["subject"]] if frm["subject"] < len(r["maxY"]) else None
+                    ok, lim = within(got, c)
+                    d = f"maxY[{frm['subject']}]={None if got is None else round(got,3)} theory={round(c['theory'],3)}±{lim:.3f}"
+                else:  # max-x
+                    got = r["maxX"][frm["subject"]] if frm["subject"] < len(r["maxX"]) else None
+                    ok, lim = within(got, c)
+                    d = f"maxX[{frm['subject']}]={None if got is None else round(got,3)} theory={round(c['theory'],3)}±{lim:.3f}"
                 if not ok:
                     ok_all = False
                 details.append(("✓" if ok else "✗") + " " + c["label"] + " [" + d + "]")
@@ -98,8 +110,8 @@ def main() -> int:
             print("页面错误:", errs[:3])
         b.close()
 
-    print(f"\n结果: {len(want) - len([f for f in failures if f in [t['id'] for t in want]])}/{len(want)} 通过"
-          + (" ✅" if not failures else f" ❌ 失败: {failures}"))
+    passed = len(want) - len([f for f in failures if f in [t["id"] for t in want]])
+    print(f"\n结果: {passed}/{len(want)} 通过" + (" ✅" if not failures else f" ❌ 失败: {failures}"))
     return 0 if not failures else 1
 
 if __name__ == "__main__":

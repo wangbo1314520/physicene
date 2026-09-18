@@ -334,6 +334,38 @@ function onDrop(ev: DragEvent) {
   emit('add-at', type, w.x, w.y)
 }
 
+// ── 运行轨迹线（整改3：粒子/物体轨迹可视化，编辑态隐藏）──
+const TRAIL_MAX = 900
+let trailLine: THREE.Line | null = null
+const trailPts: number[] = []
+function updateTrail() {
+  const st = props.runStates
+  if (!st) {
+    if (trailLine) { trailLine.visible = false }
+    return
+  }
+  if (!trailLine) {
+    trailLine = new THREE.Line(
+      new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(new Array(TRAIL_MAX * 3).fill(0), 3)),
+      new THREE.LineBasicMaterial({ color: 0x7fe3b3 }))
+    trailLine.frustumCulled = false
+    scene.add(trailLine)
+  }
+  trailLine.visible = true
+  const first = st.values().next().value
+  if (first) {
+    if (trailPts.length >= TRAIL_MAX * 3) trailPts.splice(0, 3)
+    trailPts.push(first.x, first.y, 0.05)
+    const attr = trailLine.geometry.getAttribute('position') as THREE.BufferAttribute
+    for (let i = 0; i < TRAIL_MAX; i++) {
+      const k = i * 3
+      if (k < trailPts.length) attr.setXYZ(i, trailPts[k], trailPts[k + 1], trailPts[k + 2])
+      else attr.setXYZ(i, 1e4, 1e4, 0) // 未用点移出视野
+    }
+    attr.needsUpdate = true
+  }
+}
+
 // ── 渲染循环 ──
 let lastT = 0
 function loop(t: number) {
@@ -342,6 +374,7 @@ function loop(t: number) {
   const dt = lastT ? Math.min(0.1, (t - lastT) / 1000) : 0
   lastT = t
   for (const entry of meshMap.values()) entry.tick?.(dt)
+  updateTrail()
   syncMeshes() // 每帧同步：运行态 runStates 帧位姿驱动网格（编辑态值不变无开销）
   syncLinks()
   syncAnchors()

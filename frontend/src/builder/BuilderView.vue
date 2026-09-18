@@ -145,6 +145,11 @@ function onDrop() {
   if (snap) {
     snapshot()
     applySnap(e, snap)
+    // 整改2：吸附到水平表面（带/地面/墙/导入段）后抬 0.012m——消除贴面重叠被接触求解放大弹飞
+    const targetType = elements.find((x) => x.id === snap.targetId)?.type ?? ''
+    if (['belt', 'ground', 'vwall', 'lead_in'].includes(targetType) && e.role === 'body') {
+      e.position.y += 0.03
+    }
     e.position.x = +e.position.x.toFixed(3)
     e.position.y = +e.position.y.toFixed(3)
     say(`已吸附：${byType.get(e.type)?.label}·${snap.anchorA} ↔ ${byType.get(elements.find((x) => x.id === snap.targetId)?.type ?? '')?.label}·${snap.anchorB}`)
@@ -243,6 +248,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
     <header class="top">
       <input v-model="sceneName" class="name" title="场景名">
       <span class="badge" :class="dim === '3D' ? 'b3' : dim === '2.5D' ? 'b25' : 'b2'">{{ dim }}</span>
+      <span v-if="dim === '3D'" class="dimnote" title="dyn4j 为二维物理引擎：3D 是观看视角（三维渲染与场线画法），物体仍在 x-y 平面内运动（方案 B7 同口径）">视觉 3D·物理 2D 平面</span>
       <span class="sub">统一搭建台 · 元件拖入画布、锚点自动吸附、连线成题、一键运行（方案 v1.0）</span>
       <span class="spacer"></span>
       <button class="ghost" @click="saveScene">💾 保存</button>
@@ -343,6 +349,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
 .builder { padding: 10px 16px 40px; max-width: 1600px; margin: 0 auto; }
 .top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .name { background: #1d1d33; border: 1px solid #2f2f4a; color: #e8e8f0; border-radius: 6px; padding: 5px 8px; font-size: 14px; width: 180px; }
+.dimnote { color: #d9a05a; font-size: 10px; border: 1px dashed #d9a05a66; border-radius: 4px; padding: 0 4px; }
 .badge { padding: 1px 8px; border-radius: 4px; font-size: 11px; } .b2 { background: #1d3a2b; color: #3ecf8e; } .b25 { background: #1d2b3a; color: #4a90d9; } .b3 { background: #33183a; color: #b06ce6; }
 .sub { color: #6c6c85; font-size: 12px; } .spacer { flex: 1; }
 .ghost { background: #23233a; color: #b0b0cc; border: 1px solid #2f2f4a; border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer; }

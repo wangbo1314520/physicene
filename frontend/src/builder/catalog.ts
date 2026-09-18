@@ -76,8 +76,18 @@ export const CATALOG: ElementSpec[] = [
     ENDPOINT_TL(0, 3.46, '顶端'), ENDPOINT_TL(6, 0, '底端'),
   ]),
   el('ground', '地面', '═', 'mech', ['2.5D'], '#8a8aa0', '水平面', [MU], 'constraint', ['地面']),
+  el('vwall', '竖直墙面', '▯', 'mech', ['2.5D'], '#8a8aa0', '弹簧/绳的竖直固定端', [P('H', '墙高 H', 1, 12, 0.5, 6, 'm')], 'constraint', ['墙面', '固定端'], [
+    ATTACH(0, 3, '墙面中点'), ATTACH(0, 6, '墙顶'),
+  ]),
+  el('anchor_point', '悬挂锚点', '✛', 'mech', ['2D', '2.5D'], '#9cc5ff', '天花板/支架固定点（绳、弹簧、滑轮的固定端）', [], 'constraint', ['锚点', '悬挂点'], [
+    ATTACH(0, 0, '锚点'),
+  ]),
+  el('lead_in', '切线导入段', '⌐', 'mech', ['2.5D'], '#b06ce6', '轨道入口的平滑切线过渡', [P('L', '段长 L', 0.5, 4, 0.25, 2, 'm')], 'constraint', ['导入段'], [
+    SURFACE_END(-1, 0, '尾端'), SURFACE_END(1, 0, '首端'),
+  ]),
   el('belt', '传送带', '⇶', 'mech', ['2.5D'], '#3ecf8e', '速度、倾角、摩擦', [P('vb', '带速 v_带', 0, 8, 0.5, 3, 'm/s'), THETA, MU, P('L', '长度 L', 2, 12, 0.5, 6, 'm')], 'constraint', ['传送带'], [
     SURFACE_END(-3, 0.15, '左端上表面'), SURFACE_END(3, 0.15, '右端上表面'),
+    ATTACH(-1.5, 0.15, '表面左中'), ATTACH(0, 0.15, '表面中'), ATTACH(1.5, 0.15, '表面右中'),
   ]),
   el('loop_track', '竖直圆轨道', '◯', 'mech', ['2.5D'], '#b06ce6', '绳/杆/内轨/外轨/管道五类', [P('radius', '半径 R', 0.3, 3, 0.1, 1, 'm'), SEL('side', '类型', 0, [{ value: 0, label: '内轨（球在轨内）' }, { value: 1, label: '外轨（球在轨外）' }, { value: 2, label: '管道（双壁）' }])], 'constraint', ['圆轨道'], [
     TANGENT_PT(0, -1, '入口切点'), ATTACH(0, 1, '顶点'),
@@ -97,7 +107,7 @@ export const CATALOG: ElementSpec[] = [
   // ── 电磁 field ──
   el('e_region', '匀强电场', '⇉', 'em', ['3D'], '#3ecf8e', 'E', [P('Ex', 'Ex', -20, 20, 0.5, 0, 'N/C'), P('Ey', 'Ey', -20, 20, 0.5, 9.8, 'N/C')], 'field', ['电场']),
   el('b_region', '匀强磁场', '⊗', 'em', ['3D'], '#b06ce6', 'B', [BMAG, SEL('dir', '方向', 0, [{ value: 0, label: '⊗ 向里' }, { value: 1, label: '⊙ 向外' }])], 'field', ['磁场']),
-  el('point_charge', '带电粒子', '⊕', 'em', ['3D'], '#F5C542', '比荷、初速', [P('qm', '比荷 q/m', 0.5, 2, 0.1, 1), V0], 'body', ['带电粒子']),
+  el('point_charge', '带电粒子', '⊕', 'em', ['2D', '2.5D', '3D'], '#F5C542', '比荷（负值为阴离子）、初速', [P('qm', '比荷 q/m', -2, 2, 0.1, 1), V0], 'body', ['带电粒子']),
   // ── 电磁 circuit ──
   el('rail_pair', '导轨对', '═╤═', 'em', ['3D'], '#8a8aa0', '间距 L', [P('L', '间距 L', 0.5, 2, 0.1, 1, 'm')], 'circuit', ['导轨'], [
     TERMINAL(-3, 0, '左端'), TERMINAL(3, 0, '右端'),

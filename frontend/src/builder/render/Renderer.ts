@@ -141,6 +141,22 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       const L = Math.max(1, p.L ?? 6)
       return { mesh: new THREE.Mesh(new THREE.BoxGeometry(L, 0.3, 0.8), mat(color)), baseAngle: 0 }
     }
+    case 'vwall': {
+      return { mesh: new THREE.Mesh(new THREE.BoxGeometry(0.2, p.H ?? 6, 0.5), mat(color, { opacity: 0.7 })), baseAngle: 0 }
+    }
+    case 'anchor_point': {
+      // 悬挂锚点：小圆环 + 十字支架线
+      const g = new THREE.Group()
+      g.add(new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.03, 8, 20), mat(color)))
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.06, 0.06), mat(color))
+      bar.position.set(0, 0.28, 0)
+      g.add(bar)
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'lead_in': {
+      const L = Math.max(0.5, p.L ?? 2)
+      return { mesh: new THREE.Mesh(new THREE.BoxGeometry(L, 0.08, 0.2), mat(color)), baseAngle: 0 }
+    }
     case 'ground': {
       return { mesh: new THREE.Mesh(new THREE.BoxGeometry(20, 0.2, 1), mat(color, { opacity: 0.55 })), baseAngle: 0 }
     }
@@ -159,10 +175,135 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       geo.translate(0, 0, -0.25)
       return { mesh: new THREE.Mesh(geo, mat(color, { opacity: 0.9 })), baseAngle: 0 }
     }
+    // ── 整改3：物理符号渲染（场区=虚线框+符号阵列，粒子=3D球+电性符号，屏=网格矩形）──
+    case 'e_region': {
+      // 匀强电场区：半透明底 + 虚线边界 + 场方向箭头阵列（E=Ex î+Ey ĵ）
+      const g = new THREE.Group()
+      const w = 12, h = 6
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.02),
+        new THREE.MeshBasicMaterial({ color: 0x3ecf8e, transparent: true, opacity: 0.08, depthWrite: false })))
+      g.add(dashedFrame(w, h, 0x3ecf8e))
+      const ex = p.Ex ?? 0, ey = p.Ey ?? 0
+      const mag = Math.hypot(ex, ey)
+      if (mag > 1e-9) {
+        const dir = new THREE.Vector3(ex, ey, 0).normalize()
+        for (let gx = -1; gx <= 1; gx++) for (let gy = -1; gy <= 1; gy++) {
+          const a = new THREE.ArrowHelper(dir, new THREE.Vector3(gx * w * 0.3, gy * h * 0.3, 0.05), 0.8, 0x3ecf8e, 0.22, 0.12)
+          g.add(a)
+        }
+      }
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'b_region': {
+      // 匀强磁场区：半透明底 + 虚线边界 + ⊙(out)/⊗(in) 符号阵列
+      const g = new THREE.Group()
+      const w = 12, h = 12
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.02),
+        new THREE.MeshBasicMaterial({ color: 0xb06ce6, transparent: true, opacity: 0.08, depthWrite: false })))
+      g.add(dashedFrame(w, h, 0xb06ce6))
+      const intoPage = (p.dir ?? 0) === 0
+      const sym = intoPage ? crossCircle(0.28) : dotCircle(0.28)
+      for (let gx = -1; gx <= 1; gx++) for (let gy = -1; gy <= 1; gy++) {
+        const s = sym.clone()
+        s.position.set(gx * w * 0.3, gy * h * 0.3, 0.05)
+        g.add(s)
+      }
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'point_charge': {
+      // 3D 球 + 电性符号（qm<0 为 ⊖）
+      const g = new THREE.Group()
+      const r = 0.3
+      const qm = p.qm ?? 1
+      const c = qm >= 0 ? '#E05555' : '#4A90D9'
+      g.add(new THREE.Mesh(new THREE.SphereGeometry(r, 24, 16), mat(c, { emissive: 0.5 })))
+      const symG = qm >= 0 ? plusLines(r * 0.7, 0.03) : minusLines(r * 0.7, 0.03)
+      symG.position.z = r + 0.02
+      g.add(symG)
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'optic_screen': {
+      // 光屏：白色矩形 + 网格线
+      const g = new THREE.Group()
+      const w2 = 2, h2 = 2
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(w2, h2, 0.05), mat('#d4af37', { opacity: 0.85 })))
+      g.add(dashedFrame(w2, h2, 0xffffff))
+      for (let k = -3; k <= 3; k++) {
+        const vl = new THREE.Line(
+          new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([k * w2 / 8, -h2 / 2, 0.04, k * w2 / 8, h2 / 2, 0.04], 3)),
+          new THREE.LineBasicMaterial({ color: 0x8a8aa0 }))
+        const hl = new THREE.Line(
+          new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([-w2 / 2, k * h2 / 8, 0.04, w2 / 2, k * h2 / 8, 0.04], 3)),
+          new THREE.LineBasicMaterial({ color: 0x8a8aa0 }))
+        g.add(vl, hl)
+      }
+      return { mesh: g, baseAngle: 0 }
+    }
     default: {
       return { mesh: new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.5), mat(color, { opacity: 0.9 })), baseAngle: 0 }
     }
   }
+}
+
+/** 虚线矩形边框（居中 w×h） */
+function dashedFrame(w: number, h: number, color: number): THREE.LineSegments {
+  const hw = w / 2, hh = h / 2, z = 0.06
+  const pts = [
+    -hw, -hh, z, hw, -hh, z, hw, -hh, z, hw, hh, z, hw, hh, z, -hw, hh, z, -hw, hh, z, -hw, -hh, z,
+  ]
+  const geo = new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3))
+  const line = new THREE.LineSegments(geo, new THREE.LineDashedMaterial({ color, dashSize: 0.25, gapSize: 0.15, transparent: true, opacity: 0.9 }))
+  line.computeLineDistances()
+  return line
+}
+
+/** ⊗ 符号（圆 + 叉）——返回可克隆 Group */
+function crossCircle(r: number): THREE.Group {
+  const g = new THREE.Group()
+  g.add(ringLine(r, 0xb06ce6))
+  const d = r * 0.7
+  g.add(seg(-d, -d, d, d, 0xb06ce6))
+  g.add(seg(-d, d, d, -d, 0xb06ce6))
+  return g
+}
+
+/** ⊙ 符号（圆 + 中心点） */
+function dotCircle(r: number): THREE.Group {
+  const g = new THREE.Group()
+  g.add(ringLine(r, 0xb06ce6))
+  g.add(seg(-r * 0.5, 0, r * 0.5, 0, 0xb06ce6))
+  g.add(seg(0, -r * 0.5, 0, r * 0.5, 0xb06ce6))
+  return g
+}
+
+function ringLine(r: number, color: number): THREE.Line {
+  const pts: number[] = []
+  for (let i = 0; i <= 24; i++) {
+    const a = (i / 24) * Math.PI * 2
+    pts.push(Math.cos(a) * r, Math.sin(a) * r, 0)
+  }
+  return new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)),
+    new THREE.LineBasicMaterial({ color }))
+}
+
+function seg(x0: number, y0: number, x1: number, y1: number, color: number): THREE.Line {
+  return new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([x0, y0, 0, x1, y1, 0], 3)),
+    new THREE.LineBasicMaterial({ color }))
+}
+
+/** ⊕ / ⊖ 电性符号（短线组） */
+function plusLines(r: number, t: number): THREE.Group {
+  const g = new THREE.Group()
+  g.add(seg(-r, 0, r, 0, 0xffffff))
+  g.add(seg(0, -r, 0, r, 0xffffff))
+  void t
+  return g
+}
+function minusLines(r: number, t: number): THREE.Group {
+  const g = new THREE.Group()
+  g.add(seg(-r, 0, r, 0, 0xffffff))
+  void t
+  return g
 }
 
 /** 生成 (x0,y0)→(x1,y1) 螺旋线缓冲几何 */
