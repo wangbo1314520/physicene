@@ -188,6 +188,7 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
         msg.put("eventType", event.getType());
         msg.put("label", event.getLabel());
         msg.put("frameIndex", event.getFrameIndex());
+        msg.put("payload", event.getPayload()); // 数值载荷（CriticalPanel 理论对照用；可空）
         send(session, msg);
     }
 

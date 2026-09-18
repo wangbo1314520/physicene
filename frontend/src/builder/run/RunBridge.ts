@@ -87,19 +87,19 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
         break
       }
       case 'ground':
-        asBody({ type: 'wall', scale: { x: 20, y: 0.2 }, isFixed: true,
+        asBody({ type: 'wall', scale: { x: 20, y: 0.2 }, fixed: true,
           properties: { friction: num(p.mu, 0.3) } })
         break
       case 'projectile_platform':
-        asBody({ type: 'wall', scale: { x: 3, y: 0.3 }, isFixed: true, properties: { friction: 0 } })
+        asBody({ type: 'wall', scale: { x: 3, y: 0.3 }, fixed: true, properties: { friction: 0 } })
         break
       case 'belt':
-        asBody({ type: 'belt', angle: e.angle + deg2rad(num(p.th, 0)),
+        asBody({ type: 'belt', angle: e.angle + deg2rad(num(p.th, 0)), fixed: true,
           properties: { friction: num(p.mu, 0.4) },
           params: { beltSpeed: num(p.vb, 3), beltLength: num(p.L, 6), beltRadius: 0.15 } })
         break
       case 'loop_track':
-        asBody({ type: 'loop_track',
+        asBody({ type: 'loop_track', fixed: true,
           params: { radius: num(p.radius, 1), arcA0: 0, arcA1: 360, arcSideCode: num(p.side, 0) } })
         break
       case 'rope': case 'spring': {
@@ -142,11 +142,11 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
         break
       }
       case 'e_region':
-        asBody({ type: 'e_field', scale: { x: 12, y: 6 }, isFixed: true,
+        asBody({ type: 'e_field', scale: { x: 12, y: 6 }, fixed: true,
           properties: { eFieldX: num(p.Ex, 0), eFieldY: num(p.Ey, 9.8) } })
         break
       case 'b_region':
-        asBody({ type: 'b_field', scale: { x: 12, y: 12 }, isFixed: true,
+        asBody({ type: 'b_field', scale: { x: 12, y: 12 }, fixed: true,
           properties: { bField: num(p.B, 1), bDirection: num(p.dir, 0) === 0 ? 'in' : 'out' } })
         break
       case 'point_charge': {

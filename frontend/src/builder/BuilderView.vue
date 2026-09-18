@@ -11,6 +11,7 @@ import BuilderCanvas from './render/BuilderCanvas.vue'
 import DataPanel from './components/DataPanel.vue'
 import BuilderAi from './components/BuilderAi.vue'
 import { analyze } from './analysis/EngineAnalyzer'
+import CriticalPanel from './analysis/CriticalPanel.vue'
 import { useRunBridge } from './run/RunBridge'
 import type { RunRecord } from '../sandbox/SandboxData.vue'
 
@@ -290,6 +291,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
           <p class="conf">元件 {{ elements.length }} 个 · 维度 {{ dim }}</p>
           <p v-for="(w, i) in analysis.warnings" :key="i" class="warn">· {{ w }}</p>
         </div>
+        <CriticalPanel :key-events="sim.keyEvents" :elements="elements" />
         <div v-if="selected && selected.links.length" class="box">
           <h4>连线 · {{ byType.get(selected.type)?.label }}</h4>
           <div v-for="(l, i) in selected.links" :key="i" class="lrow">

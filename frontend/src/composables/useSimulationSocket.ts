@@ -22,6 +22,8 @@ export interface PhysicsElementInput {
   params?: Record<string, number>
   initialState?: { velocity?: { x: number; y: number } }
   isFixed?: boolean
+  /** Java 侧真实序列化名：Lombok `boolean isFixed` → Jackson 属性为 "fixed"（isFixed 键会被静默忽略！） */
+  fixed?: boolean
   isVisible?: boolean
   color?: string
   /** 统一搭建台关节（阶段一契约）：rope/rod/spring 连体 A / pulley 施力端 */
@@ -40,7 +42,7 @@ export interface SimState {
   status: 'idle' | 'connecting' | 'running' | 'paused' | 'ended'
   currentT: number
   subjects: SubjectState[]
-  keyEvents: { t: number; label: string; eventType: string }[]
+  keyEvents: { t: number; label: string; eventType: string; payload?: Record<string, number> }[]
   vSeries: { t: number; vx: number; vy: number }[][] // 每个运动主体的速度分量序列（带符号）
   vIds: string[] // 运动主体 id（与 vSeries 下标对应，图例命名用）
   ekSeries: { t: number; v: number }[]
@@ -130,7 +132,7 @@ export function useSimulationSocket() {
         break
       }
       case 'keyEvent':
-        state.keyEvents.push({ t: msg.t, label: msg.label, eventType: msg.eventType })
+        state.keyEvents.push({ t: msg.t, label: msg.label, eventType: msg.eventType, payload: msg.payload ?? undefined })
         break
       case 'paused':
         state.status = 'paused'
