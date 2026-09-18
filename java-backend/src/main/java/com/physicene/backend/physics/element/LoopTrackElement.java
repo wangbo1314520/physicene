@@ -104,9 +104,18 @@ public class LoopTrackElement implements ElementBehavior {
         double pen;
         double dir; // +1 力沿径向向外（外轨），−1 向内（内轨/管道内壁）
         if ("outer".equals(sd)) {
+            // OPEN#3 修复：外轨只导「轨外近面」的球（dist ≥ R，防圈内球被反向推出轨道）
+            if (dist < R) {
+                return null;
+            }
             pen = R - (dist - ballRadius);  // 球在外侧压向轨道
             dir = 1;
         } else {
+            // OPEN#3 修复：内轨/管道只导「圈内」的球（dist ≤ R）——原实现对圈外任意远的球
+            // pen=(dist+r)−R 恒正，轨道成了无限远吸尘器（静置球 2.4m 外被吸入实测 vx=5.35）
+            if (dist > R) {
+                return null;
+            }
             pen = (dist + ballRadius) - R;  // 球在圆内压向外壁（内轨/管道）
             dir = -1;
         }

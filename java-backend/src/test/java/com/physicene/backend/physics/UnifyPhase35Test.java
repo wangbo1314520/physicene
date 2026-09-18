@@ -167,4 +167,54 @@ class UnifyPhase35Test {
         assertTrue(maxMove[0] < 1e-9, "fixed=true 的点电荷在重力+库仑吸引下不得移动（实测位移 "
                 + maxMove[0] + " m）——此为 LabView isFixed 被忽略 bug 的物理级闸门");
     }
+
+    /** OPEN#2 隔离判定：单端固定弹簧阻尼是否生效（水平振子 ζ=0.8，3s 后振幅<5%） */
+    @Test
+    void singleEndSpringDampingDecays() {
+        PhysicsElement spring = new PhysicsElement();
+        spring.setId("sp");
+        spring.setType("spring");
+        spring.setPosition(new Vector2D(-2.9, 0.1));
+        spring.getParams().put("jointLength", 1.2);
+        spring.getParams().put("stiffness", 60.0);
+        spring.getParams().put("dampingRatio", 0.8);
+        PhysicsElement blk = new PhysicsElement();
+        blk.setId("b1");
+        blk.setType("cube");
+        blk.setPosition(new Vector2D(-1.2, 0.1));
+        blk.getProperties().setMass(1);
+        blk.setInitialState(new InitialState());
+        blk.getInitialState().setVelocity(new Vector2D(4, 0));
+        spring.setConnectTo("b1");
+
+        PhysicsElement gnd = new PhysicsElement();
+        gnd.setId("g");
+        gnd.setType("wall");
+        gnd.setPosition(new Vector2D(0, -0.5));
+        gnd.setScale(new Vector2D(20.0, 0.2));
+
+        Scene sc = new Scene();
+        sc.setElements(List.of(spring, gnd, blk));
+        SimulationConfig cfg = new SimulationConfig();
+        cfg.setMaxDuration(4.0);
+        cfg.setGravity(new Vector2D(0, -9.8));
+        cfg.setSubsteps(4);
+        sc.setConfig(cfg);
+        SimulationInstance instance = new SimulationInstance("t-spd", sc, registry());
+        double[] x0 = {0};
+        double[] maxAfter3 = {0};
+        instance.addFrameListener(f -> {
+            FullSnapshot snap = (FullSnapshot) f.getSnapshot();
+            if (!snap.getElements().isEmpty()) {
+                double x = snap.getElements().get(0).x();
+                if (x0[0] == 0) x0[0] = x;
+                if (f.getT() >= 3.0) maxAfter3[0] = Math.max(maxAfter3[0], Math.abs(x - (-1.2)));
+            }
+        });
+        instance.runToEndSync();
+        double a0 = Math.abs(x0[0] - (-1.2));
+        System.out.println("[spd] a0=" + a0 + " maxAfter3=" + maxAfter3[0]);
+        assertTrue(maxAfter3[0] < 0.05 * a0 + 1e-6,
+                "ζ=0.8 单端弹簧 3s 后振幅应 <5%（a0=" + a0 + ", 3s后=" + maxAfter3[0] + "）");
+    }
 }

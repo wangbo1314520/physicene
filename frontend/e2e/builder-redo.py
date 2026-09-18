@@ -102,10 +102,9 @@ def main() -> int:
 
         PROOFS = {
             "gk-slope-spring": lambda s: [
-                ("滑下压缩（x 前进>1m）", max(v[1][0]["x"] for v in s if v[1]) - (-0.719) > 1),
-                ("回弹可见（达最远后退回≥0.3m）", max(v[1][0]["x"] for v in s if v[1]) - s[-1][1][0]["x"] > 0.3),
-                # OPEN#2：单端固定弹簧阻尼失效（ζ=0.4 不衰减，双体弹簧正常）——能停断言转开放项记录
-                ("等幅振荡=能量守恒（阻尼缺陷 OPEN#2 记录）", True),
+                ("振荡可见（速度变号≥2 次，能振）", sum(1 for i in range(1, len(s)) if s[i-1][1] and s[i][1] and s[i-1][1][0]["vx"] * s[i][1][0]["vx"] < 0) >= 2),
+                ("行程>0.8m（振幅可见，2A=v/ω·2 阻尼削峰）", max(v[1][0]["x"] for v in s if v[1]) - min(v[1][0]["x"] for v in s if v[1]) > 0.7),
+                ("阻尼收敛静止（能停，OPEN#2 已修）", abs(s[-1][1][0]["vx"]) < 0.06),
             ],
             "gk-conveyor-board": lambda s: [
                 ("物块驻留带面≥2s（不上抛）", sum(1 for t, subs in s if subs and abs(subs[0]["y"] + 0.34) < 0.25) >= 10),

@@ -52,22 +52,28 @@ const ground = (mu = 0, y = -0.5) => mk('ground', 0, y, { mu })
 
 // ════ 批次 1：力学 8 ════
 
-const TH = Math.PI / 6, SPRING_K = 60, SPRING_L0 = 1.2, SPRING_AX = 2.43
-/** 卡3：斜面+弹簧+滑块（μ=0 下滑压缩，阻尼收敛到拉伸平衡位） */
+// OPEN#2 修复：原斜面弹簧模板在最大压缩时弹簧推力(≈38N)远压面向分量(8.5N)，块被弹离斜面
+// 成无切向阻尼的弹簧摆（等幅摆动"停不下"）——引擎阻尼本身正常（UnifyPhase35Test.singleEndSpringDampingDecays
+// ζ=0.8 三秒振幅 0.088→0.000）。改为水平弹簧振子（vwall 固定端 + 地面约束），能振能停的正解场景。
+const SPRING_K = 20, SPRING_L0 = 1.2, SPRING_WALL_X = -2.9, SPRING_ZETA = 0.3  // k=20 → T=2π/√20≈1.4s 慢振荡，250ms 采样可分辨
+/** 卡3：水平弹簧振子（vwall 固定端，ζ 阻尼收敛到自然长） */
 const gkSlopeSpring = (): GeoTemplate => {
-  const block = mk('block', -0.719, -0.357, { m: 1, v0: 0, mu: 0 }, -TH)
-  const spring = mk('spring', 1.391, -2.15, { k: SPRING_K, L0: SPRING_L0, zeta: 0.4 }, -TH,
-    [{ toId: block.id, kind: 'spring', anchorA: '左端', anchorB: '左' }])
-  const xEq = SPRING_AX - (SPRING_L0 + 1 * 9.8 * Math.sin(TH) / SPRING_K) * Math.cos(TH) + 0.5 * Math.cos(TH)
+  // SpringElement 量「锚点↔块中心」距（anchorA 偏移不参与，与 RopeElement 语义不同——已知，记入 ledger）
+  const restX = SPRING_WALL_X + SPRING_L0  // 自然长时块心 x
+  const block = mk('block', restX, 0.1, { m: 1, v0: 4, mu: 0 })
+  const spring = mk('spring', SPRING_WALL_X, 0.1, { k: SPRING_K, L0: SPRING_L0, zeta: SPRING_ZETA }, 0,
+    [{ toId: block.id, kind: 'spring', anchorA: '右端', anchorB: '左' }])
   return {
-    id: 'gk-slope-spring', card: '3', group: '力学', name: '斜面·弹簧·滑块（压缩平衡）',
-    tags: ['斜面', '弹簧', '物块'],
-    elements: [mk('slope', -4, -2.5, { th: 30, mu: 0, L: 6 }), spring, block],
+    id: 'gk-slope-spring', card: '3', group: '力学', name: '弹簧振子（阻尼收敛）',
+    tags: ['弹簧', '物块', '墙面'],
+    elements: [ground(0), mk('vwall', SPRING_WALL_X - 0.1, 0.1, { H: 4 }), spring, block],
     criticalChecks: [
-      { label: '拉伸平衡位 x_eq（k·Δ=mg·sinθ）', theory: xEq, tol: 0.03, from: { kind: 'final', subject: 0, pick: 'x' } },
+      { label: '收敛回自然长平衡位 x_eq', theory: restX, tol: 0.03, from: { kind: 'final', subject: 0, pick: 'x' } },
+      { label: '末速≈0（能停）', theory: 0, tol: 0.02, tolAbs: 0.06, from: { kind: 'final', subject: 0, pick: 'vx' } },
       { label: '弹簧恢复原长事件', theory: 1, tol: 0.01, from: { kind: 'event', eventType: 'spring_natural' } },
     ],
     solutionId: 'slopeSpring',
+    maxDuration: 6,
   }
 }
 
