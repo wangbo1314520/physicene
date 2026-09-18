@@ -198,6 +198,11 @@ const PALETTE: PaletteItem[] = [
   { type: 'point_charge', label: '点电荷', icon: '⊕', color: '#E05555', dims: ['2D', '3D'], desc: '带电质点：受库仑力与电场力/洛伦兹力；固定后作为场源' },
   { type: 'e_field', label: '匀强电场', icon: '⇉', color: '#7fb3ff', dims: ['2D', '3D'], desc: '矩形区域匀强电场 (Ex, Ey)，3D 中画空间场线箭头' },
   { type: 'b_field', label: '匀强磁场', icon: '⊗', color: '#c78bff', dims: ['2D', '3D'], desc: '区域匀强磁场 B（垂直纸面 出/入），带电粒子做圆周运动' },
+  { type: 'belt', label: '传送带（实验性）', icon: '⇶', color: '#3ecf8e', dims: ['2.5D'], desc: '固定胶囊体+带速（params.beltSpeed），摩擦拖动物块；将并入 /exp' },
+  { type: 'loop_track', label: '圆轨道（实验性）', icon: '◯', color: '#b06ce6', dims: ['2.5D'], desc: 'Link 链圆弧（params.radius/arcA0/arcA1/arcSideCode），解析导轨；将并入 /exp' },
+  { type: 'rope', label: '轻绳（实验性）', icon: '╱', color: '#d9a05a', dims: ['2.5D'], desc: '上限约束 DistanceJoint（connectTo+jointLength）；将并入 /exp' },
+  { type: 'spring', label: '弹簧（实验性）', icon: '〰', color: '#F5C542', dims: ['2.5D'], desc: '胡克力对（connectTo+stiffness）；将并入 /exp' },
+  { type: 'pulley', label: '滑轮（实验性）', icon: '◎', color: '#5c5c7a', dims: ['2.5D'], desc: '绳段罚力（connectTo+connectTo2+ratio）；将并入 /exp' },
 ]
 const palette = computed(() => PALETTE.filter((p) => p.dims.includes(dim.value)))
 const dimHint = computed(() => DIM_INFO[dim.value].hint)
@@ -278,6 +283,15 @@ function applyDimTemplate(t: LabTemplate) {
 }
 
 function defaultElement(type: string, x: number, y: number): PhysicsElementInput {
+  const UNIFY_DEFAULTS: Record<string, Record<string, number>> = {
+    belt: { beltSpeed: 3, beltLength: 4, beltRadius: 0.15 },
+    loop_track: { radius: 1, arcA0: 0, arcA1: 360, arcSideCode: 0 },
+    rope: { jointLength: 1 },
+    spring: { jointLength: 1, stiffness: 60, dampingRatio: 0.05 },
+    pulley: { ratio: 1, pulley1dx: -0.6, pulley1dy: 0, pulley2dx: 0.6, pulley2dy: 0 },
+  }
+  // 关节类无自身刚体：先创建目标提示（E2E 只验证能拖入运行）
+
   typeCounter[type] = (typeCounter[type] ?? 0) + 1
   const base = type === 'wall'
     ? { scale: { x: 20, y: 0.2 }, isFixed: true, color: '#8a8aa0' }
@@ -291,11 +305,21 @@ function defaultElement(type: string, x: number, y: number): PhysicsElementInput
             ? { scale: { x: 12, y: 6 }, isFixed: true, color: '#7fb3ff' }
             : type === 'b_field'
               ? { scale: { x: 12, y: 12 }, isFixed: true, color: '#c78bff' }
-              : { scale: { x: 1, y: 1 }, isFixed: false, color: '#4A90D9' }
+              : type === 'belt'
+                ? { scale: { x: 4, y: 0.3 }, isFixed: true, color: '#3ecf8e' }
+                : type === 'loop_track'
+                  ? { scale: { x: 2, y: 2 }, isFixed: true, color: '#b06ce6' }
+                  : type === 'rope' || type === 'spring' || type === 'pulley'
+                    ? { scale: { x: 1, y: 1 }, isFixed: true, color: '#d9a05a' }
+                    : { scale: { x: 1, y: 1 }, isFixed: false, color: '#4A90D9' }
   const properties: Record<string, any> = type === 'e_field' ? { eFieldX: 1, eFieldY: 0 }
     : type === 'b_field' ? { bField: 1, bDirection: 'out' }
       : type === 'point_charge' ? { mass: 1, charge: 1, friction: 0, restitution: 0 }
+      : type === 'belt' ? { mass: 1, friction: 0.2, restitution: 0 }
         : { mass: 1, friction: 0.1, restitution: 0.5 }
+  const unifyDefaults = UNIFY_DEFAULTS[type] ?? {}
+  const params: Record<string, number> = {}
+  for (const [k, v] of Object.entries(unifyDefaults)) params[k] = v
   return {
     id: `${type}_${String(typeCounter[type]).padStart(3, '0')}`,
     type,
@@ -303,8 +327,9 @@ function defaultElement(type: string, x: number, y: number): PhysicsElementInput
     angle: 0,
     scale: base.scale,
     properties,
+    params,
     initialState: { velocity: { x: 0, y: 0 } },
-    isFixed: base.isFixed,
+    isFixed: type === 'belt' || type === 'loop_track' ? true : base.isFixed,
     color: base.color,
   }
 }

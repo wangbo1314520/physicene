@@ -18,6 +18,8 @@ export interface PhysicsElementInput {
   angle?: number
   scale?: { x: number; y: number }
   properties?: Record<string, any>
+  romeParamsNote?: never
+  params?: Record<string, number>
   initialState?: { velocity?: { x: number; y: number } }
   isFixed?: boolean
   isVisible?: boolean

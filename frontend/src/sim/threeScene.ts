@@ -176,6 +176,25 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
         geometry = new THREE.BoxGeometry(Math.max(0.1, sx), Math.max(0.1, sy), depth)
         break
       }
+      case 'belt': {
+        // 传送带（实验性可视化桥）：胶囊近似（Box+两半圆端帽）+条纹着色
+        const len = Math.max(0.2, sx), r = Math.max(0.05, sy)
+        geometry = new THREE.BoxGeometry(len, r * 2, Math.max(0.1, r * 2))
+        break
+      }
+      case 'loop_track': {
+        // 圆轨道（实验性）：TorusGeometry 弧带
+        const R = Math.max(0.1, sx / 2)
+        const a0 = 0, a1 = Math.PI * 2
+        geometry = new THREE.TorusGeometry(R, 0.06, 8, 72, a1 - a0)
+        geometry.rotateZ(a0)
+        break
+      }
+      case 'rope': case 'rod': case 'spring': case 'pulley': {
+        // 关节类（实验性）：位置标记（小圆盘），连接线由渲染循环画
+        geometry = new THREE.SphereGeometry(0.15, 12, 12)
+        break
+      }
       case 'slope': {
         const w = 2 * sx, h = 1 * sy
         const shape = new THREE.Shape([
