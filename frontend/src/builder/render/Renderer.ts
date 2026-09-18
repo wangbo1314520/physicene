@@ -1,0 +1,198 @@
+/**
+ * 统一搭建台渲染器（方案 §4.3）
+ * 6 类新元件的专用几何：belt 条纹胶囊 / loop_track 轨道环 / spring 螺旋 / rope·rod 连线 / pulley 圆盘
+ * 其余类型按 role/dims 回退为通用几何。画布方（BuilderView）负责设置 mesh.position 与 rotation.z = e.angle + baseAngle。
+ */
+import * as THREE from 'three'
+import type { GeoElement } from '../catalog'
+import { byType } from '../catalog'
+
+export interface UnifiedMeshResult {
+  mesh: THREE.Mesh | THREE.Group
+  /** 元件固有倾角（弧度），目前仅 belt 用 params.th 生成；画布旋转需叠加此角 */
+  baseAngle: number
+  /** 每帧回调（belt 条纹滚动）；dt 为帧间隔秒 */
+  tick?: (dt: number) => void
+}
+
+function mat(color: string, opts: { opacity?: number; emissive?: number } = {}): THREE.MeshStandardMaterial {
+  const transparent = (opts.opacity ?? 1) < 1
+  return new THREE.MeshStandardMaterial({
+    color: new THREE.Color(color), roughness: 0.45, metalness: 0.15,
+    transparent, opacity: opts.opacity ?? 1, depthWrite: !transparent, // 规则14：透明件关 depthWrite 防遮挡黑块
+    emissive: new THREE.Color(color).multiplyScalar(opts.emissive ?? 0),
+  })
+}
+
+/** 传送带条纹贴图（Canvas 生成；运行时滚 offset.x 表现带速） */
+function beltTexture(): THREE.CanvasTexture {
+  const cv = document.createElement('canvas')
+  cv.width = 128; cv.height = 32
+  const ctx = cv.getContext('2d')!
+  ctx.fillStyle = '#2a5a3a'; ctx.fillRect(0, 0, 128, 32)
+  ctx.fillStyle = '#4ecf8e'; for (let i = 0; i < 4; i++) ctx.fillRect(i * 32, 4, 16, 24)
+  const tex = new THREE.CanvasTexture(cv)
+  tex.wrapS = THREE.RepeatWrapping
+  tex.repeat.set(4, 1)
+  return tex
+}
+
+export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
+  const spec = byType.get(e.type)
+  const color = spec?.color ?? '#4A90D9'
+  const p = e.params
+
+  switch (e.type) {
+    case 'belt': {
+      // 胶囊带体（Box + 两端半圆柱）+ 顶面条纹条；th 为倾角，几何沿 +x 建造后旋转
+      const len = Math.max(0.2, p.L ?? 6), r = 0.15
+      const g = new THREE.Group()
+      const body = new THREE.Mesh(new THREE.BoxGeometry(len, r * 2, 0.3), mat(color, { opacity: 0.9 }))
+      const capGeo = new THREE.CylinderGeometry(r, r, 0.3, 16)
+      const capL = new THREE.Mesh(capGeo, mat(color))
+      capL.rotation.x = Math.PI / 2; capL.position.set(-len / 2, 0, 0)
+      const capR = new THREE.Mesh(capGeo, mat(color))
+      capR.rotation.x = Math.PI / 2; capR.position.set(len / 2, 0, 0)
+      const tex = beltTexture()
+      const stripe = new THREE.Mesh(
+        new THREE.BoxGeometry(len, 0.02, 0.32),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.85, depthWrite: false }))
+      stripe.position.set(0, r + 0.01, 0)
+      g.add(body, capL, capR, stripe)
+      const vb = p.vb ?? 3
+      return {
+        mesh: g,
+        baseAngle: THREE.MathUtils.degToRad(p.th ?? 0),
+        tick: (dt) => { tex.offset.x -= (vb * dt) / len * 4 },
+      }
+    }
+    case 'loop_track': {
+      // 轨道环：side 0 内轨 / 1 外轨 / 2 管道（双壁）；锚点约定 入口切点(0,-R) 顶点(0,R)
+      const R = Math.max(0.1, p.radius ?? 1)
+      const g = new THREE.Group()
+      const tube = 0.06
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(R, tube, 8, 64), mat(color, { opacity: 0.9 }))
+      g.add(ring)
+      if ((p.side ?? 0) === 2) {
+        const inner = new THREE.Mesh(new THREE.TorusGeometry(R - tube * 2.5, tube * 0.7, 6, 64), mat(color, { opacity: 0.55 }))
+        g.add(inner)
+      }
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'spring': {
+      // 静态螺旋（自然长 L0）；运行态伸缩由 updateHelix 驱动
+      const L0 = Math.max(0.1, p.L0 ?? 1)
+      const g = new THREE.Group()
+      const c = spec?.color ?? '#F5C542'
+      const helix = new THREE.Line(helixGeometry(0, 0, L0, 0, 10, 0.12), new THREE.LineBasicMaterial({ color: new THREE.Color(c) }))
+      const a = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 10), mat(c))
+      const b = a.clone(); b.position.x = L0
+      g.add(helix, a, b)
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'pulley': {
+      // 滑轮：轮缘环 + 三辐条 + 轴；kind 0 定滑轮带吊装杆，1 动滑轮带吊钩
+      const r = 0.4
+      const g = new THREE.Group()
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.05, 8, 28), mat(color))
+      g.add(rim)
+      for (let i = 0; i < 3; i++) {
+        const spoke = new THREE.Mesh(new THREE.BoxGeometry(r * 1.8, 0.03, 0.05), mat(color))
+        spoke.rotation.z = (i * Math.PI) / 3
+        g.add(spoke)
+      }
+      const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.3, 10), mat('#8a8aa0'))
+      axle.rotation.x = Math.PI / 2
+      g.add(axle)
+      if ((p.kind ?? 0) === 0) {
+        const mount = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 0.08), mat('#8a8aa0'))
+        mount.position.y = r + 0.25
+        g.add(mount)
+      } else {
+        const hook = new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.02, 6, 12, Math.PI), mat('#8a8aa0'))
+        hook.position.y = -r - 0.08; hook.rotation.z = Math.PI
+        g.add(hook)
+      }
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'rod_bar': {
+      // 导体棒：竖直杆 + 上下接线端子
+      const h = 1
+      const g = new THREE.Group()
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.1, h, 0.1), mat(color, { emissive: 0.3 }))
+      const t1 = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), mat('#d4af37', { emissive: 0.4 }))
+      t1.position.set(0, h / 2, 0)
+      const t2 = t1.clone(); t2.position.set(0, -h / 2, 0)
+      g.add(bar, t1, t2)
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'sphere': case 'particle': {
+      return { mesh: new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 16), mat(color)), baseAngle: 0 }
+    }
+    case 'point_charge': {
+      return { mesh: new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 14), mat(color, { emissive: 0.6 })), baseAngle: 0 }
+    }
+    case 'block': case 'cart': {
+      const w = e.type === 'cart' ? 2 : 1
+      return { mesh: new THREE.Mesh(new THREE.BoxGeometry(w, 0.5, 0.6), mat(color)), baseAngle: 0 }
+    }
+    case 'ground': {
+      return { mesh: new THREE.Mesh(new THREE.BoxGeometry(20, 0.2, 1), mat(color, { opacity: 0.55 })), baseAngle: 0 }
+    }
+    case 'slope': {
+      // 直角三角形斜面：底 2·sx 高 sy，直角在左下（与 sim/threeScene 的 slope 建法一致）
+      const w = 4, h = 2.3
+      const shape = new THREE.Shape([
+        new THREE.Vector2(-w / 2, -h / 2),
+        new THREE.Vector2(w / 2, -h / 2),
+        new THREE.Vector2(-w / 2, h / 2),
+      ])
+      const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.5, bevelEnabled: false })
+      geo.translate(0, 0, -0.25)
+      return { mesh: new THREE.Mesh(geo, mat(color, { opacity: 0.9 })), baseAngle: 0 }
+    }
+    default: {
+      return { mesh: new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.5), mat(color, { opacity: 0.9 })), baseAngle: 0 }
+    }
+  }
+}
+
+/** 生成 (x0,y0)→(x1,y1) 螺旋线缓冲几何 */
+export function helixGeometry(x0: number, y0: number, x1: number, y1: number, coils: number, radius: number): THREE.BufferGeometry {
+  const dx = x1 - x0, dy = y1 - y0
+  const len = Math.hypot(dx, dy) || 1e-6
+  const ux = dx / len, uy = dy / len          // 沿线方向单位向量
+  const nx = -uy, ny = ux                     // 法向
+  const N = Math.max(32, coils * 12)
+  const pts: number[] = []
+  for (let i = 0; i <= N; i++) {
+    const u = i / N
+    const phase = u * coils * Math.PI * 2
+    const wobble = Math.sin(phase) * radius
+    const z = Math.cos(phase) * radius * 0.4
+    pts.push(x0 + ux * len * u + nx * wobble, y0 + uy * len * u + ny * wobble, z)
+  }
+  return new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3))
+}
+
+/** 运行态更新弹簧螺旋（端点为两端锚点世界坐标） */
+export function updateHelix(line: THREE.Line, x0: number, y0: number, x1: number, y1: number, coils = 10, radius = 0.12): void {
+  line.geometry.dispose()
+  line.geometry = helixGeometry(x0, y0, x1, y1, coils, radius)
+}
+
+/** 连接线（rope/wire/pulley-rope），端点由画布渲染循环更新 */
+export function buildConnectionLine(kind: 'rope' | 'rod' | 'spring' | 'wire' | 'pulley-rope'): THREE.Line {
+  const color = kind === 'spring' ? '#F5C542' : kind === 'wire' ? '#4A90D9' : kind === 'rod' ? '#E05555' : '#d9a05a'
+  const geo = new THREE.BufferGeometry()
+  geo.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0, 0, 0], 3))
+  return new THREE.Line(geo, new THREE.LineBasicMaterial({ color: new THREE.Color(color) }))
+}
+
+/** 更新连接线端点 */
+export function updateLine(line: THREE.Line, x0: number, y0: number, x1: number, y1: number): void {
+  const attr = line.geometry.getAttribute('position') as THREE.BufferAttribute
+  attr.setXYZ(0, x0, y0, 0)
+  attr.setXYZ(1, x1, y1, 0)
+  attr.needsUpdate = true
+}
