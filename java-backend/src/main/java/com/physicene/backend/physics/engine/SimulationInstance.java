@@ -86,6 +86,8 @@ public class SimulationInstance {
     private final Map<String, Boolean> loopContactNow = new java.util.concurrent.ConcurrentHashMap<>();
     /** 动态体 id -> 上一契约步是否贴轨（脱离判定：was 贴轨 && 本步全程无力） */
     private final Map<String, Boolean> loopContactPrev = new java.util.concurrent.ConcurrentHashMap<>();
+    /** 滑轮元件（自研绳段罚力对） */
+    private final java.util.List<com.physicene.backend.physics.element.PulleyElement> pulleys = new java.util.ArrayList<>();
     /** 弹簧元件（力对施加） */
     private final java.util.List<com.physicene.backend.physics.element.SpringElement> springs = new java.util.ArrayList<>();
     /** 关节键 -> DistanceJoint：绳绷紧/松弛、弹簧原长事件 */
@@ -166,6 +168,9 @@ public class SimulationInstance {
             if (jb instanceof com.physicene.backend.physics.element.SpringElement se) {
                 springs.add(se);
             }
+            if (jb instanceof com.physicene.backend.physics.element.PulleyElement pe) {
+                pulleys.add(pe);
+            }
         }
 
         // 传送带：接触求解前按带速设表面切向速度（dyn4j 官方传送带语义，方案 §3.1）
@@ -216,6 +221,13 @@ public class SimulationInstance {
         t += dt;
         frameCount++;
 
+        if (simId.startsWith("t-atwood") && frameCount % 15 == 0 && !pulleys.isEmpty()) {
+            var pe = pulleys.get(0);
+            System.out.println("[pul] f=" + frameCount + " t=" + String.format("%.2f", t)
+                    + " L=" + String.format("%.4f", pe.getCurrentLength()) + " L0=" + String.format("%.4f", pe.getRestLength())
+                    + " v1=" + String.format("%.3f", dynamicBodies.get(0).getLinearVelocity().y)
+                    + " v2=" + String.format("%.3f", dynamicBodies.get(1).getLinearVelocity().y));
+        }
         // 圆轨道解析脱离（双缓冲）：上一步贴轨 && 本步全程导轨力为零且在上半弧 → detach（θ 载荷）
         if (!loops.isEmpty()) {
             for (int i = 0; i < dynamicBodies.size(); i++) {
@@ -319,7 +331,7 @@ public class SimulationInstance {
                 break;
             }
         }
-        if (!anyForce && loops.isEmpty()) {
+        if (!anyForce && loops.isEmpty() && springs.isEmpty() && pulleys.isEmpty()) {
             return; // 纯力学场景零开销（圆轨道解析导轨走 loops 路径）
         }
         java.util.Map<String, Vector2D> positionMap = new java.util.HashMap<>();
@@ -340,6 +352,10 @@ public class SimulationInstance {
                     body.applyForce(new org.dyn4j.geometry.Vector2(force.x(), force.y()));
                 }
             }
+        }
+        // 滑轮绳段罚力（教材精确解）：张力对 A/B 按 ratio 分配
+        for (com.physicene.backend.physics.element.PulleyElement pe : pulleys) {
+            pe.applyRopeForce();
         }
         // 弹簧力对（教材精确解）：A 受 +F、B 受 −F
         for (com.physicene.backend.physics.element.SpringElement se : springs) {
