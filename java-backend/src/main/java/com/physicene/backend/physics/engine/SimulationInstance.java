@@ -216,6 +216,10 @@ public class SimulationInstance {
         // 统一搭建台：每个子步刷新一次（场力跟随子步位置，方案 §3.4）
         for (int i = 0; i < substeps; i++) {
             applyCustomForces();
+            // 冲量式绳/滑轮约束（阶段三·五 D1）：速度约束 + Baumgarte 位置偏置，替代罚力对
+            for (com.physicene.backend.physics.element.PulleyElement pe : pulleys) {
+                pe.applyImpulse(dt / substeps);
+            }
             world.step(1);
         }
         t += dt;
@@ -353,11 +357,8 @@ public class SimulationInstance {
                 }
             }
         }
-        // 滑轮绳段罚力（教材精确解）：张力对 A/B 按 ratio 分配
-        for (com.physicene.backend.physics.element.PulleyElement pe : pulleys) {
-            pe.applyRopeForce();
-        }
         // 弹簧力对（教材精确解）：A 受 +F、B 受 −F
+        // （滑轮/绳已改冲量式约束，见 step() 内 applyImpulse——阶段三·五 D1）
         for (com.physicene.backend.physics.element.SpringElement se : springs) {
             double[] f = se.springForce();
             if (f != null && !Double.isNaN(f[0]) && !Double.isNaN(f[1])) {

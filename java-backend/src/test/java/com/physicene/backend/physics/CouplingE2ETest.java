@@ -141,14 +141,17 @@ class CouplingE2ETest {
         PhysicsElement m1 = new PhysicsElement();
         m1.setId("m1");
         m1.setType("cube");
-        m1.setPosition(new Vector2D(-0.6, 2.2));
+        // 5s 窗口 m1 下落 ½at²=40.8m：初始两段绳各 45m（滑轮 y=3，质量 y=−42），
+        // m2 上升 40.8m 后距滑轮仍有 4.2m——旧几何（y=2.2）t≈0.74s 时 m2 撞入滑轮锚点，
+        // 系统冻结在势能比 E0 低 12.1% 的状态，才是旧基线 12.96% 的主体（场景伪影，非求解器漂移）
+        m1.setPosition(new Vector2D(-0.6, -42));
         m1.setProperties(new PhysicalProperties());
         m1.getProperties().setMass(2);
         m1.setInitialState(new InitialState());
         PhysicsElement m2 = new PhysicsElement();
         m2.setId("m2");
         m2.setType("cube");
-        m2.setPosition(new Vector2D(0.6, 2.2));
+        m2.setPosition(new Vector2D(0.6, -42));
         m2.setProperties(new PhysicalProperties());
         m2.getProperties().setMass(1);
         m2.setInitialState(new InitialState());
@@ -160,7 +163,7 @@ class CouplingE2ETest {
         cfg.setSubsteps(4);
         sc.setConfig(cfg);
 
-        SimulationInstance instance = new SimulationInstance("t-atw-long", sc, registry());
+        SimulationInstance instance = new SimulationInstance("t-atwood-long", sc, registry());
         double[] maxDev = {0};
         double[] energy0 = {0};
         instance.addFrameListener(f -> {
@@ -179,8 +182,10 @@ class CouplingE2ETest {
             }
         });
         instance.runToEndSync();
-        // D1 基线：记录 5s 窗口最大能量漂移，不设 pass/fail（数据用于阶段五专项与阶段六决策）
-        System.out.println("[D1-baseline] 5s atwood maxEnergyDrift=" + String.format("%.4f%%", maxDev[0] * 100));
-        assertTrue(true, "基线数据采集（不判优劣）");
+        // 阶段三·五 D1：冲量式 + Baumgarte，5s 漂移 <2% 硬指标（罚力法基线 12.96%）
+        System.out.println("[D1-impulse] 5s atwood maxEnergyDrift=" + String.format("%.4f%%", maxDev[0] * 100));
+        assertTrue(maxDev[0] < 0.02,
+                "阿特伍德 5s 能量漂移必须 <2%（实测 " + String.format("%.4f%%", maxDev[0] * 100)
+                        + "；罚力法基线 12.96%）");
     }
 }

@@ -9,13 +9,20 @@ import org.dyn4j.world.World;
 import java.util.Map;
 
 /**
- * 滑轮（自研绳段罚力，教材精确解）：弃用 dyn4j PulleyJoint（实测求解过软：阿特伍德 a 仅理论 8%，比例 1.76 vs 2）。
- * 力学模型：轻绳张力处处相等。约束 L = |A−P₁| + ratio·|B−P₂|，罚力 f = k·(L−L₀) + c·dL/dt（k 对质量归一）。
- * A 受 −f·û₁（沿 A 段绳向），B 受 −ratio·f·û₂（动滑轮 B 段位移敏感度 = ratio）。
- * 定滑轮 ratio=1 → 阿特伍德 a=(m₁−m₂)g/(m₁+m₂)；动滑轮 ratio=2 → v_A=2·v_B，由约束雅可比自然保证。
- * 要求 substeps≥4（与圆轨道导轨同套数值参数）。
+ * 滑轮（冲量式绳约束 + Baumgarte 稳定化，阶段三·五 D1 重构）：弃用 dyn4j PulleyJoint（实测过软）与
+ * 罚力对（5s 阿特伍德能量漂移 12.96%）。
+ * 力学模型：轻绳张力处处相等。约束 C = L − L₀ = (|A−P₁| + ratio·|B−P₂|) − L₀ ≥ 0（单边：绳不抗压）。
+ * 速度约束 J·v = Ċ = −(vA·û₁ + ratio·vB·û₂)，雅可比 J_A = −û₁、J_B = −ratio·û₂。
+ * 每子步（world.step 前）施加冲量 λ = −((1+γ)·J·v + β·max(C,0)/h) · M_eff，
+ * M_eff = 1/(1/m_A + ratio²/m_B)；λ<0 为张力（绷紧），λ≥0 松弛不施力。
+ * P_A = λ·J_A = −λ·û₁（拉 A 向滑轮），P_B = −ratio·λ·û₂；速度级求解 + Baumgarte 位置偏置，
+ * 无刚度项 → 无罚力法的能量注入/耗散。动滑轮 ratio=2 → v_A=2·v_B 由雅可比自然保证。
  */
 public class PulleyElement implements ElementBehavior, JointBehavior {
+
+    /** Baumgarte 位置稳定化系数（验收定案 β=0.2 γ=0.1） */
+    public static final double BETA = 0.2;
+    public static final double GAMMA = 0.1;
 
     private final PhysicsElement data;
     private Body bodyA;
@@ -51,7 +58,7 @@ public class PulleyElement implements ElementBehavior, JointBehavior {
                     + data.getConnectTo() + " / " + data.getConnectTo2());
         }
         restLength = currentLength();
-        return null; // 力对不走关节
+        return null; // 冲量不走 dyn4j 关节（求解器语义见类注释）
     }
 
     private double ratio() {
@@ -69,8 +76,11 @@ public class PulleyElement implements ElementBehavior, JointBehavior {
         return l1 + ratio() * l2;
     }
 
-    /** 每子步计算并施加绳张力对：返回当前张力（>0 绷紧；≤0 松弛不施力——绳不抗压） */
-    public double applyRopeForce() {
+    /**
+     * 每子步施加冲量式约束（SimulationInstance 在 world.step 前调用，h = dt/substeps）。
+     * 返回张力冲量 |λ|（≤0 表示绳松弛未施力）。
+     */
+    public double applyImpulse(double h) {
         if (bodyA == null || bodyB == null) {
             return 0;
         }
@@ -90,43 +100,32 @@ public class PulleyElement implements ElementBehavior, JointBehavior {
         double u1x = d1x / l1, u1y = d1y / l1;         // A 段绳单位向量（A→P₁）
         double u2x = d2x / l2, u2y = d2y / l2;         // B 段绳单位向量（B→P₂）
 
-        double length = l1 + r * l2;
-        // dL/dt = −(vA·û₁ + ratio·vB·û₂)
-        double dL = -((bodyA.getLinearVelocity().x * u1x + bodyA.getLinearVelocity().y * u1y)
-                + r * (bodyB.getLinearVelocity().x * u2x + bodyB.getLinearVelocity().y * u2y));
-
-        double lambda = length - restLength;
-        if (lambda <= 0) {
+        double c = (l1 + r * l2) - restLength;         // 位置约束违反量
+        if (c <= 0) {
             return 0; // 绳松弛（不可伸长且不抗压）
         }
-        double mRed = reducedMass(u1x, u1y, u2x, u2y, r);
-        double k = 4000.0;
-        double c = 2.0 * Math.sqrt(k) * 0.7;           // 近临界阻尼防接缝噪声
-        double f = mRed * (k * lambda + c * dL);       // 绳张力（>0）
-        if (f <= 0) {
+        // J·v = Ċ = −(vA·û₁ + ratio·vB·û₂)
+        double jv = -((bodyA.getLinearVelocity().x * u1x + bodyA.getLinearVelocity().y * u1y)
+                + r * (bodyB.getLinearVelocity().x * u2x + bodyB.getLinearVelocity().y * u2y));
+
+        double invMassA = invMass(bodyA), invMassB = invMass(bodyB);
+        double invEff = invMassA + r * r * invMassB;   // 1/M_eff
+        if (invEff <= 0) {
             return 0;
         }
-
-        // A 段：张力拉 A 向滑轮1方向；B 段：约束雅可比给 B 的敏感度是 ratio
-        bodyA.applyForce(new org.dyn4j.geometry.Vector2(f * u1x, f * u1y));
-        bodyB.applyForce(new org.dyn4j.geometry.Vector2(r * f * u2x, r * f * u2y));
-        return f;
+        double lambda = -((1 + GAMMA) * jv + BETA * c / h) / invEff;
+        if (lambda >= 0) {
+            return 0; // 张力为负才绷紧（λ<0：冲量把两体拉向滑轮）
+        }
+        // P_A = λ·J_A = −λ·û₁ > 0 方向 û₁（拉 A 向滑轮）；P_B = −r·λ·û₂
+        bodyA.applyImpulse(new org.dyn4j.geometry.Vector2(-lambda * u1x, -lambda * u1y));
+        bodyB.applyImpulse(new org.dyn4j.geometry.Vector2(-r * lambda * u2x, -r * lambda * u2y));
+        return -lambda;
     }
 
-    /** 沿约束方向的等效质量：1/M = 1/m_A + ratio²/m_B（忽略锚固定） */
-    private double reducedMass(double u1x, double u1y, double u2x, double u2y, double r) {
-        double mA = bodyA.getMass().getMass();
-        double mB = bodyB.getMass().getMass();
-        boolean infA = mA <= 0 || Double.isInfinite(mA);
-        boolean infB = mB <= 0 || Double.isInfinite(mB);
-        double inv = 0;
-        if (!infA) {
-            inv += 1.0 / mA;
-        }
-        if (!infB) {
-            inv += r * r / mB;
-        }
-        return inv > 0 ? 1.0 / inv : 1.0;
+    private static double invMass(Body b) {
+        double m = b.getMass().getMass();
+        return (m <= 0 || Double.isInfinite(m)) ? 0 : 1.0 / m;
     }
 
     public double getRestLength() {
