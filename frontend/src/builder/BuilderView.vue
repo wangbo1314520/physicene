@@ -11,6 +11,7 @@ import BuilderCanvas from './render/BuilderCanvas.vue'
 import DataPanel from './components/DataPanel.vue'
 import BuilderAi from './components/BuilderAi.vue'
 import { analyze } from './analysis/EngineAnalyzer'
+import { useRunBridge } from './run/RunBridge'
 import type { RunRecord } from '../sandbox/SandboxData.vue'
 
 const sceneName = ref('未命名场景')
@@ -51,6 +52,28 @@ const dim = computed<Dim>(() => {
 /** 场景分析（⑥ EngineAnalyzer）：引擎集合 + 耦合链 + 警告 + 运行路径 */
 const analysis = computed(() => analyze(elements))
 const engineHint = computed(() => analysis.value.title)
+
+// ── 运行桥（⑤ RunBridge）──
+const bridge = useRunBridge()
+const sim = bridge.socket.state
+async function doRun() {
+  const err = await bridge.run(elements, analysis.value)
+  if (err) say(err)
+}
+/** ended → 数据面板记录（readout=末帧各主体位姿/速度 + 能量尾部；events=keyEvents） */
+watch(() => sim.status, (st) => {
+  if (st !== 'ended') return
+  const subj = sim.subjects.map((s) => `${s.id}: x=${s.x.toFixed(2)} y=${s.y.toFixed(2)} v=(${s.vx.toFixed(2)},${s.vy.toFixed(2)})`).join('；')
+  const ek = sim.ekSeries.length ? sim.ekSeries[sim.ekSeries.length - 1].v : null
+  records.value.push({
+    at: new Date().toLocaleTimeString(),
+    family: analysis.value.title,
+    t: sim.currentT,
+    params: {},
+    readout: `t=${sim.currentT.toFixed(2)}s；${subj}${ek !== null ? `；Ek=${ek.toFixed(3)}J` : ''}`,
+    events: sim.keyEvents.map((k) => `${k.t.toFixed(2)}s ${k.label}`),
+  })
+})
 
 function addElement(type: string, x?: number, y?: number): GeoElement {
   const spec = byType.get(type)
@@ -176,6 +199,11 @@ onMounted(() => {
     },
     unlinkAll: (id: string) => { const e = elements.find((x) => x.id === id); if (e) e.links.splice(0) },
     snapOf: (id: string) => canvasRef.value?.snapOf(id) ?? null,
+    run: () => doRun(),
+    simStatus: () => sim.status,
+    simT: () => sim.currentT,
+    keyEvents: () => JSON.parse(JSON.stringify(sim.keyEvents)),
+    subjects: () => JSON.parse(JSON.stringify(sim.subjects)),
     clear: clearAll,
     elements: () => JSON.parse(JSON.stringify(elements)),
     count: () => elements.length,
@@ -223,10 +251,18 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
           </select>
           <button @click="clearAll">✕ 清空</button>
           <span class="spacer"></span>
-          <button class="primary" disabled title="阶段三⑤ RunBridge 接入后启用">▶ 运行（即将接入）</button>
+          <span v-if="sim.status !== 'idle'" class="runstate">
+            {{ sim.status === 'running' ? `▶ 运行中 t=${sim.currentT.toFixed(2)}s` : sim.status === 'paused' ? `⏸ 已暂停 t=${sim.currentT.toFixed(2)}s` : `⏹ 已结束 t=${sim.currentT.toFixed(2)}s（${sim.keyEvents.length} 事件）` }}
+          </span>
+          <template v-if="sim.status === 'running' || sim.status === 'paused'">
+            <button @click="sim.status === 'paused' ? bridge.socket.play() : bridge.socket.pause()">{{ sim.status === 'paused' ? '▶ 继续' : '⏸ 暂停' }}</button>
+            <button @click="bridge.socket.step()">⏭ 单步</button>
+            <button @click="bridge.socket.end()">⏹ 停止</button>
+          </template>
+          <button class="primary" :disabled="analysis.path !== 'java'" :title="analysis.path === 'java' ? '联合运行（Java 耦合调度）' : analysis.path === 'ts' ? '光学/近代本地引擎阶段四接入' : '无可运行引擎'" @click="doRun">▶ 运行</button>
         </div>
         <div class="canvas-holder">
-          <BuilderCanvas ref="canvasRef" :elements="elements" :selected-id="selectedId" :link-mode="linkMode" :link-from="linkFrom"
+          <BuilderCanvas ref="canvasRef" :elements="elements" :selected-id="selectedId" :link-mode="linkMode" :link-from="linkFrom" :run-states="bridge.runStates.value"
             @select="selectedId = $event" @dragging="onDragging" @drop="onDrop" @anchor-pick="onAnchorPick" @add-at="(t, x, y) => addElement(t, x, y)" />
           <p v-if="!elements.length" class="empty">从左侧拖入元件（米制世界坐标，滚轮缩放）。例：斜面 + 物块 → 传送带 + 物块 → 竖直圆轨道 + 小球</p>
         </div>
@@ -296,6 +332,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
 .tools .primary { background: #2b5c8f; color: #fff; border-color: #4a90d9; padding: 6px 16px; font-size: 13px; }
 .tools .primary:disabled { opacity: 0.5; }
 .linkkind { background: #23233a; color: #F5C542; border: 1px solid #F5C54266; border-radius: 6px; padding: 4px 6px; font-size: 12px; }
+.runstate { color: #3ecf8e; font-size: 12px; }
 .canvas-holder { position: relative; height: 580px; border: 1px solid #2f2f4a; border-radius: 10px; overflow: hidden; background: #14142a; }
 .empty { position: absolute; left: 20px; right: 20px; top: 45%; text-align: center; color: #565675; font-size: 12px; line-height: 1.8; pointer-events: none; }
 .props { display: flex; flex-direction: column; gap: 8px; }

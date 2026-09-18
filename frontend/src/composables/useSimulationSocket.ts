@@ -24,6 +24,14 @@ export interface PhysicsElementInput {
   isFixed?: boolean
   isVisible?: boolean
   color?: string
+  /** 统一搭建台关节（阶段一契约）：rope/rod/spring 连体 A / pulley 施力端 */
+  connectTo?: string
+  /** 关节连体 B / pulley 负载端 */
+  connectTo2?: string
+  /** 连体 A 上的局部锚点（米） */
+  anchorA?: { x: number; y: number }
+  /** 连体 B 上的局部锚点（米） */
+  anchorB?: { x: number; y: number }
 }
 
 export interface SimState {

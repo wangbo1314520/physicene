@@ -48,5 +48,28 @@ with sync_playwright() as p:
     print(json.dumps(r, ensure_ascii=False, indent=1))
     page.wait_for_timeout(1200)
     page.screenshot(path=OUT, full_page=False)
+
+    # ── 运行场景：斜面滑块（Java dyn4j 真实运行）──
+    run = page.evaluate("""async () => {
+      const B = window.__builder;
+      B.clear();
+      B.add('ground', {mu: 0.2}, 0, -3.2);
+      B.add('slope', {th: 30, mu: 0, L: 6}, -4, -2.5);      // 面：(-4,0.96)→(2,-2.5)
+      const blk = B.add('block', {m: 1, v0: 0, mu: 0}, -0.75, -0.34);
+      B.select(blk);
+      window.__builder_setAngle = null;
+      B.run();
+      const wait = (ms) => new Promise(r => setTimeout(r, ms));
+      for (let i = 0; i < 80; i++) {   // 最长 ~16s
+        await wait(200);
+        if (B.simStatus() === 'ended') break;
+      }
+      return { status: B.simStatus(), t: B.simT(), keyEvents: B.keyEvents(), subjects: B.subjects() };
+    }""")
+    print(json.dumps(run, ensure_ascii=False, indent=1))
+    ok = (run["status"] == "ended" and run["t"] and run["t"] > 1
+          and any(s["id"].startswith("block") and s["x"] > 0.5 for s in run["subjects"]))
+    print("RUN_CHECK:", "PASS" if ok else "FAIL")
     print("errors:", errors[:5])
     b.close()
+    sys.exit(0 if ok else 1)

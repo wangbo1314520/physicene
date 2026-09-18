@@ -10,7 +10,7 @@ import * as THREE from 'three'
 import type { GeoElement, AnchorTemplate } from '../catalog'
 import { byType } from '../catalog'
 import { findSnap } from '../model/snap'
-import { buildUnifiedMesh, buildConnectionLine, updateLine } from './Renderer'
+import { buildUnifiedMesh, buildConnectionLine, updateLine, updateHelix } from './Renderer'
 
 const props = defineProps<{
   elements: GeoElement[]
@@ -18,6 +18,8 @@ const props = defineProps<{
   linkMode: boolean
   /** 连线模式下已选中的第一锚点（高亮） */
   linkFrom: { id: string; anchorId: string } | null
+  /** 运行态帧位姿（RunBridge.runStates）；非空时画布按帧驱动、禁用编辑 */
+  runStates?: Map<string, { x: number; y: number; angle?: number }> | null
 }>()
 const emit = defineEmits<{
   (e: 'select', id: string | null): void
@@ -129,6 +131,11 @@ function hitAnchor(clientX: number, clientY: number): { id: string; anchorId: st
 }
 
 // ── 网格同步 ──
+/** 元件有效位姿：运行态取帧位姿，编辑态取元件状态 */
+function poseOf(e: GeoElement): { x: number; y: number; angle: number } {
+  const r = props.runStates?.get(e.id)
+  return r ? { x: r.x, y: r.y, angle: r.angle ?? e.angle } : { x: e.position.x, y: e.position.y, angle: e.angle }
+}
 function syncMeshes() {
   const seen = new Set<string>()
   for (const e of props.elements) {
@@ -141,8 +148,9 @@ function syncMeshes() {
       entry = { obj: built.mesh, baseAngle: built.baseAngle, tick: built.tick }
       meshMap.set(e.id, entry)
     }
-    entry.obj.position.set(e.position.x, e.position.y, 0)
-    entry.obj.rotation.z = e.angle + entry.baseAngle
+    const pose = poseOf(e)
+    entry.obj.position.set(pose.x, pose.y, 0)
+    entry.obj.rotation.z = pose.angle + entry.baseAngle
   }
   for (const [id, entry] of meshMap) {
     if (!seen.has(id)) {
@@ -157,10 +165,11 @@ function syncMeshes() {
   syncLinks()
 }
 
-/** 连接线：owner.links 一条一段线，端点 = 两锚点世界坐标 */
+/** 连接线：owner.links 一条一段线，端点 = 两锚点世界坐标（运行态跟随帧位姿） */
 function anchorWorldPos(e: GeoElement, tmpl: AnchorTemplate): { x: number; y: number } {
-  const c = Math.cos(e.angle), s = Math.sin(e.angle)
-  return { x: e.position.x + c * tmpl.local.x - s * tmpl.local.y, y: e.position.y + s * tmpl.local.x + c * tmpl.local.y }
+  const pose = poseOf(e)
+  const c = Math.cos(pose.angle), s = Math.sin(pose.angle)
+  return { x: pose.x + c * tmpl.local.x - s * tmpl.local.y, y: pose.y + s * tmpl.local.x + c * tmpl.local.y }
 }
 function syncLinks() {
   const seen = new Set<string>()
@@ -180,7 +189,8 @@ function syncLinks() {
       const tb = target ? byType.get(target.type)?.anchors?.find((a) => a.id === l.anchorB) : undefined
       if (target && ta && tb) {
         const pa = anchorWorldPos(e, ta), pb = anchorWorldPos(target, tb)
-        updateLine(line, pa.x, pa.y, pb.x, pb.y)
+        if (l.kind === 'spring') updateHelix(line, pa.x, pa.y, pb.x, pb.y)
+        else updateLine(line, pa.x, pa.y, pb.x, pb.y)
       }
     }
   }
@@ -189,8 +199,15 @@ function syncLinks() {
   }
 }
 
-/** 锚点手柄：选中件常显（蓝），连线模式全显（暗），已选第一锚点高亮（黄） */
+/** 锚点手柄：选中件常显（蓝），连线模式全显（暗），已选第一锚点高亮（黄）；运行态隐藏 */
 function syncAnchors() {
+  if (props.runStates) {
+    while (anchorGroup.children.length) {
+      const c = anchorGroup.children.pop()!
+      ;(c as THREE.Mesh).geometry.dispose()
+    }
+    return
+  }
   while (anchorGroup.children.length) {
     const c = anchorGroup.children.pop()!
     ;(c as THREE.Mesh).geometry.dispose()
@@ -255,7 +272,7 @@ function drawSnapPreview() {
 
 // ── 指针交互 ──
 function onPointerDown(ev: PointerEvent) {
-  if (ev.button !== 0) return
+  if (ev.button !== 0 || props.runStates) return
   if (props.linkMode) {
     const a = hitAnchor(ev.clientX, ev.clientY)
     if (a) { emit('anchor-pick', a); return }
