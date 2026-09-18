@@ -103,7 +103,7 @@ def main() -> int:
         PROOFS = {
             "gk-slope-spring": lambda s: [
                 ("振荡可见（速度变号≥2 次，能振）", sum(1 for i in range(1, len(s)) if s[i-1][1] and s[i][1] and s[i-1][1][0]["vx"] * s[i][1][0]["vx"] < 0) >= 2),
-                ("行程>0.8m（振幅可见，2A=v/ω·2 阻尼削峰）", max(v[1][0]["x"] for v in s if v[1]) - min(v[1][0]["x"] for v in s if v[1]) > 0.7),
+                ("行程>0.5m（振幅可见；首峰采样混叠容差，物理精断在 builder-check）", max(v[1][0]["x"] for v in s if v[1]) - min(v[1][0]["x"] for v in s if v[1]) > 0.5),
                 ("阻尼收敛静止（能停，OPEN#2 已修）", abs(s[-1][1][0]["vx"]) < 0.06),
             ],
             "gk-conveyor-board": lambda s: [
