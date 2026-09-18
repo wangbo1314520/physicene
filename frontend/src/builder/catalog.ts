@@ -48,7 +48,7 @@ const SEL = (key: string, label: string, def: number, options: { value: number; 
 
 const el = (type: string, label: string, icon: string, domain: Domain, dims: Dim[], color: string, desc: string, params: ParamSpec[], role: Role, tags: string[], anchors?: AnchorTemplate[]): ElementSpec => ({ type, label, icon, domain, dims, color, desc, params, role, tags, anchors })
 
-const MASS = P('m', '质量 m', 0.1, 10, 0.1, 1, 'kg'), V0 = P('v0', '初速度 v₀', 0, 12, 0.5, 4, 'm/s'), MU = P('mu', '摩擦系数 μ', 0, 1, 0.05, 0.2)
+const MASS = P('m', '质量 m', 0.1, 10, 0.1, 1, 'kg'), V0 = P('v0', '初速度 v₀', 0, 12, 0.5, 0, 'm/s'), MU = P('mu', '摩擦系数 μ', 0, 1, 0.05, 0.2)
 const THETA = P('th', '倾角 θ', 0, 80, 5, 30, '°'), BMAG = P('B', '磁感应强度 B', 0.1, 3, 0.1, 1, 'T'), RES = P('R', '电阻 R', 0.5, 100, 0.5, 1, 'Ω')
 
 // 锚点局部坐标约定：y 向上（世界/物理系），取元件默认参数下的端点位置（参数化锚点由阶段四模板层提供）
@@ -85,7 +85,7 @@ export const CATALOG: ElementSpec[] = [
   el('lead_in', '切线导入段', '⌐', 'mech', ['2.5D'], '#b06ce6', '轨道入口的平滑切线过渡', [P('L', '段长 L', 0.5, 4, 0.25, 2, 'm')], 'constraint', ['导入段'], [
     SURFACE_END(-1, 0, '尾端'), SURFACE_END(1, 0, '首端'),
   ]),
-  el('belt', '传送带', '⇶', 'mech', ['2.5D'], '#3ecf8e', '速度、倾角、摩擦', [P('vb', '带速 v_带', 0, 8, 0.5, 3, 'm/s'), THETA, MU, P('L', '长度 L', 2, 12, 0.5, 6, 'm')], 'constraint', ['传送带'], [
+  el('belt', '传送带', '⇶', 'mech', ['2.5D'], '#3ecf8e', '速度、倾角、摩擦', [P('vb', '带速 v_带', -8, 8, 0.5, 3, 'm/s'), P('th', '倾角 θ', 0, 80, 5, 0, '°'), P('mu', '摩擦系数 μ', 0, 1, 0.05, 0.4), P('L', '长度 L', 2, 12, 0.5, 6, 'm')], 'constraint', ['传送带'], [
     SURFACE_END(-3, 0.15, '左端上表面'), SURFACE_END(3, 0.15, '右端上表面'),
     ATTACH(-1.5, 0.15, '表面左中'), ATTACH(0, 0.15, '表面中'), ATTACH(1.5, 0.15, '表面右中'),
   ]),

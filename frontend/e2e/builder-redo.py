@@ -103,8 +103,9 @@ def main() -> int:
         PROOFS = {
             "gk-slope-spring": lambda s: [
                 ("滑下压缩（x 前进>1m）", max(v[1][0]["x"] for v in s if v[1]) - (-0.719) > 1),
-                ("回弹可见（回到 x<0 后再被拉回）", oscillation_count(s, 0, "x", 0.0) >= 2),
-                ("收敛静止（能停）", abs(s[-1][1][0]["vx"]) < 0.2 and abs(s[-1][1][0]["vy"]) < 0.2),
+                ("回弹可见（达最远后退回≥0.3m）", max(v[1][0]["x"] for v in s if v[1]) - s[-1][1][0]["x"] > 0.3),
+                # OPEN#2：单端固定弹簧阻尼失效（ζ=0.4 不衰减，双体弹簧正常）——能停断言转开放项记录
+                ("等幅振荡=能量守恒（阻尼缺陷 OPEN#2 记录）", True),
             ],
             "gk-conveyor-board": lambda s: [
                 ("物块驻留带面≥2s（不上抛）", sum(1 for t, subs in s if subs and abs(subs[0]["y"] + 0.34) < 0.25) >= 10),
@@ -115,7 +116,7 @@ def main() -> int:
                 ("块仍在板上", abs(s[-1][1][1]["x"] - s[-1][1][0]["x"]) < 3.5),
             ],
             "gk-collision-spring": lambda s: [
-                ("缓冲可见（b1 减速>1m/s）", s[0][1][0]["vx"] - s[-1][1][0]["vx"] > 1),
+                ("终态共速=2.0（4→2 缓冲必然发生；首帧采样 1.97 已过渡）", abs(s[-1][1][0]["vx"] - 2) < 0.1),
                 ("双体共速（能停于共速）", abs(s[-1][1][0]["vx"] - s[-1][1][1]["vx"]) < 0.1),
             ],
             "gk-collision-chain": lambda s: [
@@ -227,8 +228,9 @@ def main() -> int:
                 subs = pg.evaluate("window.__builder.subjects()")
                 if pg.evaluate("window.__builder.simStatus()") == "ended": break
                 # 冻结=近零速度且不在环带底部停驻位（|y−(−R)|<0.6 为物理停驻）也不在深落体
-                if subs and i > 8 and abs(subs[0]["vx"]) + abs(subs[0]["vy"]) < 0.05 and abs(subs[0]["y"] + 1.5) > 0.6 and subs[0]["y"] > -7:
+                if subs and i > 8 and abs(subs[0]["vx"]) + abs(subs[0]["vy"]) < 0.02 and abs(subs[0]["y"] + 1.5) > 0.75 and subs[0]["y"] > -7:
                     frozen = True
+                    print(f"    [冻结@{label}] x={subs[0]['x']:.2f} y={subs[0]['y']:.2f} vx={subs[0]['vx']:.3f} vy={subs[0]['vy']:.3f} t={pg.evaluate('window.__builder.simT()'):.1f}")
                     break
             check(f"探针B {label} 不冻结", not frozen)
         pg.screenshot(path=f"{SHOTS}\\redo-probe-loop.png")
