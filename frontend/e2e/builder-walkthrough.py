@@ -10,6 +10,7 @@ from playwright.sync_api import sync_playwright
 BASE = "http://localhost:5173"
 API = "http://localhost:8080"
 SHOTS = r"E:\Program\physicene\frontend\e2e\shots"
+ARCHIVE = r"E:\Program\physicene\frontend\src\experiments\docs\visual-verification"
 VIEW_H = 14.0  # 画布可视高度（米），相机 zoom=1
 
 def login_api():
@@ -88,10 +89,14 @@ def check(name, ok, detail=""):
 with sync_playwright() as p:
     b = p.chromium.launch(headless=True)
     auth = login_api()
-    ctx = b.new_context(viewport={"width": 1560, "height": 980})
+    # 录屏归档（追问2）：视频 page.close() 后落盘，save_as 到 visual-verification/
+    ctx = b.new_context(viewport={"width": 1560, "height": 980},
+                        record_video_dir=f"{ARCHIVE}\\_video_tmp",
+                        record_video_size={"width": 1560, "height": 980})
     ctx.add_init_script(f"localStorage.setItem('ps_token', {json.dumps(auth['token'])});"
                         f"localStorage.setItem('ps_user', {json.dumps(json.dumps(auth['user']))});")
     page = ctx.new_page()
+    video = page.video
     errs = []
     page.on("pageerror", lambda e: errs.append(str(e)))
     page.goto(f"{BASE}/exp")
@@ -166,6 +171,10 @@ with sync_playwright() as p:
           f"end=({ball_end['x']:.2f},{ball_end['y']:.2f})" if ball_end else "无球")
 
     check("全程无页面错误", not errs, str(errs[:2]))
+
+    # 录屏落盘归档（page 关闭后视频才完整）
+    page.close()
+    video.save_as(f"{ARCHIVE}\\统一搭建台-阶段三手工录制.webm")
     b.close()
 
 print("\n===== 手工录制结论 =====")
