@@ -2,8 +2,8 @@
  * 锚点吸附（方案 §4.2）：拖动中实时预览、松手提交；阈值 δ=0.35 m（世界单位）
  * 优先级：tangent > translate > proximity；一次只做一处吸附；吸附后可继续拖走
  */
-import type { GeoElement, AnchorTemplate, AnchorKind } from './catalog'
-import { byType } from './catalog'
+import type { GeoElement, AnchorTemplate, AnchorKind } from '../catalog'
+import { byType } from '../catalog'
 
 export interface SnapProposal {
   dragId: string; anchorA: string; targetId: string; anchorB: string
