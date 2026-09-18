@@ -108,6 +108,72 @@ class SceneValidatorUnifyTest {
     }
 
     @Test
+    void pulleyShortSegmentWarns() {
+        // 判据 1：绳段初始长 < 0.5m（D1 旧基线场景：质量距锚点仅 0.8m 时 t≈0.74s 撞入锚点冻结）
+        PhysicsElement p = el("p1", "pulley", 0, 3);
+        p.setParams(new HashMap<>(java.util.Map.of("ratio", 1.0)));
+        p.setConnectTo("a");
+        p.setConnectTo2("b");
+        PhysicsElement a = el("a", "cube", 0, 2.7);
+        PhysicsElement b = el("b", "cube", 0.4, 3);
+        a.getProperties().setMass(2);
+        b.getProperties().setMass(1);
+        Scene sc = new Scene();
+        sc.setElements(List.of(p, a, b));
+        SimulationConfig cfg = new SimulationConfig();
+        cfg.setSubsteps(4);
+        sc.setConfig(cfg);
+        var r = validator.validate(sc);
+        assertTrue(r.isValid(), "警告不阻断");
+        assertTrue(r.getErrors().stream().anyMatch(e -> e.getField().endsWith(".geometry") && e.getMessage().contains("绳段过短")),
+                "绳段 <0.5m 应警告");
+    }
+
+    @Test
+    void pulleyTravelMarginWarns() {
+        // 判据 2：min(l) − ½aT² < 0.5m（m=2/1、T=5s → 行程 40.8m >> 绳段 1m）
+        PhysicsElement p = el("p1", "pulley", 0, 3);
+        p.setParams(new HashMap<>(java.util.Map.of("ratio", 1.0)));
+        p.setConnectTo("a");
+        p.setConnectTo2("b");
+        PhysicsElement a = el("a", "cube", -0.6, 2.2);
+        PhysicsElement b = el("b", "cube", 0.6, 2.2);
+        a.getProperties().setMass(2);
+        b.getProperties().setMass(1);
+        Scene sc = new Scene();
+        sc.setElements(List.of(p, a, b));
+        SimulationConfig cfg = new SimulationConfig();
+        cfg.setSubsteps(4);
+        cfg.setMaxDuration(5.0);
+        sc.setConfig(cfg);
+        var r = validator.validate(sc);
+        assertTrue(r.getErrors().stream().anyMatch(e -> e.getField().endsWith(".geometry") && e.getMessage().contains("余量不足")),
+                "行程余量不足应警告（旧 D1 基线几何即此案）");
+    }
+
+    @Test
+    void pulleyGenerousSegmentsNoWarning() {
+        // 判据全过：两段各 45m，5s 行程 40.8m，余量 4.2m ≥ 0.5（阶段三·五修正后的测试几何）
+        PhysicsElement p = el("p1", "pulley", 0, 3);
+        p.setParams(new HashMap<>(java.util.Map.of("ratio", 1.0)));
+        p.setConnectTo("a");
+        p.setConnectTo2("b");
+        PhysicsElement a = el("a", "cube", -0.6, -42);
+        PhysicsElement b = el("b", "cube", 0.6, -42);
+        a.getProperties().setMass(2);
+        b.getProperties().setMass(1);
+        Scene sc = new Scene();
+        sc.setElements(List.of(p, a, b));
+        SimulationConfig cfg = new SimulationConfig();
+        cfg.setSubsteps(4);
+        cfg.setMaxDuration(5.0);
+        sc.setConfig(cfg);
+        var r = validator.validate(sc);
+        assertTrue(r.getErrors().stream().noneMatch(e -> e.getField().endsWith(".geometry")),
+                "余量充足不应有 geometry 警告: " + r.getErrors());
+    }
+
+    @Test
     void validScenePasses() {
         PhysicsElement belt = el("b1", "belt", 0, 0);
         belt.setFixed(true);

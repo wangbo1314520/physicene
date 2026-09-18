@@ -109,4 +109,62 @@ class UnifyPhase35Test {
         assertTrue(worst < 0.01, "绳摆小角周期偏差必须 <1%（实测最差 "
                 + String.format("%.4f%%", worst * 100) + "，理论 T=" + theory + "s）");
     }
+
+    /**
+     * 阶段四前置②（验收标准缺陷补闸）：fixed=true 的本体必须纹丝不动。
+     * 背景：LabView「正负点电荷电场线」模板曾发 isFixed（被 Jackson 静默忽略），两电荷实际互相吸引运动，
+     * 旧 E2E 只验动画未验物理量所以漏网——本用例在物理层锁死该语义（wire 键 fixed 经 JacksonBooleanNamingTest 锁定）。
+     */
+    @Test
+    void fixedBodiesStayPut() {
+        PhysicsElement qp = new PhysicsElement();
+        qp.setId("qp");
+        qp.setType("point_charge");
+        qp.setPosition(new Vector2D(-3, 0));
+        qp.setFixed(true);
+        qp.setProperties(new PhysicalProperties());
+        qp.getProperties().setMass(1);
+        qp.getProperties().setCharge(2);
+        qp.setInitialState(new InitialState());
+
+        PhysicsElement qn = new PhysicsElement();
+        qn.setId("qn");
+        qn.setType("point_charge");
+        qn.setPosition(new Vector2D(3, 0));
+        qn.setFixed(true);
+        qn.setProperties(new PhysicalProperties());
+        qn.getProperties().setMass(1);
+        qn.getProperties().setCharge(-2);
+        qn.setInitialState(new InitialState());
+
+        PhysicsElement wallTop = new PhysicsElement();
+        wallTop.setId("w1");
+        wallTop.setType("wall");
+        wallTop.setPosition(new Vector2D(0, 5));
+        wallTop.setFixed(true);
+
+        Scene sc = new Scene();
+        sc.setElements(List.of(qp, qn, wallTop));
+        SimulationConfig cfg = new SimulationConfig();
+        cfg.setMaxDuration(2.0);
+        cfg.setGravity(new Vector2D(0, -9.8)); // 同时受重力和库仑吸引——固定体必须全部不动
+        cfg.setSubsteps(4);
+        sc.setConfig(cfg);
+
+        SimulationInstance instance = new SimulationInstance("t-fixed", sc, registry());
+        double[] maxMove = {0};
+        instance.addFrameListener(f -> {
+            FullSnapshot snap = (FullSnapshot) f.getSnapshot();
+            for (var s : snap.getElements()) {
+                if (s.id().startsWith("q")) {
+                    double d = Math.hypot(s.x() - (s.id().equals("qp") ? -3 : 3), s.y());
+                    maxMove[0] = Math.max(maxMove[0], d);
+                }
+            }
+        });
+        instance.runToEndSync();
+        System.out.println("[fixed] 2s maxMove=" + maxMove[0]);
+        assertTrue(maxMove[0] < 1e-9, "fixed=true 的点电荷在重力+库仑吸引下不得移动（实测位移 "
+                + maxMove[0] + " m）——此为 LabView isFixed 被忽略 bug 的物理级闸门");
+    }
 }

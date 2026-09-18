@@ -125,6 +125,38 @@ public class SceneValidator {
                         errors.add(error(base + ".connectTo/connectTo2", "非空", "null", "滑轮需要两个连接本体", "error"));
                     } else if (!ids.contains(e.getConnectTo()) || !ids.contains(e.getConnectTo2())) {
                         errors.add(error(base + ".connectTo", "存在的元件 id", e.getConnectTo() + "/" + e.getConnectTo2(), "连接目标不存在", "error"));
+                    } else {
+                        // L3 绳段退化警告（阶段三·五结案遗留）：l→0（物体撞入滑轮锚点）时约束方向退化、系统冻结
+                        // 判据 1：任一绳段初始长 < 0.5m；判据 2：min(l₁,l₂) − ½·a·maxDuration² < 0.5m
+                        //（a=|mA−mB|g/(mA+mB) 由两连体质量估计；含固定端时只做判据 1）
+                        double p1x = e.getPosition().x() + pr.getOrDefault("pulley1dx", 0.0);
+                        double p1y = e.getPosition().y() + pr.getOrDefault("pulley1dy", 0.0);
+                        double p2x = e.getPosition().x() + pr.getOrDefault("pulley2dx", 0.0);
+                        double p2y = e.getPosition().y() + pr.getOrDefault("pulley2dy", 0.0);
+                        PhysicsElement ca = scene.getElements().stream()
+                                .filter(x -> e.getConnectTo().equals(x.getId())).findFirst().orElse(null);
+                        PhysicsElement cb = scene.getElements().stream()
+                                .filter(x -> e.getConnectTo2().equals(x.getId())).findFirst().orElse(null);
+                        double l1 = ca == null ? 1 : Math.hypot(ca.getPosition().x() - p1x, ca.getPosition().y() - p1y);
+                        double l2 = cb == null ? 1 : Math.hypot(cb.getPosition().x() - p2x, cb.getPosition().y() - p2y);
+                        if (l1 < 0.5 || l2 < 0.5) {
+                            errors.add(error(base + ".geometry", "绳段初始长≥0.5m",
+                                    String.format("l1=%.2f,l2=%.2f", l1, l2),
+                                    "绳段过短：物体易到达滑轮锚点导致约束退化冻结（L3）", "warning"));
+                        } else if (ca != null && cb != null && ca.getProperties() != null && cb.getProperties() != null) {
+                            double mA = ca.getProperties().getMass(), mB = cb.getProperties().getMass();
+                            if (mA > 0 && mB > 0 && !ca.isFixed() && !cb.isFixed()) {
+                                double acc = Math.abs(mA - mB) * 9.8 / (mA + mB);
+                                double travel = 0.5 * acc * scene.getConfig().getMaxDuration()
+                                        * scene.getConfig().getMaxDuration();
+                                double margin = Math.min(l1, l2) - travel;
+                                if (margin < 0.5) {
+                                    errors.add(error(base + ".geometry", "min(l)−½aT²≥0.5m",
+                                            String.format("余量=%.2fm(行程估计%.1fm)", margin, travel),
+                                            "绳段行程余量不足：运行中物体可能撞入滑轮锚点冻结（L3）", "warning"));
+                                }
+                            }
+                        }
                     }
                     double ratio = pr.getOrDefault("ratio", 1.0);
                     if (ratio != 1 && ratio != 2) {
