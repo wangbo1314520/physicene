@@ -64,7 +64,7 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
           initialState: v0State(p) })
         break
       case 'sphere':
-        asBody({ type: 'sphere', properties: { mass: num(p.m, 1), friction: 0, restitution: 0.5 },
+        asBody({ type: 'sphere', properties: { mass: num(p.m, 1), friction: num(p.mus, 0), restitution: num(p.e, 1) },
           initialState: v0State(p) })
         break
       case 'particle': {
@@ -120,7 +120,16 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
             base.anchorB = anchorLocal(bType, b.anchorB)
           }
         } else {
-          base.position = anchorWorldOfSelf(e, otherEnd(a.anchorA))
+          // 单端连接：Java 以元件 position 为固定悬点——未连端局部坐标取参数化长度
+          //（spring 左端(0)/右端(L0)，rope 左端(0)/右端(L)；目录静态锚点 (1,0)/(2,0) 仅对默认长度成立）
+          const len = e.type === 'spring' ? num(p.L0, 1) : num(p.L, 2)
+          if (a.anchorA === '左端') {
+            // 未连的右端在局部 +len 处
+            const c2 = Math.cos(e.angle), s2 = Math.sin(e.angle)
+            base.position = { x: e.position.x + c2 * len, y: e.position.y + s2 * len }
+          } else {
+            base.position = { x: e.position.x, y: e.position.y } // 未连的左端即元件原点
+          }
         }
         if (e.type === 'rope') base.params = { jointLength: num(p.L, 2) }
         else base.params = { jointLength: num(p.L0, 1), stiffness: num(p.k, 100), dampingRatio: num(p.zeta, 0.05) }
@@ -175,7 +184,7 @@ function v0State(p: Record<string, number>): { velocity: { x: number; y: number 
 export function useRunBridge() {
   const socket = useSimulationSocket()
 
-  async function run(els: GeoElement[], analysis: Analysis): Promise<string | null> {
+  async function run(els: GeoElement[], analysis: Analysis, maxDuration = 12): Promise<string | null> {
     if (els.length === 0) return '画布为空'
     if (analysis.path === 'none') return '没有可运行的元件（只有显示类元件）'
     if (analysis.path === 'ts') return '光学/近代为前端本地引擎，阶段四接入'
@@ -187,7 +196,7 @@ export function useRunBridge() {
     const hasBeltOrLoop = els.some((e) => e.type === 'belt' || e.type === 'loop_track')
     await socket.run(pkg.list, {
       gravity: { x: 0, y: -9.8 },
-      maxDuration: 12,
+      maxDuration,
       substeps: hasBeltOrLoop ? 4 : 2, // SceneValidator：带/圆轨道建议 substeps≥4
     })
     return socket.error.value ? String(socket.error.value) : null

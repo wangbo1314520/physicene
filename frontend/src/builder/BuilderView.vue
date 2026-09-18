@@ -13,6 +13,7 @@ import BuilderAi from './components/BuilderAi.vue'
 import { analyze } from './analysis/EngineAnalyzer'
 import CriticalPanel from './analysis/CriticalPanel.vue'
 import { useRunBridge } from './run/RunBridge'
+import { TEMPLATES, instantiate, templateById } from './templates/registry'
 import type { RunRecord } from '../sandbox/SandboxData.vue'
 
 const sceneName = ref('未命名场景')
@@ -57,8 +58,10 @@ const engineHint = computed(() => analysis.value.title)
 // ── 运行桥（⑤ RunBridge）──
 const bridge = useRunBridge()
 const sim = bridge.socket.state
+const currentTemplateId = ref<string | null>(null)
 async function doRun() {
-  const err = await bridge.run(elements, analysis.value)
+  const t = currentTemplateId.value ? templateById(currentTemplateId.value) : null
+  const err = await bridge.run(elements, analysis.value, t?.maxDuration ?? 12)
   if (err) say(err)
 }
 /** ended → 数据面板记录（readout=末帧各主体位姿/速度 + 能量尾部；events=keyEvents） */
@@ -108,7 +111,24 @@ function duplicateSelected() {
   c.params = { ...selected.value.params }
   c.angle = selected.value.angle
 }
-function clearAll() { if (!elements.length) return; snapshot(); elements.splice(0); selectedId.value = null; linkFrom.value = null; records.value = [] }
+function clearAll() { if (!elements.length) return; snapshot(); elements.splice(0); selectedId.value = null; linkFrom.value = null; records.value = []; currentTemplateId.value = null }
+
+// ── 模板（阶段四 §6.1 几何模板层）──
+const showTemplates = ref(false)
+function loadTemplate(id: string) {
+  const els = instantiate(id)
+  if (!els) return say(`模板 ${id} 不存在`)
+  snapshot()
+  currentTemplateId.value = id
+  elements.splice(0, elements.length, ...els)
+  seq = elements.length + 1000
+  selectedId.value = null
+  linkFrom.value = null
+  showTemplates.value = false
+  const t = TEMPLATES.find((x) => x.id === id)
+  sceneName.value = t?.name ?? sceneName.value
+  say(`已载入模板「${t?.name ?? id}」（卡 ${t?.card}），点 ▶ 运行`)
+}
 
 // ── 画布事件 ──
 const canvasRef = ref<InstanceType<typeof BuilderCanvas> | null>(null)
@@ -201,6 +221,8 @@ onMounted(() => {
     },
     unlinkAll: (id: string) => { const e = elements.find((x) => x.id === id); if (e) e.links.splice(0) },
     snapOf: (id: string) => canvasRef.value?.snapOf(id) ?? null,
+    loadTemplate: (id: string) => loadTemplate(id),
+    templates: () => JSON.parse(JSON.stringify(TEMPLATES.map((t) => ({ id: t.id, name: t.name, card: t.card, checks: t.criticalChecks })))),
     run: () => doRun(),
     simStatus: () => sim.status,
     simT: () => sim.currentT,
@@ -252,6 +274,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
             <option value="rope">轻绳</option><option value="rod">轻杆</option><option value="spring">弹簧</option><option value="wire">导线</option><option value="pulley-rope">跨轮绳</option>
           </select>
           <button @click="clearAll">✕ 清空</button>
+          <button :class="{ active: showTemplates }" @click="showTemplates = !showTemplates">📚 模板</button>
           <span class="spacer"></span>
           <span v-if="sim.status !== 'idle'" class="runstate">
             {{ sim.status === 'running' ? `▶ 运行中 t=${sim.currentT.toFixed(2)}s` : sim.status === 'paused' ? `⏸ 已暂停 t=${sim.currentT.toFixed(2)}s` : `⏹ 已结束 t=${sim.currentT.toFixed(2)}s（${sim.keyEvents.length} 事件）` }}
@@ -264,6 +287,12 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
           <button class="primary" :disabled="analysis.path !== 'java'" :title="analysis.path === 'java' ? '联合运行（Java 耦合调度）' : analysis.path === 'ts' ? '光学/近代本地引擎阶段四接入' : '无可运行引擎'" @click="doRun">▶ 运行</button>
         </div>
         <div class="canvas-holder">
+          <div v-if="showTemplates" class="tpl-drawer">
+            <h4>几何模板（阶段四批次 1：力学 {{ TEMPLATES.length }} 个）</h4>
+            <button v-for="t in TEMPLATES" :key="t.id" class="tpl" @click="loadTemplate(t.id)">
+              <span class="nm">{{ t.name }}</span><span class="cd">卡 {{ t.card }}</span>
+            </button>
+          </div>
           <BuilderCanvas ref="canvasRef" :elements="elements" :selected-id="selectedId" :link-mode="linkMode" :link-from="linkFrom" :run-states="bridge.runStates.value"
             @select="selectedId = $event" @dragging="onDragging" @drop="onDrop" @anchor-pick="onAnchorPick" @add-at="(t, x, y) => addElement(t, x, y)" />
           <p v-if="!elements.length" class="empty">从左侧拖入元件（米制世界坐标，滚轮缩放）。例：斜面 + 物块 → 传送带 + 物块 → 竖直圆轨道 + 小球</p>
@@ -338,6 +367,11 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
 .runstate { color: #3ecf8e; font-size: 12px; }
 .canvas-holder { position: relative; height: 580px; border: 1px solid #2f2f4a; border-radius: 10px; overflow: hidden; background: #14142a; }
 .empty { position: absolute; left: 20px; right: 20px; top: 45%; text-align: center; color: #565675; font-size: 12px; line-height: 1.8; pointer-events: none; }
+.tpl-drawer { position: absolute; top: 8px; left: 8px; z-index: 5; width: 280px; max-height: 90%; overflow-y: auto; background: #1d1d33ee; border: 1px solid #4a90d9; border-radius: 10px; padding: 10px; }
+.tpl-drawer h4 { font-size: 12px; color: #4a90d9; margin-bottom: 6px; }
+.tpl { display: flex; justify-content: space-between; width: 100%; background: #23233a; color: #b0b0cc; border: 1px solid #2f2f4a; border-radius: 6px; padding: 6px 8px; font-size: 12px; cursor: pointer; margin-bottom: 4px; }
+.tpl:hover { border-color: #4a90d9; color: #e8e8f0; }
+.tpl .cd { color: #565675; font-size: 10px; }
 .props { display: flex; flex-direction: column; gap: 8px; }
 .box { background: #1d1d33; border: 1px solid #2f2f4a; border-radius: 10px; padding: 10px; }
 .box h4 { font-size: 13px; color: #b0b0cc; margin-bottom: 6px; } .box h4 small { color: #565675; font-weight: normal; }
