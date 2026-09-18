@@ -66,7 +66,7 @@ final class UnifiedDetectors {
             }
             Vector2 dir = new Vector2(Math.cos(belt[1]), Math.sin(belt[1]));
             Vector2 tangent = cc.getTangent();
-            cc.setTangentSpeed(speed * tangent.dot(dir));
+            cc.setTangentSpeed(-speed * tangent.dot(dir)); // 符号经 belt 单测实证（dyn4j 切速约定与直觉相反）
         }
 
         @Override
@@ -197,6 +197,12 @@ final class UnifiedDetectors {
                         && b.getLinearVelocity().y <= 0.01 && sim.latch("apex:" + id)) {
                     sim.fireKeyEvent(t, "apex_pass", id + " 过最高点", Map.of("y", g[1] + dy));
                 }
+            }
+        }
+        for (String key : sim.springKeys()) {
+            double[] sn = sim.springState(key);
+            if (sn != null && Math.abs(sn[0] - sn[1]) < 0.005 * Math.max(1e-6, sn[1]) && sim.latch("nat:" + key)) {
+                sim.fireKeyEvent(t, "spring_natural", "弹簧恢复原长", Map.of("length", sn[0]));
             }
         }
         for (Map.Entry<String, DistanceJoint<Body>> e : sim.stringJointsSnapshot()) {

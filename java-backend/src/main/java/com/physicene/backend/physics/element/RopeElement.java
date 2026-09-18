@@ -51,21 +51,25 @@ public class RopeElement implements ElementBehavior, JointBehavior {
         if (b != null) {
             wb = JointBehavior.anchorWorld(data, data.getAnchorB(), b, wa);
         } else {
-            // 悬点：由 rope 元件自身位置充当（固定端），用一颗固定微刚体承载关节
+            // 悬点：由 rope 元件自身 position 充当固定端（不是连接体的位置！），用一颗固定微刚体承载关节
+            Vector2D anchorPoint = data.getPosition() == null ? wa : data.getPosition();
+            wb = anchorPoint;
             Body anchor = new Body();
             anchor.addFixture(new org.dyn4j.geometry.Circle(0.01));
             anchor.setMass(org.dyn4j.geometry.MassType.INFINITE);
-            anchor.translate(wa.x(), wa.y());
+            anchor.translate(anchorPoint.x(), anchorPoint.y());
             anchor.setUserData(data.getId() + "#anchor");
             anchor.setBullet(false);
             world.addBody(anchor);
             bodies.put(data.getId() + "#anchor", anchor);
             b = anchor;
-            wb = wa;
+            // wb 已在上方设为 anchorPoint（绳元件 position）；此处不可再覆盖
         }
         DistanceJoint<Body> joint = new DistanceJoint<>(a, b,
                 new org.dyn4j.geometry.Vector2(wa.x(), wa.y()), new org.dyn4j.geometry.Vector2(wb.x(), wb.y()));
         double length = param("jointLength", joint.getCurrentDistance());
+        // dyn4j 构造器把上下限初始化为初始距离；必须先放宽下限再设上限，否则 upper<lower 抛异常
+        joint.setLowerLimit(0.0);
         joint.setUpperLimit(length);
         joint.setUpperLimitEnabled(true);
         joint.setLowerLimitEnabled(false);

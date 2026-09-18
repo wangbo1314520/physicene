@@ -80,6 +80,14 @@ public class SimulationInstance {
     private final Map<String, double[]> belts = new LinkedHashMap<>();
     /** loop_track id -> [cx, cy, R]：脱离角/过顶检测 */
     private final Map<String, double[]> loops = new LinkedHashMap<>();
+    /** loop_track id -> 元件实例（解析导轨力） */
+    private final Map<String, LoopTrackElement> loopGuides = new LinkedHashMap<>();
+    /** 动态体 id -> 本契约步是否有导轨力（步首清零，子步置位） */
+    private final Map<String, Boolean> loopContactNow = new java.util.concurrent.ConcurrentHashMap<>();
+    /** 动态体 id -> 上一契约步是否贴轨（脱离判定：was 贴轨 && 本步全程无力） */
+    private final Map<String, Boolean> loopContactPrev = new java.util.concurrent.ConcurrentHashMap<>();
+    /** 弹簧元件（力对施加） */
+    private final java.util.List<com.physicene.backend.physics.element.SpringElement> springs = new java.util.ArrayList<>();
     /** 关节键 -> DistanceJoint：绳绷紧/松弛、弹簧原长事件 */
     private final Map<String, DistanceJoint<Body>> stringJoints = new LinkedHashMap<>();
     /** 活跃接触对 id1|id2（ContactTracker 维护） */
@@ -127,6 +135,7 @@ public class SimulationInstance {
             if (behavior instanceof LoopTrackElement lt) {
                 loops.put(element.getId(), new double[]{element.getPosition().x(),
                         element.getPosition().y(), lt.radius()});
+                loopGuides.put(element.getId(), lt);
             }
             if (behavior instanceof JointBehavior jb && !(behavior instanceof LoopTrackElement)) {
                 jointBehaviors.add(jb);
@@ -153,6 +162,9 @@ public class SimulationInstance {
             var joint = jb.createJoint(world, bodies);
             if (jb instanceof RopeElement rope && joint instanceof DistanceJoint dj) {
                 stringJoints.put(rope.ownId() + "#" + rope.getType(), dj);
+            }
+            if (jb instanceof com.physicene.backend.physics.element.SpringElement se) {
+                springs.add(se);
             }
         }
 
@@ -194,6 +206,7 @@ public class SimulationInstance {
         if (status != Status.RUNNING) {
             return;
         }
+        loopContactNow.clear();
         // 自定义力扩展点（F2.6 computeForce）：电磁元件（点电荷）在此受力；
         // 统一搭建台：每个子步刷新一次（场力跟随子步位置，方案 §3.4）
         for (int i = 0; i < substeps; i++) {
@@ -203,8 +216,67 @@ public class SimulationInstance {
         t += dt;
         frameCount++;
 
+        // 圆轨道解析脱离（双缓冲）：上一步贴轨 && 本步全程导轨力为零且在上半弧 → detach（θ 载荷）
+        if (!loops.isEmpty()) {
+            for (int i = 0; i < dynamicBodies.size(); i++) {
+                Body b = dynamicBodies.get(i);
+                String id = dynamicElements.get(i).getId();
+                boolean was = Boolean.TRUE.equals(loopContactPrev.get(id));
+                boolean now = Boolean.TRUE.equals(loopContactNow.get(id));
+                if (was && !now && t > dt * 4) {
+                    for (double[] g : loops.values()) {
+                        double dx = b.getTransform().getTranslationX() - g[0];
+                        double dy = b.getTransform().getTranslationY() - g[1];
+                        double theta = Math.toDegrees(Math.atan2(dx, -dy));
+                        if (theta < 0) {
+                            theta += 360;
+                        }
+                        boolean upper = theta > 90 && theta < 270;
+                        boolean near = Math.abs(Math.hypot(dx, dy) - g[2]) < 0.5;
+                        if (upper && near && latch("detach:" + id)) {
+                            fireKeyEvent(t, "detach",
+                                    id + " 脱离轨道（θ=" + String.format("%.1f", theta) + "°）",
+                                    Map.of("theta", round(theta)));
+                        }
+                    }
+                }
+                loopContactPrev.put(id, now);
+            }
+        }
         // 帧级关键事件检测（方案 §3.6）：共速/带共速/过顶/绳状态/弹簧原长
         UnifiedDetectors.detectFrameEvents(this);
+        if (simId.startsWith("t-pend") && (frameCount == 1 || frameCount % 30 == 0) && !dynamicBodies.isEmpty()) {
+            Body b0 = dynamicBodies.get(0);
+            System.out.println("[pend] f=" + frameCount + " t=" + String.format("%.3f", t)
+                    + " x=" + String.format("%.3f", b0.getTransform().getTranslationX())
+                    + " y=" + String.format("%.3f", b0.getTransform().getTranslationY())
+                    + " vx=" + String.format("%.3f", b0.getLinearVelocity().x)
+                    + " vy=" + String.format("%.3f", b0.getLinearVelocity().y)
+                    + " joints=" + world.getJointCount());
+        }
+        if (simId.startsWith("t-atwood") && frameCount % 15 == 0 && dynamicBodies.size() == 2) {
+            System.out.println("[atw] f=" + frameCount + " t=" + String.format("%.2f", t)
+                    + " v1y=" + String.format("%.3f", dynamicBodies.get(0).getLinearVelocity().y)
+                    + " v2y=" + String.format("%.3f", dynamicBodies.get(1).getLinearVelocity().y)
+                    + " y1=" + String.format("%.2f", dynamicBodies.get(0).getTransform().getTranslationY())
+                    + " y2=" + String.format("%.2f", dynamicBodies.get(1).getTransform().getTranslationY()));
+        }
+        if (simId.startsWith("t-loop") && frameCount % 15 == 0 && !dynamicBodies.isEmpty()) {
+            Body b0 = dynamicBodies.get(0);
+            System.out.println("[loop] f=" + frameCount + " t=" + String.format("%.2f", t)
+                    + " x=" + String.format("%.2f", b0.getTransform().getTranslationX())
+                    + " y=" + String.format("%.2f", b0.getTransform().getTranslationY())
+                    + " v=" + String.format("%.2f", b0.getLinearVelocity().getMagnitude())
+                    + " contacts=" + activeContacts.size());
+        }
+        if (simId.startsWith("t-belt") && frameCount % 30 == 0 && !dynamicBodies.isEmpty()) {
+            Body b0 = dynamicBodies.get(0);
+            System.out.println("[belt] f=" + frameCount + " t=" + String.format("%.3f", t)
+                    + " x=" + String.format("%.3f", b0.getTransform().getTranslationX())
+                    + " y=" + String.format("%.3f", b0.getTransform().getTranslationY())
+                    + " vx=" + String.format("%.3f", b0.getLinearVelocity().x)
+                    + " contacts=" + activeContacts.size());
+        }
 
         // 最高点检测：vy 由正转负（每主体一次）
         for (int i = 0; i < dynamicBodies.size(); i++) {
@@ -247,8 +319,8 @@ public class SimulationInstance {
                 break;
             }
         }
-        if (!anyForce) {
-            return; // 纯力学场景零开销
+        if (!anyForce && loops.isEmpty()) {
+            return; // 纯力学场景零开销（圆轨道解析导轨走 loops 路径）
         }
         java.util.Map<String, Vector2D> positionMap = new java.util.HashMap<>();
         java.util.Map<String, Vector2D> velocityMap = new java.util.HashMap<>();
@@ -269,6 +341,41 @@ public class SimulationInstance {
                 }
             }
         }
+        // 弹簧力对（教材精确解）：A 受 +F、B 受 −F
+        for (com.physicene.backend.physics.element.SpringElement se : springs) {
+            double[] f = se.springForce();
+            if (f != null && !Double.isNaN(f[0]) && !Double.isNaN(f[1])) {
+                se.getBodyA().applyForce(new org.dyn4j.geometry.Vector2(f[0], f[1]));
+                se.getBodyB().applyForce(new org.dyn4j.geometry.Vector2(-f[0], -f[1]));
+            }
+        }
+        // 圆轨道解析导轨（方案 §3.2 解析化）：对每个动态体按位置/速度/质量/等效半径施加径向罚力
+        if (!loopGuides.isEmpty()) {
+            for (int i = 0; i < dynamicBodies.size(); i++) {
+                Body b = dynamicBodies.get(i);
+                PhysicsElement el = dynamicElements.get(i);
+                double rb = equivalentRadius(el);
+                for (LoopTrackElement lt : loopGuides.values()) {
+                    double[] f = lt.guideForce(
+                            b.getTransform().getTranslationX(), b.getTransform().getTranslationY(),
+                            b.getLinearVelocity().x, b.getLinearVelocity().y,
+                            el.getProperties().getMass(), rb);
+                    if (f != null && f[2] > 0) {
+                        b.applyForce(new org.dyn4j.geometry.Vector2(f[0], f[1]));
+                        loopContactNow.put(el.getId(), true);
+                    }
+                }
+            }
+        }
+    }
+
+    /** 元件等效半径（球=半径；方块=外接圆半径）——圆轨道导轨接触判定用 */
+    private static double equivalentRadius(PhysicsElement e) {
+        double sx = Math.max(0.05, e.getScale().x()), sy = Math.max(0.05, e.getScale().y());
+        if ("sphere".equals(e.getType()) || "point_charge".equals(e.getType())) {
+            return 0.5 * (sx + sy) / 2.0; // 与 SphereElement.buildShape 一致
+        }
+        return Math.hypot(sx, sy) / 2.0;
     }
 
     private FullSnapshot buildSnapshot() {
@@ -491,6 +598,27 @@ public class SimulationInstance {
     double currentTime() { return t; }
 
     double contractDt() { return dt; }
+
+
+    java.util.List<String> springKeys() {
+        java.util.List<String> keys = new java.util.ArrayList<>();
+        for (var se : springs) {
+            keys.add(se.ownId() + "#spring");
+        }
+        return keys;
+    }
+
+    double[] springState(String key) {
+        for (var se : springs) {
+            if ((se.ownId() + "#spring").equals(key)) {
+                Body a = se.getBodyA(), b = se.getBodyB();
+                double dist = Math.hypot(a.getTransform().getTranslationX() - b.getTransform().getTranslationX(),
+                        a.getTransform().getTranslationY() - b.getTransform().getTranslationY());
+                return new double[]{dist, se.getRestLength()};
+            }
+        }
+        return null;
+    }
 
     boolean latch(String key) { return eventLatches.add(key); }
 
