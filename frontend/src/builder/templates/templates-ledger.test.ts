@@ -8,9 +8,10 @@ import { TEMPLATES } from './registry'
 import { byType } from '../catalog'
 
 describe('几何模板对账', () => {
-  it('批次 1 至少 8 个力学模板', () => {
-    expect(TEMPLATES.length).toBeGreaterThanOrEqual(8)
-    expect(TEMPLATES.every((t) => t.group === '力学')).toBe(true)
+  it('批次 1+2：力学 8 + 电磁 8 共 16 个', () => {
+    expect(TEMPLATES.length).toBeGreaterThanOrEqual(16)
+    expect(TEMPLATES.filter((t) => t.group === '力学').length).toBeGreaterThanOrEqual(8)
+    expect(TEMPLATES.filter((t) => t.group === '电磁').length).toBeGreaterThanOrEqual(8)
   })
 
   it('id 唯一', () => {
@@ -37,9 +38,25 @@ describe('几何模板对账', () => {
     expect(t.criticalChecks.length).toBeGreaterThanOrEqual(1)
     for (const c of t.criticalChecks) {
       expect(c.tol).toBeGreaterThan(0)
-      expect(['event', 'final', 'max-y', 'no-event']).toContain(c.from.kind)
+      expect(['event', 'final', 'max-y', 'max-x', 'no-event']).toContain(c.from.kind)
     }
     // 讲解模板挂接字段存在（批次 labeler 接入后强校验 solutionId 可解析）
     expect(t.solutionId).toBeTruthy()
+  })
+})
+
+/** 永久规则静态检查（交付标准 §0.1）：theory 禁止纯数字字面量（sentinel 0/±1 例外），必须引用参数变量 */
+describe('理论值代码推导静态检查', () => {
+  it('registry.ts 源码无 theory 纯字面量', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { fileURLToPath } = await import('node:url')
+    const src = readFileSync(fileURLToPath(new URL('./registry.ts', import.meta.url)), 'utf-8')
+    const bad: string[] = []
+    const re = /theory:\s*(-?\d+(?:\.\d+)?)\s*[,}]/g
+    for (const m of src.matchAll(re)) {
+      const v = parseFloat(m[1])
+      if (v !== 0 && v !== 1 && v !== -1) bad.push(m[0])
+    }
+    expect(bad, `以下 theory 为手算字面量（改为参数变量表达式）：\n${bad.join('\n')}`).toEqual([])
   })
 })

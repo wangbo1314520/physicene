@@ -61,7 +61,7 @@ const sim = bridge.socket.state
 const currentTemplateId = ref<string | null>(null)
 async function doRun() {
   const t = currentTemplateId.value ? templateById(currentTemplateId.value) : null
-  const err = await bridge.run(elements, analysis.value, t?.maxDuration ?? 12)
+  const err = await bridge.run(elements, analysis.value, t?.maxDuration ?? 12, t?.gravityY ?? -9.8)
   if (err) say(err)
 }
 /** ended → 数据面板记录（readout=末帧各主体位姿/速度 + 能量尾部；events=keyEvents） */

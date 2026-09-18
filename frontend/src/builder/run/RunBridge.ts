@@ -184,7 +184,7 @@ function v0State(p: Record<string, number>): { velocity: { x: number; y: number 
 export function useRunBridge() {
   const socket = useSimulationSocket()
 
-  async function run(els: GeoElement[], analysis: Analysis, maxDuration = 12): Promise<string | null> {
+  async function run(els: GeoElement[], analysis: Analysis, maxDuration = 12, gravityY = -9.8): Promise<string | null> {
     if (els.length === 0) return '画布为空'
     if (analysis.path === 'none') return '没有可运行的元件（只有显示类元件）'
     if (analysis.path === 'ts') return '光学/近代为前端本地引擎，阶段四接入'
@@ -195,7 +195,7 @@ export function useRunBridge() {
     if (!pkg.list.length) return '没有可映射到求解器的元件'
     const hasBeltOrLoop = els.some((e) => e.type === 'belt' || e.type === 'loop_track')
     await socket.run(pkg.list, {
-      gravity: { x: 0, y: -9.8 },
+      gravity: { x: 0, y: gravityY },
       maxDuration,
       substeps: hasBeltOrLoop ? 4 : 2, // SceneValidator：带/圆轨道建议 substeps≥4
     })
