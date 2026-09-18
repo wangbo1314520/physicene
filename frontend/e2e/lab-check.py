@@ -67,12 +67,13 @@ def main() -> int:
             log("托盘元件集", items == expect_items, f"{items}")
             n_tpl = page.locator(".left .tpl").count()
             log("实验模板数量", n_tpl == EXPECT_TEMPLATES[label], f"{n_tpl}")
-            # 载入最后一个模板（2D：磁场回旋；2.5D：自由落体；3D：速度选择器）
-            page.locator(".left .tpl").nth(n_tpl - 1).click()
-            page.wait_for_timeout(500)
-            cnt_txt = page.locator("text=/场景元件 \\(\\d+\\)/").first.inner_text()
-            n_el = int(cnt_txt.split("(")[1].rstrip(")"))
-            log("模板载入后场景有元件", n_el >= 2, cnt_txt)
+            # 覆盖审计修复（批次1验收追问5）：逐个载入全部模板断言元件数，不再只点最后一个
+            for k in range(n_tpl):
+                page.locator(".left .tpl").nth(k).click()
+                page.wait_for_timeout(350)
+                cnt_txt = page.locator("text=/场景元件 \\(\\d+\\)/").first.inner_text()
+                n_el = int(cnt_txt.split("(")[1].rstrip(")"))
+                log(f"模板[{k}] 载入后场景有元件", n_el >= 2, cnt_txt)
             log("画布存在", page.locator(".canvas-wrap canvas").count() == 1, "")
             page.screenshot(path=str(OUT / f"lab-{label.split()[0]}.png"))
 
