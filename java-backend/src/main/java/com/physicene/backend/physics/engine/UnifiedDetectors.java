@@ -103,6 +103,7 @@ final class UnifiedDetectors {
             if (data.getFixture1().isSensor() || data.getFixture2().isSensor()) {
                 return;
             }
+            try {
             String pair = SimulationInstance.pairOf(sim.idOf(data.getBody1()), sim.idOf(data.getBody2()));
             boolean fresh = sim.activeContactsAdd(pair);
             if (fresh && sim.currentTime() > sim.contractDt() * 2) {
@@ -110,6 +111,7 @@ final class UnifiedDetectors {
                 String label = dynamic == null ? "开始接触" : dynamic + " 接触表面";
                 sim.fireKeyEvent(sim.currentTime(), "land_surface", label, null);
             }
+            } catch (Throwable ex) { System.err.println("[tracker-begin] " + ex); }
         }
 
         @Override
@@ -118,6 +120,7 @@ final class UnifiedDetectors {
             if (data.getFixture1().isSensor() || data.getFixture2().isSensor()) {
                 return;
             }
+            try {
             String pair = SimulationInstance.pairOf(sim.idOf(data.getBody1()), sim.idOf(data.getBody2()));
             if (sim.activeContactsRemove(pair) && sim.currentTime() > sim.contractDt() * 2) {
                 String dynamic = sim.dynamicOf(pair);
@@ -126,6 +129,7 @@ final class UnifiedDetectors {
                     sim.maybeDetach(dynamic, sim.idOf(data.getBody1()), sim.idOf(data.getBody2()));
                 }
             }
+            } catch (Throwable ex) { System.err.println("[tracker-end] " + ex); }
         }
 
         @Override
@@ -174,8 +178,10 @@ final class UnifiedDetectors {
                             "与带共速 v=" + String.format("%.2f", vb) + " m/s", Map.of("v", vb));
                 }
             } else if (!ids[0].contains("#") && !ids[1].contains("#")) {
-                Vector2 dv = b1.getLinearVelocity().subtract(b2.getLinearVelocity());
-                if (dv.getMagnitude() < 0.02 && sim.latch("common:" + pair)) {
+                // dyn4j Vector2.subtract 会原地修改接收者（刚体速度！）：必须用纯算术，禁止对 getLinearVelocity() 的返回值做向量运算
+                double dvx = b1.getLinearVelocity().x - b2.getLinearVelocity().x;
+                double dvy = b1.getLinearVelocity().y - b2.getLinearVelocity().y;
+                if (Math.hypot(dvx, dvy) < 0.02 && sim.latch("common:" + pair)) {
                     sim.fireKeyEvent(t, "common_speed", ids[0] + " 与 " + ids[1] + " 共速",
                             Map.of("v", b1.getLinearVelocity().getMagnitude()));
                 }

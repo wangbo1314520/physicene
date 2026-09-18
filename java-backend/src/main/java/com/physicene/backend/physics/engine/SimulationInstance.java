@@ -113,7 +113,8 @@ public class SimulationInstance {
 
         world.setGravity(new Vector2(scene.getConfig().getGravity().x(), scene.getConfig().getGravity().y()));
         // 子步：物理步长 = 契约 dt / substeps（默认 4 -> 240Hz），帧与数据仍按契约 1/60 输出（方案 §3.4）
-        world.getSettings().setStepFrequency(1.0 / (this.dt / substeps));
+        // dyn4j 5.0.2 语义实核（反编译确认）：stepFrequency 存的是“每步秒数”（默认 0.0166…），不是 Hz——传 dt/substeps 而非其倒数
+        world.getSettings().setStepFrequency(this.dt / substeps);
         // 连续碰撞：仅对标记 bullet 的运动体启用（薄边/高速防穿透，方案 §3.4）
         world.getSettings().setContinuousDetectionMode(ContinuousDetectionMode.BULLETS_ONLY);
         world.getSettings().setPositionConstraintSolverIterations(20);
