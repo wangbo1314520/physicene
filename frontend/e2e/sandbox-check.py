@@ -1,4 +1,5 @@
 """
+【2026-09-19 退役存档】/sandbox 已 redirect → /exp（阶段三⑧）。本脚本不再可运行、不再纳入回归矩阵；10 场景功能覆盖映射见 docs/统一搭建台-sandbox退役功能映射.md；元件对账单测 sandbox-ledger.test.ts 保留。
 B13 自由搭建 E2E：方案书 §10.2 的 10 个测试场景 —— 通过 DEV 钩子 window.__sandbox 脚本化“拖元件 → 识别 → 运行”，
 断言：识别到的场景族正确、运行器挂载、动画两帧不同、物理量与解析解一致（与高考层同一套理论值）、控制台零错误。
 用法：python e2e/sandbox-check.py [--url http://localhost:5173] [--only 1,4,7]
