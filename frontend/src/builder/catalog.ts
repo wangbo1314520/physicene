@@ -51,6 +51,7 @@ const el = (type: string, label: string, icon: string, domain: Domain, dims: Dim
 const MASS = P('m', '质量 m', 0.1, 10, 0.1, 1, 'kg'), V0 = P('v0', '初速度 v₀', 0, 12, 0.5, 4, 'm/s'), MU = P('mu', '摩擦系数 μ', 0, 1, 0.05, 0.2)
 const THETA = P('th', '倾角 θ', 0, 80, 5, 30, '°'), BMAG = P('B', '磁感应强度 B', 0.1, 3, 0.1, 1, 'T'), RES = P('R', '电阻 R', 0.5, 100, 0.5, 1, 'Ω')
 
+// 锚点局部坐标约定：y 向上（世界/物理系），取元件默认参数下的端点位置（参数化锚点由阶段四模板层提供）
 // 通用锚点模板
 const ENDPOINT_TL = (x: number, y: number, label: string): AnchorTemplate => ({ id: label, local: { x, y }, kind: 'endpoint', accepts: ['surfaceEnd', 'endpoint', 'tangentPoint'], align: 'translate', label })
 const SURFACE_END = (x: number, y: number, label: string): AnchorTemplate => ({ id: label, local: { x, y }, kind: 'surfaceEnd', accepts: ['endpoint', 'surfaceEnd', 'tangentPoint'], align: 'translate', label })
@@ -71,8 +72,8 @@ export const CATALOG: ElementSpec[] = [
   ]),
   el('particle', '质点', '•', 'mech', ['2D', '2.5D', '3D'], '#F5C542', '理想质点', [MASS, V0, P('ang', '抛射角', 0, 85, 5, 0, '°')], 'body', ['质点']),
   // ── 力学 constraint ──
-  el('slope', '斜面', '◺', 'mech', ['2.5D'], '#3ecf8e', '固定斜面', [THETA, MU, P('L', '长度 L', 1, 12, 0.5, 6, 'm')], 'constraint', ['斜面'], [
-    ENDPOINT_TL(-3, 0, '底端'), ENDPOINT_TL(3, -1.8, '顶端'),
+  el('slope', '斜面', '◺', 'mech', ['2.5D'], '#3ecf8e', '固定斜面（position=直角角点，底边沿 +x）', [THETA, MU, P('L', '长度 L', 1, 12, 0.5, 6, 'm')], 'constraint', ['斜面'], [
+    ENDPOINT_TL(0, 3.46, '顶端'), ENDPOINT_TL(6, 0, '底端'),
   ]),
   el('ground', '地面', '═', 'mech', ['2.5D'], '#8a8aa0', '水平面', [MU], 'constraint', ['地面']),
   el('belt', '传送带', '⇶', 'mech', ['2.5D'], '#3ecf8e', '速度、倾角、摩擦', [P('vb', '带速 v_带', 0, 8, 0.5, 3, 'm/s'), THETA, MU, P('L', '长度 L', 2, 12, 0.5, 6, 'm')], 'constraint', ['传送带'], [
@@ -82,10 +83,10 @@ export const CATALOG: ElementSpec[] = [
     TANGENT_PT(0, -1, '入口切点'), ATTACH(0, 1, '顶点'),
   ]),
   el('spring', '弹簧', '〰', 'mech', ['2.5D'], '#F5C542', '劲度系数、自然长', [P('k', '劲度系数 k', 5, 500, 5, 100, 'N/m'), P('L0', '自然长', 0.3, 3, 0.1, 1, 'm'), P('zeta', '阻尼比', 0, 1, 0.05, 0.05)], 'constraint', ['弹簧'], [
-    ATTACH(-1.5, 0, '左端'), ATTACH(1.5, 0, '右端'),
+    ATTACH(0, 0, '左端'), ATTACH(1, 0, '右端'),
   ]),
   el('rope', '轻绳', '╱', 'mech', ['2.5D'], '#d9a05a', '不可伸长', [P('L', '长度 L', 0.5, 5, 0.1, 2, 'm'), P('Tmax', '最大承受力 T_max', 10, 200, 10, 40, 'N')], 'constraint', ['绳'], [
-    ATTACH(-1, 0, '左端'), ATTACH(1, 0, '右端'),
+    ATTACH(0, 0, '左端'), ATTACH(2, 0, '右端'),
   ]),
   el('pulley', '滑轮', '◎', 'mech', ['2.5D'], '#5c5c7a', '定滑轮/动滑轮', [SEL('kind', '类型', 0, [{ value: 0, label: '定滑轮' }, { value: 1, label: '动滑轮' }])], 'constraint', ['滑轮'], [
     ATTACH(0, 0, '悬挂点'),

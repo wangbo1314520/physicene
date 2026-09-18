@@ -40,6 +40,13 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      // 临时路由：阶段三④ 冒烟用；⑧ 路由合并时改为 /exp=BuilderView 并删除本条
+      path: '/builder-dev',
+      name: 'builder-dev',
+      component: () => import('../builder/BuilderView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/exp/:id',
       name: 'exp-runner',
       component: () => import('../experiments/framework/ExperimentShell.vue'),

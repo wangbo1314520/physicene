@@ -54,10 +54,11 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       const capR = new THREE.Mesh(capGeo, mat(color))
       capR.rotation.x = Math.PI / 2; capR.position.set(len / 2, 0, 0)
       const tex = beltTexture()
+      tex.repeat.set(Math.max(4, Math.round(len)), 1) // 约每米一组条纹
       const stripe = new THREE.Mesh(
-        new THREE.BoxGeometry(len, 0.02, 0.32),
-        new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.85, depthWrite: false }))
-      stripe.position.set(0, r + 0.01, 0)
+        new THREE.BoxGeometry(len, 0.05, 0.34),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.95, depthWrite: false }))
+      stripe.position.set(0, r + 0.025, 0)
       g.add(body, capL, capR, stripe)
       const vb = p.vb ?? 3
       return {
@@ -132,20 +133,27 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
     case 'point_charge': {
       return { mesh: new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 14), mat(color, { emissive: 0.6 })), baseAngle: 0 }
     }
-    case 'block': case 'cart': {
-      const w = e.type === 'cart' ? 2 : 1
-      return { mesh: new THREE.Mesh(new THREE.BoxGeometry(w, 0.5, 0.6), mat(color)), baseAngle: 0 }
+    case 'block': {
+      // 1×1×0.6 物块，锚点 (±0.5,0)/(0,±0.5) 与半宽一致
+      return { mesh: new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.6), mat(color)), baseAngle: 0 }
+    }
+    case 'cart': {
+      const L = Math.max(1, p.L ?? 6)
+      return { mesh: new THREE.Mesh(new THREE.BoxGeometry(L, 0.3, 0.8), mat(color)), baseAngle: 0 }
     }
     case 'ground': {
       return { mesh: new THREE.Mesh(new THREE.BoxGeometry(20, 0.2, 1), mat(color, { opacity: 0.55 })), baseAngle: 0 }
     }
     case 'slope': {
-      // 直角三角形斜面：底 2·sx 高 sy，直角在左下（与 sim/threeScene 的 slope 建法一致）
-      const w = 4, h = 2.3
+      // 直角三角形斜面：局部原点=直角角点（左下），底边沿 +x 长 L，高 H=L·tanθ；
+      // 锚点 顶端(0,3.46)/底端(6,0) 对应默认 L=6、θ=30°
+      const L = Math.max(0.5, p.L ?? 6)
+      const th = THREE.MathUtils.clamp(p.th ?? 30, 0, 80)
+      const H = Math.min(20, L * Math.tan(THREE.MathUtils.degToRad(th)))
       const shape = new THREE.Shape([
-        new THREE.Vector2(-w / 2, -h / 2),
-        new THREE.Vector2(w / 2, -h / 2),
-        new THREE.Vector2(-w / 2, h / 2),
+        new THREE.Vector2(0, 0),
+        new THREE.Vector2(L, 0),
+        new THREE.Vector2(0, H),
       ])
       const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.5, bevelEnabled: false })
       geo.translate(0, 0, -0.25)
