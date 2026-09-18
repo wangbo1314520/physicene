@@ -23,6 +23,13 @@ const router = createRouter({
     { path: '/gaokao', name: 'gaokao-catalog', component: () => import('../views/GaokaoCatalogView.vue'), meta: { requiresAuth: true } },
     {
       path: '/exp',
+      name: 'builder',
+      component: () => import('../builder/BuilderView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      // 实验库目录（原 /exp，阶段三⑧ 路由合并迁出）
+      path: '/library',
       name: 'exp-catalog',
       component: () => import('../views/ExpCatalogView.vue'),
       meta: { requiresAuth: true },
@@ -34,17 +41,9 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      // B13 沙盒已被统一搭建台取代（阶段三⑧）
       path: '/sandbox',
-      name: 'sandbox',
-      component: () => import('../sandbox/SandboxView.vue'),
-      meta: { requiresAuth: true },
-    },
-    {
-      // 临时路由：阶段三④ 冒烟用；⑧ 路由合并时改为 /exp=BuilderView 并删除本条
-      path: '/builder-dev',
-      name: 'builder-dev',
-      component: () => import('../builder/BuilderView.vue'),
-      meta: { requiresAuth: true },
+      redirect: '/exp',
     },
     {
       path: '/exp/:id',

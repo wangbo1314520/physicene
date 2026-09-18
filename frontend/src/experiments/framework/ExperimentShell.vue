@@ -177,7 +177,7 @@ onUnmounted(() => {
     <p class="meta">{{ mod.book }} · {{ mod.chapter }} · 目标批次 {{ mod.batch }}</p>
     <p>{{ mod.summary }}</p>
     <p class="dim-note">该实验将随「{{ mod.batch }}」批次开放。</p>
-    <router-link to="/exp">← 返回实验库</router-link>
+    <router-link to="/library">← 返回实验库</router-link>
   </main>
 </template>
 

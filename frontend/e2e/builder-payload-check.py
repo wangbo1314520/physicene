@@ -20,7 +20,7 @@ with sync_playwright() as p:
     ctx.add_init_script(f"localStorage.setItem('ps_token', {json.dumps(auth['token'])});"
                         f"localStorage.setItem('ps_user', {json.dumps(json.dumps(auth['user']))});")
     page = ctx.new_page()
-    page.goto(f"{BASE}/builder-dev")
+    page.goto(f"{BASE}/exp")
     page.wait_for_selector(".builder .palette .item", timeout=8000)
     r = page.evaluate("""async () => {
       const B = window.__builder;

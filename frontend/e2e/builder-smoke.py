@@ -26,7 +26,7 @@ with sync_playwright() as p:
     page = ctx.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
-    page.goto(f"{BASE}/builder-dev")
+    page.goto(f"{BASE}/exp")
     page.wait_for_selector(".builder .palette .item", timeout=8000)
     r = page.evaluate("""() => {
       const B = window.__builder;
