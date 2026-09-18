@@ -45,8 +45,10 @@ function checkOf(ev: CriticalEvent): Check | null {
     return { theory: `原长 L₀ = ${L0.toFixed(2)} m`, actual: `实测 L = ${p.length.toFixed(3)} m`, dev: pct(p.length, L0), bad: pct(p.length, L0) > 0.02 }
   }
   if (ev.eventType === 'apex_pass' && p.y !== undefined && loops.length === 1) {
-    const top = loops[0].position.y + (loops[0].params.radius ?? 1)
-    return { theory: `轨道顶点 y = ${top.toFixed(2)} m`, actual: `实测 y = ${p.y.toFixed(2)} m`, dev: pct(p.y, top), bad: pct(p.y, top) > 0.02 * (loops[0].params.radius ?? 1) }
+    // payload.y = 球心过顶时刻 y = 圆心 y + (R − r球)；builder 球半径 0.5
+    const hasSphere = props.elements.some((e) => e.type === 'sphere' || e.type === 'particle')
+    const top = loops[0].position.y + (loops[0].params.radius ?? 1) - (hasSphere ? 0.5 : 0)
+    return { theory: `球心过顶 y = ${top.toFixed(2)} m（圆心+R−r）`, actual: `实测 y = ${p.y.toFixed(2)} m`, dev: pct(p.y, top), bad: pct(p.y, top) > 0.02 * (loops[0].params.radius ?? 1) }
   }
   if (ev.eventType === 'detach' && p.theta !== undefined) {
     return { theory: '内轨脱离临界：顶点 v = √(gR)（低于此值此前已脱离）', actual: `脱离角 θ = ${p.theta.toFixed(1)}°`, dev: 0, bad: false }
