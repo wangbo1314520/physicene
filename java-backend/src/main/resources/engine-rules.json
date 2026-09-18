@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "couplings": [
+    {
+      "id": "rail-rod",
+      "engines": ["rigid", "circuit"],
+      "mode": "strong",
+      "when": { "elements": ["rail_pair", "rod_bar"], "circuitClosed": true },
+      "links": [
+        { "from": { "engine": "rigid", "var": "rod.v" }, "to": { "engine": "circuit", "var": "branch[b].emf" }, "transfer": "B*L*v" },
+        { "from": { "engine": "circuit", "var": "branch[b].i" }, "to": { "engine": "rigid", "var": "rod.F" }, "transfer": "-B*L*i" }
+      ]
+    },
+    {
+      "id": "frame-b",
+      "engines": ["rigid", "circuit"],
+      "mode": "strong",
+      "when": { "elements": ["coil_frame", "b_region"] },
+      "links": [
+        { "from": { "engine": "rigid", "var": "frame.v" }, "to": { "engine": "circuit", "var": "emf=BLv" } },
+        { "from": { "engine": "circuit", "var": "i" }, "to": { "engine": "rigid", "var": "F=-BLi" } }
+      ]
+    },
+    {
+      "id": "piston-gas",
+      "engines": ["rigid", "thermal"],
+      "mode": "strong",
+      "when": { "elements": ["piston", "gas_cell"] },
+      "links": [
+        { "from": { "engine": "rigid", "var": "piston.x" }, "to": { "engine": "thermal", "var": "V=A*x" } },
+        { "from": { "engine": "thermal", "var": "p" }, "to": { "engine": "rigid", "var": "F=p*A" } }
+      ]
+    },
+    {
+      "id": "photo-cell",
+      "engines": ["circuit"],
+      "mode": "weak",
+      "when": { "elements": ["photo_tube", "light_source"] },
+      "links": [
+        { "from": { "engine": "optics", "var": "photonFlux" }, "to": { "engine": "circuit", "var": "source.current=clamp(hν−W0)" } }
+      ]
+    }
+  ]
+}

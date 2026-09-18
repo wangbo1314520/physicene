@@ -10,6 +10,7 @@ import { findSnap, applySnap } from './model/snap'
 import BuilderCanvas from './render/BuilderCanvas.vue'
 import DataPanel from './components/DataPanel.vue'
 import BuilderAi from './components/BuilderAi.vue'
+import { analyze } from './analysis/EngineAnalyzer'
 import type { RunRecord } from '../sandbox/SandboxData.vue'
 
 const sceneName = ref('未命名场景')
@@ -47,14 +48,9 @@ const dim = computed<Dim>(() => {
   if (ds.some((d) => d.includes('2D') && !d.includes('2.5D')) && !ds.some((d) => d.includes('2.5D') && !d.includes('2D'))) return '2D'
   return '2.5D'
 })
-/** 分析卡占位：⑥ EngineAnalyzer 接入前给域/角色清单 */
-const engineHint = computed(() => {
-  if (!elements.length) return '画布为空——从左侧拖入元件'
-  const doms = [...new Set(elements.map((e) => byType.get(e.type)?.domain).filter(Boolean))] as Domain[]
-  const roles = [...new Set(elements.map((e) => e.role))]
-  const links = elements.reduce((n, e) => n + e.links.length, 0)
-  return `${DOMAINS.filter((d) => doms.includes(d.key)).map((d) => d.label).join(' + ') || '未知域'} · 角色 ${roles.join('/')} · 连线 ${links} 条`
-})
+/** 场景分析（⑥ EngineAnalyzer）：引擎集合 + 耦合链 + 警告 + 运行路径 */
+const analysis = computed(() => analyze(elements))
+const engineHint = computed(() => analysis.value.title)
 
 function addElement(type: string, x?: number, y?: number): GeoElement {
   const spec = byType.get(type)
@@ -252,10 +248,11 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
           </template>
           <p v-else class="desc">点选画布上的元件以调参数；拖动时靠近锚点会自动吸附（松手提交）</p>
         </div>
-        <div class="box rec">
-          <h4>场景分析 <small>· ⑥ EngineAnalyzer 接入前为域清单</small></h4>
+        <div class="box rec" :class="{ ok: analysis.path !== 'none' }">
+          <h4>场景分析 <small>· {{ analysis.path === 'java' ? '联合运行（Java 耦合调度）' : analysis.path === 'ts' ? '本地引擎（阶段四接入）' : '无可运行引擎' }}</small></h4>
           <p class="title">{{ engineHint }}</p>
           <p class="conf">元件 {{ elements.length }} 个 · 维度 {{ dim }}</p>
+          <p v-for="(w, i) in analysis.warnings" :key="i" class="warn">· {{ w }}</p>
         </div>
         <div v-if="selected && selected.links.length" class="box">
           <h4>连线 · {{ byType.get(selected.type)?.label }}</h4>
@@ -269,7 +266,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
 
     <section class="bottom">
       <DataPanel :records="records" @clear="records = []" />
-      <BuilderAi :elements="elements" :records="records" :scene-name="sceneName" :engines-title="elements.length ? `统一搭建·${engineHint.split(' · ')[0]}` : undefined" />
+      <BuilderAi :elements="elements" :records="records" :scene-name="sceneName" :engines-title="elements.length ? `统一搭建：${analysis.title}` : undefined" :notes="analysis.warnings" />
     </section>
   </main>
 </template>
@@ -308,7 +305,9 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
 .box label { display: block; font-size: 12px; color: #8a8aa0; margin-bottom: 6px; } .box label input, .box label select { width: 100%; } .box label select { background: #14142a; color: #b0b0cc; border: 1px solid #2f2f4a; border-radius: 6px; padding: 4px; }
 .chk { display: flex; align-items: center; gap: 6px; } .chk input { width: auto !important; }
 .rec .title { color: #e8e8f0; font-size: 13px; font-weight: 600; }
+.rec.ok { border-color: #3ecf8e; } .rec.ok .title { color: #3ecf8e; }
 .conf { color: #8a8aa0; font-size: 11px; line-height: 1.5; margin-top: 4px; }
+.warn { color: #d9a05a; font-size: 11px; line-height: 1.5; margin-top: 3px; }
 .lrow { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #b0b0cc; padding: 3px 0; border-bottom: 1px solid #23233a; }
 .lrow button { background: none; border: none; color: #E05555; cursor: pointer; }
 .bottom { display: grid; grid-template-columns: 1fr 380px; gap: 10px; margin-top: 10px; align-items: start; }
