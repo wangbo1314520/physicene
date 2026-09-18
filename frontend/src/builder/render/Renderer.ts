@@ -49,10 +49,16 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       const g = new THREE.Group()
       const body = new THREE.Mesh(new THREE.BoxGeometry(len, r * 2, 0.3), mat(color, { opacity: 0.9 }))
       const capGeo = new THREE.CylinderGeometry(r, r, 0.3, 16)
-      const capL = new THREE.Mesh(capGeo, mat(color))
+      const capL = new THREE.Mesh(capGeo, mat('#565675'))
       capL.rotation.x = Math.PI / 2; capL.position.set(-len / 2, 0, 0)
-      const capR = new THREE.Mesh(capGeo, mat(color))
+      const capR = new THREE.Mesh(capGeo, mat('#565675'))
       capR.rotation.x = Math.PI / 2; capR.position.set(len / 2, 0, 0)
+      // 任务D：端部滚轮（辐条小轮）
+      for (const wx of [-len / 2, len / 2]) {
+        const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.03, 6, 18), mat('#8a8aa0'))
+        wheel.position.set(wx, 0, 0.18)
+        g.add(wheel)
+      }
       const tex = beltTexture()
       tex.repeat.set(Math.max(4, Math.round(len)), 1) // 约每米一组条纹
       const stripe = new THREE.Mesh(
@@ -78,6 +84,8 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
         const inner = new THREE.Mesh(new THREE.TorusGeometry(R - tube * 2.5, tube * 0.7, 6, 64), mat(color, { opacity: 0.55 }))
         g.add(inner)
       }
+      const sideName = ['内轨', '外轨', '管道'][(p.side ?? 0) as 0 | 1 | 2] ?? '内轨'
+      g.add(textSprite(sideName, '#b06ce6', R + 0.55, R * 0.75))
       return { mesh: g, baseAngle: 0 }
     }
     case 'spring': {
@@ -97,6 +105,7 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       const g = new THREE.Group()
       const rim = new THREE.Mesh(new THREE.TorusGeometry(r, 0.05, 8, 28), mat(color))
       g.add(rim)
+      g.add(new THREE.Mesh(new THREE.TorusGeometry(r - 0.09, 0.02, 6, 28), mat('#d9a05a')))  // 绳槽
       for (let i = 0; i < 3; i++) {
         const spoke = new THREE.Mesh(new THREE.BoxGeometry(r * 1.8, 0.03, 0.05), mat(color))
         spoke.rotation.z = (i * Math.PI) / 3
@@ -142,7 +151,13 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       return { mesh: new THREE.Mesh(new THREE.BoxGeometry(L, 0.3, 0.8), mat(color)), baseAngle: 0 }
     }
     case 'vwall': {
-      return { mesh: new THREE.Mesh(new THREE.BoxGeometry(0.2, p.H ?? 6, 0.5), mat(color, { opacity: 0.7 })), baseAngle: 0 }
+      const H = p.H ?? 6
+      const g = new THREE.Group()
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(0.2, H, 0.5), mat(color, { opacity: 0.7 })))
+      for (let yy = -H / 2 + 0.3; yy < H / 2 - 0.2; yy += 0.45) {  // 固定端斜线阴影惯例
+        g.add(seg2(-0.36, yy - 0.12, -0.1, yy + 0.12, 0x565675))
+      }
+      return { mesh: g, baseAngle: 0 }
     }
     case 'anchor_point': {
       // 悬挂锚点：小圆环 + 十字支架线
@@ -158,7 +173,10 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       return { mesh: new THREE.Mesh(new THREE.BoxGeometry(L, 0.08, 0.2), mat(color)), baseAngle: 0 }
     }
     case 'ground': {
-      return { mesh: new THREE.Mesh(new THREE.BoxGeometry(20, 0.2, 1), mat(color, { opacity: 0.55 })), baseAngle: 0 }
+      const g = new THREE.Group()
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(20, 0.2, 1), mat(color, { opacity: 0.55 })))
+      g.add(frictionMarks(6, p.mu ?? 0.3).translateY(-0.45))  // 集中一段标记（全宽过密）
+      return { mesh: g, baseAngle: 0 }
     }
     case 'slope': {
       // 直角三角形斜面：局部原点=直角角点（左下），底边沿 +x 长 L，高 H=L·tanθ；
@@ -173,7 +191,20 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       ])
       const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.5, bevelEnabled: false })
       geo.translate(0, 0, -0.25)
-      return { mesh: new THREE.Mesh(geo, mat(color, { opacity: 0.9 })), baseAngle: 0 }
+      const g = new THREE.Group()
+      g.add(new THREE.Mesh(geo, mat(color, { opacity: 0.9 })))
+      // 任务D：粗糙面短斜线沿斜边 + θ 标注（底角处）
+      const mu = p.mu ?? 0.2
+      if (mu > 1e-9) {
+        const n = Math.max(3, Math.floor(L / 0.9))
+        for (let i = 1; i < n; i++) {
+          const t = i / n
+          const px = L * t, py = H * (1 - t)
+          g.add(seg2(px - 0.1, py + 0.1 * H / L + 0.02, px + 0.1, py + 0.1 * H / L + 0.22, 0x8a8aa0))
+        }
+      }
+      g.add(textSprite(`θ=${THREE.MathUtils.clamp(p.th ?? 30, 0, 80)}°${mu > 1e-9 ? ' μ=' + mu : ' 光滑'}`, '#3ecf8e', 0.7, -0.28))
+      return { mesh: g, baseAngle: 0 }
     }
     // ── 整改3：物理符号渲染（场区=虚线框+符号阵列，粒子=3D球+电性符号，屏=网格矩形）──
     case 'e_region': {
@@ -243,6 +274,44 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       return { mesh: new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.5), mat(color, { opacity: 0.9 })), baseAngle: 0 }
     }
   }
+}
+
+
+/** 摩擦标记（任务D）：粗糙面=短斜线阴影排；光滑=文字「光滑」（Sprite 免引字体） */
+function frictionMarks(w: number, mu: number): THREE.Group {
+  const g = new THREE.Group()
+  if (typeof document === 'undefined') return g
+  if (mu <= 1e-9) {
+    const cv = document.createElement('canvas'); cv.width = 64; cv.height = 24
+    const c2 = cv.getContext('2d')!
+    c2.fillStyle = '#7fe3b3'; c2.font = '16px sans-serif'; c2.fillText('光滑', 8, 18)
+    const tex = new THREE.CanvasTexture(cv)
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }))
+    sp.position.set(0, 0.35, 0.1); sp.scale.set(1.0, 0.38, 1)
+    g.add(sp)
+    return g
+  }
+  const n = Math.max(3, Math.floor(w / 0.8))
+  for (let i = 0; i < n; i++) {
+    const x = -w / 2 + 0.4 + (i * (w - 0.8)) / Math.max(1, n - 1)
+    g.add(seg2(x - 0.12, 0.02, x + 0.12, 0.22, 0x8a8aa0))
+    g.add(seg2(x - 0.02, 0.02, x + 0.22, 0.22, 0x565675))
+  }
+  return g
+}
+function seg2(x0: number, y0: number, x1: number, y1: number, color: number): THREE.Line {
+  return new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([x0, y0, 0, x1, y1, 0], 3)),
+    new THREE.LineBasicMaterial({ color }))
+}
+/** 文字标签 Sprite（θ 标注/轨道类型标注） */
+function textSprite(text: string, color = '#b0b0cc', x = 0, y = 0): THREE.Sprite {
+  if (typeof document === 'undefined') return new THREE.Sprite()  // node 单测环境无 canvas
+  const cv = document.createElement('canvas'); cv.width = 96; cv.height = 28
+  const c2 = cv.getContext('2d')!
+  c2.fillStyle = color; c2.font = '15px sans-serif'; c2.fillText(text, 4, 20)
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }))
+  sp.position.set(x, y, 0.12); sp.scale.set(1.5, 0.44, 1)
+  return sp
 }
 
 /** 虚线矩形边框（居中 w×h） */

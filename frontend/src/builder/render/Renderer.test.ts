@@ -28,9 +28,9 @@ describe('buildUnifiedMesh', () => {
   it('pulley：定滑轮含吊装杆，动滑轮含吊钩', () => {
     const fixed = buildUnifiedMesh(mk('pulley', { kind: 0 })).mesh as THREE.Group
     const movable = buildUnifiedMesh(mk('pulley', { kind: 1 })).mesh as THREE.Group
-    // rim + 3 spokes + axle = 5，定滑轮 +mount=6，动滑轮 +hook=6
-    expect(fixed.children.length).toBe(6)
-    expect(movable.children.length).toBe(6)
+    // rim + 3 spokes + axle + 绳槽(任务D) = 6，定滑轮 +mount=7，动滑轮 +hook=7
+    expect(fixed.children.length).toBe(7)
+    expect(movable.children.length).toBe(7)
     const mountY = fixed.children.map((c) => c.position.y)
     expect(Math.max(...mountY)).toBeGreaterThan(0.4) // 吊装杆在轮上方
   })
@@ -38,8 +38,8 @@ describe('buildUnifiedMesh', () => {
   it('loop_track：side=2 管道双环，side=0 单环', () => {
     const pipe = buildUnifiedMesh(mk('loop_track', { radius: 1, side: 2 })).mesh as THREE.Group
     const single = buildUnifiedMesh(mk('loop_track', { radius: 1, side: 0 })).mesh as THREE.Group
-    expect(pipe.children.length).toBe(2)
-    expect(single.children.length).toBe(1)
+    expect(pipe.children.length).toBe(3)   // 双环 + 类型标记(任务D)
+    expect(single.children.length).toBe(2) // 环 + 类型标记
     const r = (pipe.children[0] as THREE.Mesh).geometry as THREE.TorusGeometry
     expect(r.parameters.radius).toBeCloseTo(1, 5)
   })
