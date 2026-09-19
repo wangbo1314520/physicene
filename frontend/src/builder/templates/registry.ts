@@ -446,7 +446,7 @@ const gkEBEMulti = (): GeoTemplate => {
   }
 }
 
-// E-OPEN：gkSlopeSpringCorrect（斜面弹簧面内模板）四轮实测失败数据与「斜面底端薄刃钝化」修复方案见交接文档
+// E-OPEN（第5模式）：钝化后模板仍净下移悬垂于角外（rest m≈7.05 悬于锚下）——需轨迹级调试，见交接文档
 const FACTORIES: (() => GeoTemplate)[] = [
   gkSlopeSpring, gkConveyorBoard, gkBoardBlock, gkCollisionSpring,
   gkCollisionChain, gkCircularCritical, gkProjectileLoop, gkConnectedBodies,

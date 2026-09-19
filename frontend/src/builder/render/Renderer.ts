@@ -184,9 +184,12 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       const L = Math.max(0.5, p.L ?? 6)
       const th = THREE.MathUtils.clamp(p.th ?? 30, 0, 80)
       const H = Math.min(20, L * Math.tan(THREE.MathUtils.degToRad(th)))
+      // 底端钝化（任务E·薄刃修复，与 Java SlopeElement 同几何）：切角量 min(0.25, 4%L)
+      const eB = Math.min(0.25, L * 0.04)
       const shape = new THREE.Shape([
         new THREE.Vector2(0, 0),
-        new THREE.Vector2(L, 0),
+        new THREE.Vector2(L - eB, 0),
+        new THREE.Vector2(L, eB * H / L),
         new THREE.Vector2(0, H),
       ])
       const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.5, bevelEnabled: false })

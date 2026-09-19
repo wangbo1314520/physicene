@@ -257,4 +257,31 @@ class UnifyPhase35Test {
     }
 
 
+
+    /** 任务E·薄刃修复验证：块在斜面近底端（m=6.0/6.93）运行不穿面（钝化前 m≈5.7 即穿） */
+    @Test void slopeBluntEndSupportsBlockNearBottom() {
+        PhysicsElement slope = new PhysicsElement();
+        slope.setId("s"); slope.setType("slope"); slope.setPosition(new Vector2D(-4, -2.5));
+        slope.setScale(new Vector2D(3.0, 6 * Math.tan(Math.PI / 6) / 2));  // base 6, H=3.464
+        PhysicsElement blk = new PhysicsElement();
+        blk.setId("b"); blk.setType("cube"); blk.setPosition(new Vector2D(0.9, -1.35));
+        blk.getProperties().setMass(1); blk.setInitialState(new InitialState());
+        double th = Math.PI / 6;
+        blk.getInitialState().setVelocity(new Vector2D(6.5 * Math.cos(th), -6.5 * Math.sin(th))); // 沿面下行
+        Scene sc = new Scene(); sc.setElements(List.of(slope, blk));
+        SimulationConfig cfg = new SimulationConfig(); cfg.setMaxDuration(3.0); cfg.setSubsteps(4);
+        sc.setConfig(cfg);
+        SimulationInstance in = new SimulationInstance("t-blunt", sc, registry());
+        double[] worstPen = {0};  // 面区段内块心低于面线的最大深度
+        in.addFrameListener(f -> { FullSnapshot s2 = (FullSnapshot) f.getSnapshot(); if (!s2.getElements().isEmpty()) {
+            var e0 = s2.getElements().get(0);
+            if (e0.x() > -3.8 && e0.x() < 2.3) {   // 斜面 x 区段（面：顶端(−4,0.96)→底端(2,−2.5)）
+                double faceY = -2.5 + (2 - e0.x()) * 0.57735;
+                worstPen[0] = Math.max(worstPen[0], faceY - e0.y());
+            }
+        } });
+        in.runToEndSync();
+        // 块心低于面线 >0.75（半高0.5+接触余量）= 穿面；钝化前实测 m≈5.7 处穿面
+        assertTrue(worstPen[0] < 0.75, "面区段内不得穿面（最深=" + String.format("%.3f", worstPen[0]) + "）");
+    }
 }
