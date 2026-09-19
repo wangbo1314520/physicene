@@ -143,7 +143,7 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       const k = p.k ?? 0.5
       if (Math.abs(k - 1) < 0.05) {
         // 圆环：Torus 主体
-        g.add(new THREE.Mesh(new THREE.TorusGeometry(r, 0.12, 10, 28), mat(color)))
+        g.add(new THREE.Mesh(new THREE.TorusGeometry(r, 0.04, 8, 32), mat(color)))  // 细环（呼啦圈）：管径 0.04
       } else if (Math.abs(k - 0.5) < 0.05) {
         // 圆盘：薄 Cylinder + 辐条
         g.add(new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.1, 28), mat(color)))
