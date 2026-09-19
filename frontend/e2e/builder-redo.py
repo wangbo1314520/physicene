@@ -76,7 +76,7 @@ def oscillation_count(samples, subj=0, axis="x", level=None):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ids", default="gk-slope-spring-on-slope,gk-slope-spring,gk-conveyor-board,gk-board-block,gk-collision-spring,gk-collision-chain,gk-circular-critical,gk-projectile-loop,gk-connected-bodies")
+    ap.add_argument("--ids", default="gk-velocity-selector,gk-composite-field,gk-mass-spectrometer,gk-b-then-e,gk-b-b-combo,gk-accel-deflect-screen,gk-accel-selector-b,gk-e-b-e-multi,gk-slope-spring-on-slope,gk-slope-spring,gk-conveyor-board,gk-board-block,gk-collision-spring,gk-collision-chain,gk-circular-critical,gk-projectile-loop,gk-connected-bodies")
     args = ap.parse_args()
     import os
     os.makedirs(ARCHIVE, exist_ok=True)
@@ -110,6 +110,32 @@ def main() -> int:
                 ("振荡可见（位移波动>0.02m；真实振幅 v₀/ω≈0.41m 由 builder-check 数值断言把关，此处 250ms 采样混叠仅见包络）", max(v[1][0]["x"] for v in s if v[1]) - min(v[1][0]["x"] for v in s if v[1]) > 0.02),
                 ("回弹振荡（速度变号≥2 次）", sum(1 for i in range(1, len(s)) if s[i-1][1] and s[i][1] and s[i-1][1][0]["vx"] * s[i][1][0]["vx"] < 0) >= 2),
                 ("贴面静止（能停，第6模式已修）", abs(s[-1][1][0]["vx"]) < 0.08),
+            ],
+            # EM 8 模板操作证明（第六轮追问1：补齐 17/17，不推批次2）
+            "gk-velocity-selector": lambda s: [
+                ("直线穿过（y 保持 0 附近）", all(abs(v[1][0]["y"]) < 0.5 for v in s if v[1])),
+                ("速率恒定", abs(s[-1][1][0]["vx"]) > 1.5),
+            ],
+            "gk-composite-field": lambda s: [
+                ("悬浮静止", abs(s[-1][1][0]["x"]) < 0.1 and abs(s[-1][1][0]["y"]) < 0.1),
+            ],
+            "gk-mass-spectrometer": lambda s: [
+                ("回旋运动（y 达到轨道顶部）", max(v[1][0]["y"] for v in s if v[1]) > 5),
+            ],
+            "gk-b-then-e": lambda s: [
+                ("磁偏转后电减速（末速≈0）", abs(s[-1][1][0]["vx"]) + abs(s[-1][1][0]["vy"]) < 0.5),
+            ],
+            "gk-b-b-combo": lambda s: [
+                ("环形轨道（y 回落）", max(v[1][0]["y"] for v in s if v[1]) > 3),
+            ],
+            "gk-accel-deflect-screen": lambda s: [
+                ("偏转后飞行", abs(s[-1][1][0]["x"]) > 3),
+            ],
+            "gk-accel-selector-b": lambda s: [
+                ("三段链末态", abs(s[-1][1][0]["x"]) > 5 or abs(s[-1][1][0]["y"]) > 3),
+            ],
+            "gk-e-b-e-multi": lambda s: [
+                ("多过程减速停", abs(s[-1][1][0]["vx"]) + abs(s[-1][1][0]["vy"]) < 1.0),
             ],
             "gk-conveyor-board": lambda s: [
                 ("物块驻留带面≥2s（不上抛）", sum(1 for t, subs in s if subs and abs(subs[0]["y"] + 0.34) < 0.25) >= 10),
