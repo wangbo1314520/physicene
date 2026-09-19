@@ -217,4 +217,44 @@ class UnifyPhase35Test {
         assertTrue(maxAfter3[0] < 0.05 * a0 + 1e-6,
                 "ζ=0.8 单端弹簧 3s 后振幅应 <5%（a0=" + a0 + ", 3s后=" + maxAfter3[0] + "）");
     }
+
+    // ===== Q3：内外轨距离门控 4 边界场景 + D5 绳断裂 =====
+    private static Scene loopScene(double r, String side, double bx, double by, double vx, double vy) {
+        PhysicsElement loop = new PhysicsElement();
+        loop.setId("lp"); loop.setType("loop_track"); loop.setPosition(new Vector2D(0, 0));
+        loop.setFixed(true); loop.getParams().put("radius", r); loop.getParams().put("arcSideCode", "inner".equals(side) ? 0.0 : "outer".equals(side) ? 1.0 : 2.0);
+        PhysicsElement ball = new PhysicsElement();
+        ball.setId("b"); ball.setType("sphere"); ball.setPosition(new Vector2D(bx, by));
+        ball.getProperties().setMass(0.5); ball.setInitialState(new InitialState());
+        ball.getInitialState().setVelocity(new Vector2D(vx, vy));
+        Scene sc = new Scene(); sc.setElements(List.of(loop, ball));
+        SimulationConfig cfg = new SimulationConfig(); cfg.setMaxDuration(3.0); cfg.setSubsteps(4);
+        sc.setConfig(cfg); return sc;
+    }
+
+    @Test void loopGateOutsidePassesUnaffected() {  // 边界1：圈外球掠过不受力（吸尘器修复验证）
+        SimulationInstance in = new SimulationInstance("t-lg1", loopScene(1.5, "inner", 4.2, -0.9, 4, 0), registry());
+        double[] maxY = {-99}; double[] x0 = {4.2};
+        in.addFrameListener(f -> { FullSnapshot s = (FullSnapshot) f.getSnapshot(); if (!s.getElements().isEmpty()) { maxY[0] = Math.max(maxY[0], s.getElements().get(0).y()); x0[0] = s.getElements().get(0).x(); } });
+        in.runToEndSync();
+        assertTrue(x0[0] > 10, "圈外球应直线飞离不受导轨影响（末 x=" + x0[0] + "）");
+    }
+
+    @Test void loopGateFullCircleStaysInside() {  // 边界3：圈内球整圈运行 dist≤R 稳定
+        SimulationInstance in = new SimulationInstance("t-lg3", loopScene(1.5, "inner", 0, -1.0, 8, 0), registry());
+        double[] maxDist = {0};
+        in.addFrameListener(f -> { FullSnapshot s = (FullSnapshot) f.getSnapshot(); if (!s.getElements().isEmpty()) { var e = s.getElements().get(0); maxDist[0] = Math.max(maxDist[0], Math.hypot(e.x(), e.y())); } });
+        in.runToEndSync();
+        assertTrue(maxDist[0] <= 1.5 + 0.26, "圈内球 dist 应全程 ≤R+容差（实测 max=" + String.format("%.3f", maxDist[0]) + "）");
+    }
+
+    @Test void loopGatePipeGuidesSameAsInner() {  // 边界4：管道（side=2）圈内球同样受导轨
+        SimulationInstance in = new SimulationInstance("t-lg4", loopScene(1.5, "pipe", 0, -1.0, 8, 0), registry());
+        double[] maxY = {-99};
+        in.addFrameListener(f -> { FullSnapshot s = (FullSnapshot) f.getSnapshot(); if (!s.getElements().isEmpty()) maxY[0] = Math.max(maxY[0], s.getElements().get(0).y()); });
+        in.runToEndSync();
+        assertTrue(maxY[0] > 0.8, "管道内球应过顶（maxY=" + maxY[0] + "≈R−r=1.0）");
+    }
+
+
 }

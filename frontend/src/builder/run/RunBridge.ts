@@ -59,10 +59,13 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
     const asBody = (patch: Partial<PhysicsElementInput>) => { Object.assign(base, patch); list.push(base) }
 
     switch (e.type) {
-      case 'block':
+      case 'block': {
+        // v0 沿 ang 方向（默认水平；斜面场景给 −θ 沿面入速）
+        const v0 = num(p.v0, 0), ang = deg2rad(num(p.ang, 0))
         asBody({ type: 'cube', properties: { mass: num(p.m, 1), friction: num(p.mu, 0.2), restitution: 0 },
-          initialState: v0State(p) })
+          initialState: v0 ? { velocity: { x: v0 * Math.cos(ang), y: v0 * Math.sin(ang) } } : undefined })
         break
+      }
       case 'sphere':
         asBody({ type: 'sphere', properties: { mass: num(p.m, 1), friction: num(p.mus, 0), restitution: num(p.e, 1) },
           initialState: v0State(p) })

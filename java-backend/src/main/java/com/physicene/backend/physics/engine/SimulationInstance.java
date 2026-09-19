@@ -594,6 +594,26 @@ public class SimulationInstance {
 
     java.util.Set<Map.Entry<String, DistanceJoint<Body>>> stringJointsSnapshot() { return stringJoints.entrySet(); }
 
+    /** D5：按 joints 键（ownId#type）查绳 Tmax（0=不判断裂） */
+    double ropeTmaxOf(String jointKey) {
+        String ownId = jointKey.split("#")[0];
+        for (PhysicsElement el : scene.getElements()) {
+            if (ownId.equals(el.getId()) && "rope".equals(el.getType()) && el.getParams() != null) {
+                Double t = el.getParams().get("Tmax");
+                return t == null ? 0 : t;
+            }
+        }
+        return 0;
+    }
+
+    /** D5：移除绳关节（断裂）——仿真线程内调用 */
+    void removeStringJoint(String jointKey) {
+        DistanceJoint<Body> j = stringJoints.remove(jointKey);
+        if (j != null) {
+            world.removeJoint(j);
+        }
+    }
+
     Body bodyOf(String id) { return bodies.get(id); }
 
     int dynamicBodyCount() { return dynamicBodies.size(); }

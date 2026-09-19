@@ -60,3 +60,14 @@ describe('理论值代码推导静态检查', () => {
     expect(bad, `以下 theory 为手算字面量（改为参数变量表达式）：\n${bad.join('\n')}`).toEqual([])
   })
 })
+
+/** 数字口径闸门（口径审计制度）：目录/模板计数以代码常量为源，变更须同步数字口径审计文档 */
+describe('数字口径闸门', () => {
+  it('PLAN_COUNT 与 TEMPLATES 计数锁定（变更须同步 docs/统一实验台-数字口径审计.md）', async () => {
+    const { PLAN_COUNT, CATALOG } = await import('../catalog')
+    const { TEMPLATES } = await import('./registry')
+    expect(PLAN_COUNT).toBe(CATALOG.length)
+    expect(PLAN_COUNT).toBe(34)   // 任务 E 补件后更新此数 + 审计文档
+    expect(TEMPLATES.length).toBe(16)
+  })
+})

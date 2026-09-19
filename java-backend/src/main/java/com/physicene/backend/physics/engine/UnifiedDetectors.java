@@ -210,6 +210,8 @@ final class UnifiedDetectors {
             double cur = j.getCurrentDistance();
             String kind = e.getKey().endsWith("#spring") ? "spring" : e.getKey().endsWith("#rod") ? "rod" : "rope";
             if ("rope".equals(kind)) {
+                // D5（E-OPEN）：getReactionForce 对 limit 模式 DistanceJoint 实测恒 0（dyn4j 不累计 limit 冲量）——
+                // 断裂检测须待「绳改冲量式约束」（与滑轮同框架，冲量 λ 即张力）一并落地，见交接文档
                 boolean taut = j.isUpperLimitEnabled() && cur >= j.getUpperLimit() - 1e-4;
                 if (taut && sim.latch("taut:" + e.getKey())) {
                     sim.fireKeyEvent(t, "rope_taut", "绳绷紧（L=" + String.format("%.3f", j.getUpperLimit()) + " m）",

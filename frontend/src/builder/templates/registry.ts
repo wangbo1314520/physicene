@@ -77,6 +77,52 @@ const gkSlopeSpring = (): GeoTemplate => {
   }
 }
 
+// Q2/任务E：斜面弹簧正确模板（OPEN#2 教学缺口修复）
+// 物理定性：弹簧沿斜面方向无力法向分量，N=mg·cosθ>0 恒成立——块不离面；原模板缺陷=滑程过长
+// 冲过斜面底端成弹簧摆。本模板量纲按 SpringElement「锚点↔块心」语义推导：
+// k=200、滑程 3.5m → v=6.59、压缩 x=v/ω=0.47m（dist_min=0.73m 不会压穿锚点）、锚距底端 0.64m。
+const SS_TH = Math.PI / 6, SS_K = 200, SS_L0 = 1.2, SS_ZETA = 0.3
+const gkSlopeSpringCorrect = (): GeoTemplate => {
+  const th = SS_TH, c = Math.cos(th), sn = Math.sin(th)
+  const corner = { x: -4, y: -2.5 }
+  const slopeLen = SS_L0 * 0 + 6 / c                                   // 斜边长 6.928
+  const topEnd = { x: corner.x, y: corner.y + 6 * sn }
+  const botEnd = { x: corner.x + 6, y: corner.y }
+  const dir = { x: (botEnd.x - topEnd.x) / slopeLen, y: (botEnd.y - topEnd.y) / slopeLen }
+  const nrm = { x: -dir.y, y: dir.x }
+  // 块心自然位（沿轴投影）：锚 m_A=6.29，块心距=L0 → 投影 m_c=√(L0²−0.5²)=1.091 → m_nat=5.20
+  // 薄刃规避：块操作区须距斜面底端顶点 ≥1.9m（triangle 底端为零宽顶点，块接触面悬出即失稳穿面——实测 m≈5.7 穿面）
+  const mAnchor = 4.5 + Math.sqrt(SS_L0 * SS_L0 - 0.25)
+  const mNat = mAnchor - Math.sqrt(SS_L0 * SS_L0 - 0.25)
+  // 块置于自然点（弹簧松弛起态），初速按等效滑程 3.5m 换算（Java 弹簧全程连接式，
+  // 若从上方拉伸处起跑会成弹弓——原始模板同病，故用 v₀ 显式给能）
+  const SS_SLIDE_EQ = 3.5
+  const mStart = mNat
+  const pAt = (m: number) => ({ x: topEnd.x + dir.x * m, y: topEnd.y + dir.y * m })
+  const posC = (m: number) => { const q = pAt(m); return { x: q.x + nrm.x * 0.5, y: q.y + nrm.y * 0.5 } }
+  const start = posC(mStart)
+  const anchor = pAt(mAnchor)
+  const block = mk('block', start.x, start.y, { m: 1, v0: +(Math.sqrt(2 * 9.8 * sn * SS_SLIDE_EQ)).toFixed(3), ang: -30, mu: 0 }, -th)
+  // RunBridge 单端：anchorA='左端' → 固定锚=元件位置+rot(L0)·dir → 元件位置 = anchor − L0·dir
+  const spring = mk('spring', anchor.x - dir.x * SS_L0, anchor.y - dir.y * SS_L0,
+    { k: SS_K, L0: SS_L0, zeta: SS_ZETA }, Math.atan2(dir.y, dir.x),
+    [{ toId: block.id, kind: 'spring', anchorA: '左端', anchorB: '底' }])
+  // 平衡：沿轴拉伸 Δ=mg·sinθ/k=0.0245 → 块心投影 m_eq=mNat+Δ
+  const eq = posC(mNat + 1 * 9.8 * sn / SS_K)
+  return {
+    id: 'gk-slope-spring-on-slope', card: '3', group: '力学', name: '斜面·弹簧·滑块（面内压缩，教学正解）',
+    tags: ['斜面', '弹簧', '物块'],
+    elements: [mk('slope', corner.x, corner.y, { th: 30, mu: 0, L: 6 }), spring, block],
+    criticalChecks: [
+      { label: '阻尼收敛平衡位 x_eq（代码推导，面内）', theory: eq.x, tol: 0.04, from: { kind: 'final', subject: 0, pick: 'x' } },
+      { label: '末速≈0（能停）', theory: 0, tol: 0.02, tolAbs: 0.1, from: { kind: 'final', subject: 0, pick: 'vx' } },
+      { label: '不出底端（final x < 底端x−0.3）', theory: 1, tol: 0.01, from: { kind: 'no-event', eventType: 'detach' } },
+    ],
+    solutionId: 'slopeSpring',
+    maxDuration: 8,
+  }
+}
+
 const BELT_VB = 3
 /** 卡4：传送带+物块（共速 t*=v/(μg)） */
 const gkConveyorBoard = (): GeoTemplate => ({
@@ -400,6 +446,7 @@ const gkEBEMulti = (): GeoTemplate => {
   }
 }
 
+// E-OPEN：gkSlopeSpringCorrect（斜面弹簧面内模板）四轮实测失败数据与「斜面底端薄刃钝化」修复方案见交接文档
 const FACTORIES: (() => GeoTemplate)[] = [
   gkSlopeSpring, gkConveyorBoard, gkBoardBlock, gkCollisionSpring,
   gkCollisionChain, gkCircularCritical, gkProjectileLoop, gkConnectedBodies,
