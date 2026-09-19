@@ -86,7 +86,7 @@ const gkSlopeSpringCorrect = (): GeoTemplate => {
   const th = SS_TH, c = Math.cos(th), sn = Math.sin(th)
   const corner = { x: -4, y: -2.5 }
   const slopeLen = SS_L0 * 0 + 6 / c                                   // 斜边长 6.928
-  const topEnd = { x: corner.x, y: corner.y + 6 * sn }
+  const topEnd = { x: corner.x, y: corner.y + 6 * sn / c }   // H=L·tanθ（曾误用 sin，第6模式修正）
   const botEnd = { x: corner.x + 6, y: corner.y }
   const dir = { x: (botEnd.x - topEnd.x) / slopeLen, y: (botEnd.y - topEnd.y) / slopeLen }
   const nrm = { x: -dir.y, y: dir.x }
@@ -102,7 +102,7 @@ const gkSlopeSpringCorrect = (): GeoTemplate => {
   const posC = (m: number) => { const q = pAt(m); return { x: q.x + nrm.x * 0.5, y: q.y + nrm.y * 0.5 } }
   const start = posC(mStart)
   const anchor = pAt(mAnchor)
-  const block = mk('block', start.x, start.y, { m: 1, v0: +(Math.sqrt(2 * 9.8 * sn * SS_SLIDE_EQ)).toFixed(3), ang: -30, mu: 0 }, -th)
+  const block = mk('block', start.x, start.y, { m: 1, v0: +(Math.sqrt(2 * 9.8 * sn * SS_SLIDE_EQ)).toFixed(3), ang: -30, mu: 0, fixRot: 1 }, -th)
   // RunBridge 单端：anchorA='左端' → 固定锚=元件位置+rot(L0)·dir → 元件位置 = anchor − L0·dir
   const spring = mk('spring', anchor.x - dir.x * SS_L0, anchor.y - dir.y * SS_L0,
     { k: SS_K, L0: SS_L0, zeta: SS_ZETA }, Math.atan2(dir.y, dir.x),
@@ -446,10 +446,8 @@ const gkEBEMulti = (): GeoTemplate => {
   }
 }
 
-// E-OPEN（第6模式，引擎修复已落地）：锚点连线+质心作用后块停于面附近且速度归零（第5模式悬垂已消除），
-// 残余=瞬停+微离面0.09m接触异常（疑斜面接触与弹簧力偶合）——数据：t=0.3 (0.73,-1.09) v(-1.3,+0.74)、t=1.6 起 rest (0.77,-1.113)
 const FACTORIES: (() => GeoTemplate)[] = [
-  gkSlopeSpring, gkConveyorBoard, gkBoardBlock, gkCollisionSpring,
+  gkSlopeSpring, gkSlopeSpringCorrect, gkConveyorBoard, gkBoardBlock, gkCollisionSpring,
   gkCollisionChain, gkCircularCritical, gkProjectileLoop, gkConnectedBodies,
   gkVelocitySelector, gkCompositeField, gkMassSpectrometer, gkBThenE,
   gkBBCombo, gkAccelDeflectScreen, gkAccelSelectorB, gkEBEMulti,

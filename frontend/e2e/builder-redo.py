@@ -76,7 +76,7 @@ def oscillation_count(samples, subj=0, axis="x", level=None):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ids", default="gk-slope-spring,gk-conveyor-board,gk-board-block,gk-collision-spring,gk-collision-chain,gk-circular-critical,gk-projectile-loop,gk-connected-bodies")
+    ap.add_argument("--ids", default="gk-slope-spring-on-slope,gk-slope-spring,gk-conveyor-board,gk-board-block,gk-collision-spring,gk-collision-chain,gk-circular-critical,gk-projectile-loop,gk-connected-bodies")
     args = ap.parse_args()
     import os
     os.makedirs(ARCHIVE, exist_ok=True)
@@ -105,6 +105,11 @@ def main() -> int:
                 ("振荡可见（速度变号≥2 次，能振）", sum(1 for i in range(1, len(s)) if s[i-1][1] and s[i][1] and s[i-1][1][0]["vx"] * s[i][1][0]["vx"] < 0) >= 2),
                 ("行程>0.5m（振幅可见；首峰采样混叠容差，物理精断在 builder-check）", max(v[1][0]["x"] for v in s if v[1]) - min(v[1][0]["x"] for v in s if v[1]) > 0.5),
                 ("阻尼收敛静止（能停，OPEN#2 已修）", abs(s[-1][1][0]["vx"]) < 0.06),
+            ],
+            "gk-slope-spring-on-slope": lambda s: [
+                ("振荡可见（位移波动>0.02m；真实振幅 v₀/ω≈0.41m 由 builder-check 数值断言把关，此处 250ms 采样混叠仅见包络）", max(v[1][0]["x"] for v in s if v[1]) - min(v[1][0]["x"] for v in s if v[1]) > 0.02),
+                ("回弹振荡（速度变号≥2 次）", sum(1 for i in range(1, len(s)) if s[i-1][1] and s[i][1] and s[i-1][1][0]["vx"] * s[i][1][0]["vx"] < 0) >= 2),
+                ("贴面静止（能停，第6模式已修）", abs(s[-1][1][0]["vx"]) < 0.08),
             ],
             "gk-conveyor-board": lambda s: [
                 ("物块驻留带面≥2s（不上抛）", sum(1 for t, subs in s if subs and abs(subs[0]["y"] + 0.34) < 0.25) >= 10),

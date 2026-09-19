@@ -219,6 +219,7 @@ onMounted(() => {
     },
     move: (id: string, x: number, y: number) => onDragging(id, x, y),
     setParams: (id: string, p: Record<string, number>) => { const e = elements.find((x2) => x2.id === id); if (e) Object.assign(e.params, p) },
+    setAngle: (id: string, a: number) => { const e = elements.find((x2) => x2.id === id); if (e) e.angle = a },
     select: (id: string | null) => { selectedId.value = id },
     link: (a: string, anchorA: string, b: string, anchorB: string, kind?: string) => {
       const ea = elements.find((e) => e.id === a)

@@ -61,7 +61,7 @@ const ATTACH = (x: number, y: number, label: string): AnchorTemplate => ({ id: l
 
 export const CATALOG: ElementSpec[] = [
   // ── 力学 body ──
-  el('block', '物块', '▣', 'mech', ['2.5D'], '#4A90D9', '有摩擦的滑块/物块', [MASS, V0, MU, P('ang', '初速方向', -90, 90, 5, 0, '°')], 'body', ['物块'], [
+  el('block', '物块', '▣', 'mech', ['2.5D'], '#4A90D9', '有摩擦的滑块/物块（fixRot=1 锁转为滑块模型）', [MASS, V0, MU, P('ang', '初速方向', -90, 90, 5, 0, '°'), P('fixRot', '锁转（滑块）', 0, 1, 1, 1)], 'body', ['物块'], [
     ATTACH(-0.5, 0, '左'), ATTACH(0.5, 0, '右'), ATTACH(0, -0.5, '底'), ATTACH(0, 0.5, '顶'),
   ]),
   el('sphere', '小球', '●', 'mech', ['2D', '2.5D', '3D'], '#F5C542', '质点模型', [MASS, V0, P('e', '恢复系数 e', 0, 1, 0.05, 1), P('mus', '摩擦 μ', 0, 1, 0.05, 0)], 'body', ['小球'], [

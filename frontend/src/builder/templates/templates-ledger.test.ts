@@ -9,7 +9,7 @@ import { byType } from '../catalog'
 
 describe('几何模板对账', () => {
   it('批次 1+2：力学 8 + 电磁 8 共 16 个', () => {
-    expect(TEMPLATES.length).toBeGreaterThanOrEqual(16)
+    expect(TEMPLATES.length).toBeGreaterThanOrEqual(17)
     expect(TEMPLATES.filter((t) => t.group === '力学').length).toBeGreaterThanOrEqual(8)
     expect(TEMPLATES.filter((t) => t.group === '电磁').length).toBeGreaterThanOrEqual(8)
   })
@@ -68,6 +68,6 @@ describe('数字口径闸门', () => {
     const { TEMPLATES } = await import('./registry')
     expect(PLAN_COUNT).toBe(CATALOG.length)
     expect(PLAN_COUNT).toBe(34)   // 任务 E 补件后更新此数 + 审计文档
-    expect(TEMPLATES.length).toBe(16)
+    expect(TEMPLATES.length).toBe(17)
   })
 })

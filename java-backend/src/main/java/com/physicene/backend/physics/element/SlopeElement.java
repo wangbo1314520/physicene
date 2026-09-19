@@ -32,14 +32,16 @@ public class SlopeElement extends AbstractMechanicalElement {
         // 底端钝化（任务E·薄刃修复）：保全长斜边 (−w/2,h/2)→(w/2,−h/2)，在底端顶点处用小切角
         // 替代零宽尖点——块操作区近底端不再失稳穿面（实测 m≈5.7 穿面）。切角量 0.04w，
         // 锚点/吸附几何位移 ≤0.15m（δ=0.35 吸附阈值内，兼容既有场景）。
+        // v2（第6模式修正）：斜边角度严格不变——斜边终止于 (w/2−e, 线上)，末端竖直小面落到 (w/2−e, −h/2)。
+        // v1 竖直切角使斜边角度 30°→29°，锁转滑块与面恒 1° 楔角→单角接触悬浮（实测中心偏 0.105m）
         double e = Math.min(0.25, w * 0.04);
-        double bx = w / 2 - e;                 // 底边切点
-        double hy = -h / 2 + (e * h / w);      // 斜边切点（沿斜边上移 e·h/w）
+        double sx = w / 2 - e;                       // 斜边终点 x（线上）
+        double sy = -h / 2 + (e * h / w);            // 斜边线上 y（斜率不变）
         return new org.dyn4j.geometry.Polygon(
                 new Vector2(-w / 2, -h / 2),   // 左下（直角顶点）
-                new Vector2(bx, -h / 2),       // 底边切点
-                new Vector2(w / 2, hy),        // 斜边切点（原底端顶点被切掉）
-                new Vector2(-w / 2, h / 2)     // 左上（顶端）
+                new Vector2(sx, -h / 2),       // 底边右端
+                new Vector2(sx, sy),           // 竖直端面（钝化厚度）
+                new Vector2(-w / 2, h / 2)     // 左上（顶端）——三点斜边与原三角形严格共线
         );
     }
 

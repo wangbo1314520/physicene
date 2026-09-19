@@ -128,6 +128,10 @@ public class SimulationInstance {
         // 连续碰撞：仅对标记 bullet 的运动体启用（薄边/高速防穿透，方案 §3.4）
         world.getSettings().setContinuousDetectionMode(ContinuousDetectionMode.BULLETS_ONLY);
         world.getSettings().setPositionConstraintSolverIterations(20);
+        // 第6模式：全局禁用 dyn4j at-rest 冻结（body 级开关实测不生效）——受约束/接触物体持续受力，
+        // 不应被瞬时低速判静止（阻尼振荡尾段块冻在小离面位移处，净压面 8N 无法恢复贴面）；
+        // 教学仿真的静止收尾由自家 stillThreshold 负责
+        world.getSettings().setAtRestDetectionEnabled(false);
 
         // 第一遍：普通元件建刚体；关节元件（rope/rod/spring/pulley）收集待第二遍
         List<JointBehavior> jointBehaviors = new ArrayList<>();
@@ -151,6 +155,11 @@ public class SimulationInstance {
             if (body != null) {
                 if (element.getParams() != null && element.getParams().getOrDefault("bullet", 0.0) >= 1) {
                     body.setBullet(true);
+                }
+                // 滑块理想化（第6模式最终修复）：fixRot=1 锁转动（保质量）——方块在斜面上以角接触会
+                // 产生角脉冲→微楔角卡死（中心偏 0.1m），教学滑块模型应保持面接触不翻转
+                if (element.getParams() != null && element.getParams().getOrDefault("fixRot", 0.0) >= 1 && !element.isFixed()) {
+                    body.setMassType(org.dyn4j.geometry.MassType.FIXED_ANGULAR_VELOCITY);
                 }
                 bodies.put(element.getId(), body);
                 if (!element.isFixed()) {
@@ -364,6 +373,7 @@ public class SimulationInstance {
             if (f != null && !Double.isNaN(f[0]) && !Double.isNaN(f[1])) {
                 se.getBodyA().applyForce(new org.dyn4j.geometry.Vector2(f[0], f[1]));
                 se.getBodyB().applyForce(new org.dyn4j.geometry.Vector2(-f[0], -f[1]));
+
             }
         }
         // 圆轨道解析导轨（方案 §3.2 解析化）：对每个动态体按位置/速度/质量/等效半径施加径向罚力

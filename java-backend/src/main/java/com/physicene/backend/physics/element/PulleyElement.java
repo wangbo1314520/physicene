@@ -128,6 +128,10 @@ public class PulleyElement implements ElementBehavior, JointBehavior {
         return (m <= 0 || Double.isInfinite(m)) ? 0 : 1.0 / m;
     }
 
+    public Body getBodyA() { return bodyA; }
+
+    public Body getBodyB() { return bodyB; }
+
     public double getRestLength() {
         return restLength;
     }

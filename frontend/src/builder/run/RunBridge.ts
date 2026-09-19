@@ -40,6 +40,14 @@ function anchorWorldOfSelf(e: GeoElement, anchorId: string): { x: number; y: num
   return { x: e.position.x + c * l.x - s * l.y, y: e.position.y + s * l.x + c * l.y }
 }
 
+/** 透传 Java 侧逐体参数（bullet/fixRot），其余 params 由各 case 显式映射 */
+function pickWireParams(e: GeoElement): Record<string, number> {
+  const out: Record<string, number> = {}
+  if (e.params.bullet !== undefined) out.bullet = e.params.bullet
+  if (e.params.fixRot !== undefined) out.fixRot = e.params.fixRot
+  return out
+}
+
 export interface ScenePackage { list: PhysicsElementInput[]; skipped: string[]; notes: string[] }
 
 /** GeoElement[] → Java PhysicsElement[]（映射契约见文件头） */
@@ -54,7 +62,7 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
     const p = e.params
     const base: PhysicsElementInput = {
       id: e.id, type: '', position: { x: e.position.x, y: e.position.y },
-      angle: e.angle, properties: {}, params: {},
+      angle: e.angle, properties: {}, params: pickWireParams(e),
     }
     const asBody = (patch: Partial<PhysicsElementInput>) => { Object.assign(base, patch); list.push(base) }
 
