@@ -57,16 +57,9 @@ public class SensorElement implements ElementBehavior {
                 return new double[]{t, Math.hypot(dx, dy)};
             }
             case "accel_sensor": {
-                // getForce() 在 world.step 后被清零（附带追问确认）——改读重力+外力
-                // 重力 = m·g（由 body.getGravityScale × world.getGravity 计算）
-                double m = target.getMass().getMass();
-                if (m <= 0 || Double.isInfinite(m)) m = 1;
-                // 当前累积力（applyCustomForces 施的外力）+ 重力
-                double fx = target.getForce().x;
-                double fy = target.getForce().y;
-                // 重力（常驻）：dyn4j 内部施，step 前有效
-                fy += m * (-9.8) * target.getGravityScale();  // 默认重力向下
-                return new double[]{t, Math.hypot(fx, fy) / m};
+                // 修正 v5：返回矢量 (ax, ay) 而非标量模——消费者可投影到所需方向
+                // 矢量模含法向接触振荡（物理限制），沿面分量才是滑块加速度
+                return new double[]{t, lastAx, lastAy};
             }
             default:
                 return null;
@@ -74,4 +67,22 @@ public class SensorElement implements ElementBehavior {
     }
 
     public Body getTarget() { return target; }
+
+    /** 修正版加速度：速度变化/dt（捕获所有力：重力+接触+外力） */
+    public void sampleAccel(double t, double dt) {
+        if (target == null) return;
+        double vx = target.getLinearVelocity().x;
+        double vy = target.getLinearVelocity().y;
+        if (lastVx != null) {
+            lastAx = (vx - lastVx) / dt;
+            lastAy = (vy - lastVy) / dt;
+        }
+        lastVx = vx; lastVy = vy;
+    }
+
+    private Double lastVx = null, lastVy = null;
+    private double lastAx = 0, lastAy = 0;
+
+    public double getLastAx() { return lastAx; }
+    public double getLastAy() { return lastAy; }
 }

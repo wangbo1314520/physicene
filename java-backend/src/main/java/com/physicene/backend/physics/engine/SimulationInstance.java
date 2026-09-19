@@ -252,6 +252,11 @@ public class SimulationInstance {
         t += dt;
         frameCount++;
 
+        // 追问2 v4：accel 传感器速度差分（在所有子步完成后，捕获全部力效应）
+        for (var se : sensors) {
+            se.sampleAccel(t, dt);
+        }
+
         if (simId.startsWith("t-atwood") && frameCount % 15 == 0 && !pulleys.isEmpty()) {
             var pe = pulleys.get(0);
             System.out.println("[pul] f=" + frameCount + " t=" + String.format("%.2f", t)
