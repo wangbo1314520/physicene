@@ -141,9 +141,11 @@ public class SimulationInstance {
             ElementBehavior behavior = registry.create(element);
             behaviors.add(behavior);
             if ("slope".equals(element.getType())) {
-                double h = Math.max(0.05, element.getScale().y());
+                // P0-1 修正：存斜边法向量 [cx, cy, cosθ, sinθ]——θ=斜面倾角
+                double th = Math.toRadians(Math.toDegrees(Math.atan2(
+                        Math.max(0.05, element.getScale().y()), Math.max(0.05, element.getScale().x()))));
                 slopeSurfaces.add(new double[]{element.getPosition().x(), element.getPosition().y(),
-                        element.getAngle(), h / 2});
+                        Math.cos(th), Math.sin(th)});
             }
             if (behavior instanceof LoopTrackElement lt) {
                 loops.put(element.getId(), new double[]{element.getPosition().x(),
@@ -389,13 +391,14 @@ public class SimulationInstance {
                 Body b = dynamicBodies.get(i);
                 PhysicsElement el = dynamicElements.get(i);
                 for (double[] sl : slopeSurfaces) {
+                    // P0-1 修正：垂直距离到斜边直线（法向量投影），统一 0.05m 阈值
                     double dx = b.getTransform().getTranslationX() - sl[0];
                     double dy = b.getTransform().getTranslationY() - sl[1];
-                    double dist = Math.hypot(dx, dy);
-                    if (dist > sl[3] + 0.3 && t > dt * 4) {  // 超过面距+0.3m 容差
+                    double perpDist = Math.abs(dx * sl[3] - dy * sl[2]);  // 法向投影=点到线距离
+                    if (perpDist > 0.55 && t > dt * 4) {  // 0.5(块半高)+0.05(阈值)
                         if (latch("sdetach:" + el.getId())) {
                             fireKeyEvent(t, "slope_detach",
-                                    el.getId() + " 脱离斜面（dist=" + String.format("%.2f", dist) + " > " + String.format("%.2f", sl[3] + 0.3) + "）",
+                                    el.getId() + " 脱离斜面（垂直距离=" + String.format("%.3f", perpDist) + " > 0.55）",
                                     null);
                         }
                     }
@@ -701,6 +704,11 @@ public class SimulationInstance {
         if ("bullet".equals(flag)) return b.isBullet();
         if ("fixRot".equals(flag)) return b.getMass().getInverseInertia() == 0;  // 锁转=逆惯量 0
         return false;
+    }
+
+    /** P0-3 测试钩子：重新启用 at-rest（性能对比用） */
+    public void enableAtRestForBenchmark() {
+        world.getSettings().setAtRestDetectionEnabled(true);
     }
 
     boolean latch(String key) { return eventLatches.add(key); }

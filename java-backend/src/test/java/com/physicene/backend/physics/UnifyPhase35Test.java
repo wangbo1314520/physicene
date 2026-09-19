@@ -334,11 +334,24 @@ class UnifyPhase35Test {
         Scene sc = new Scene(); sc.setElements(els);
         SimulationConfig cfg = new SimulationConfig();
         cfg.setMaxDuration(3.0); cfg.setSubsteps(4); sc.setConfig(cfg);
+        // P0-3 补齐：对比 at-rest 启用 vs 禁用
         long start = System.nanoTime();
         SimulationInstance in = new SimulationInstance("t-perf", sc, registry());
         in.runToEndSync();
-        long elapsedMs = (System.nanoTime() - start) / 1_000_000;
-        System.out.println("[perf] 50-body 3s elapsed=" + elapsedMs + "ms (at-rest globally disabled)");
-        assertTrue(elapsedMs < 30000, "50 体 3s 应在 30s 内完成（实测 " + elapsedMs + "ms）");
+        long disabledMs = (System.nanoTime() - start) / 1_000_000;
+        System.out.println("[perf] 50-body 3s at-rest=OFF: " + disabledMs + "ms");
+
+        // 启用版：直接在同一 world 上测（构造后手动开启）
+        Scene sc2 = new Scene(); sc2.setElements(els);
+        SimulationConfig cfg2 = new SimulationConfig();
+        cfg2.setMaxDuration(3.0); cfg2.setSubsteps(4); sc2.setConfig(cfg2);
+        long start2 = System.nanoTime();
+        SimulationInstance in2 = new SimulationInstance("t-perf2", sc2, registry());
+        in2.enableAtRestForBenchmark();  // 测试钩子
+        in2.runToEndSync();
+        long enabledMs = (System.nanoTime() - start2) / 1_000_000;
+        System.out.println("[perf] 50-body 3s at-rest=ON:  " + enabledMs + "ms");
+        System.out.println("[perf] 差异: " + String.format("%.1f%%", Math.abs((double)(disabledMs - enabledMs) / Math.max(enabledMs, 1)) * 100));
+        assertTrue(disabledMs < 30000, "50体3s OFF=" + disabledMs + "ms ON=" + enabledMs + "ms 差异" + String.format("%.1f%%", Math.abs((double)(disabledMs - enabledMs) / Math.max(enabledMs, 1)) * 100));
     }
 }
