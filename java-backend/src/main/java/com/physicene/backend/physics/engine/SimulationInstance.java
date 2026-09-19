@@ -357,8 +357,8 @@ public class SimulationInstance {
                 }
             }
         }
-        // 弹簧力对（教材精确解）：A 受 +F、B 受 −F
-        // （滑轮/绳已改冲量式约束，见 step() 内 applyImpulse——阶段三·五 D1）
+        // 弹簧力对（锚点连线方向 + 质心作用）：力线沿锚↔锚连线（斜面场景=纯沿轴，零法向分量），
+        // 作用点取质心——滑块模型无矩理想化（底锚作用会产生 0.5F 翻转力矩把块掀离面，教学模型不取）
         for (com.physicene.backend.physics.element.SpringElement se : springs) {
             double[] f = se.springForce();
             if (f != null && !Double.isNaN(f[0]) && !Double.isNaN(f[1])) {
@@ -648,9 +648,9 @@ public class SimulationInstance {
     double[] springState(String key) {
         for (var se : springs) {
             if ((se.ownId() + "#spring").equals(key)) {
-                Body a = se.getBodyA(), b = se.getBodyB();
-                double dist = Math.hypot(a.getTransform().getTranslationX() - b.getTransform().getTranslationX(),
-                        a.getTransform().getTranslationY() - b.getTransform().getTranslationY());
+                // 锚点语义同步：长度=锚↔锚距（与 springForce/rest 一致）
+                double[] aw = se.anchorPointsPublic();
+                double dist = Math.hypot(aw[2] - aw[0], aw[3] - aw[1]);
                 return new double[]{dist, se.getRestLength()};
             }
         }

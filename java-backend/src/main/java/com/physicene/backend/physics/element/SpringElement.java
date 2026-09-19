@@ -58,8 +58,7 @@ public class SpringElement implements ElementBehavior, JointBehavior {
         this.bodyA = a;
         this.bodyB = b;
         this.rest = param("jointLength",
-                Math.hypot(a.getTransform().getTranslationX() - b.getTransform().getTranslationX(),
-                        a.getTransform().getTranslationY() - b.getTransform().getTranslationY()));
+                Math.hypot(anchorPoints()[2] - anchorPoints()[0], anchorPoints()[3] - anchorPoints()[1]));
         return null; // 力对不走关节
     }
 
@@ -72,13 +71,19 @@ public class SpringElement implements ElementBehavior, JointBehavior {
         return true;
     }
 
-    /** 胡克力对：A 受沿 AB 方向的 −(kΔL + c·dΔL/dt)，B 受反作用（由 SimulationInstance 成对施加） */
+    /**
+     * 胡克力对（锚点语义，任务E·第5失败模式修复）：力沿「A 锚点 ↔ B 锚点」连线，而非中心连线。
+     * 原实现量/施力均用刚体中心——块心离面 0.5m、锚在面上时力线不平行斜面，压缩段法向分量
+     * 94N×0.68≈64N ≫ mg·cosθ=8.5N，把块推离面成弹簧摆（斜面弹簧模板五种失败模式之根因；
+     * 水平场景中心连线=锚点连线故未暴露）。返回 {Fx, Fy, ax, ay}：A 在其锚点受 (Fx,Fy)，
+     * B 在其锚点受反作用（SimulationInstance 成对施加于作用点，含力矩）。
+     */
     public double[] springForce() {
         if (bodyA == null || bodyB == null) {
             return null;
         }
-        double dx = bodyB.getTransform().getTranslationX() - bodyA.getTransform().getTranslationX();
-        double dy = bodyB.getTransform().getTranslationY() - bodyA.getTransform().getTranslationY();
+        double[] aw = anchorPoints();
+        double dx = aw[2] - aw[0], dy = aw[3] - aw[1];
         double dist = Math.hypot(dx, dy);
         if (dist < 1e-9) {
             return null;
@@ -89,7 +94,26 @@ public class SpringElement implements ElementBehavior, JointBehavior {
         double k = param("stiffness", 100.0);
         double c = 2.0 * Math.sqrt(k * reducedMass()) * param("dampingRatio", 0.05);
         double f = k * (dist - rest) + c * relV; // >0 = 拉伸，A 被拉向 B
-        return new double[]{f * ux, f * uy};
+        return new double[]{f * ux, f * uy, aw[0], aw[1]};
+    }
+
+    /** A/B 的锚点世界坐标 {ax, ay, bx, by}（anchorA/anchorB 为空用中心；B 为固定微刚体时即其位置=锚） */
+    public double[] anchorPointsPublic() { return anchorPoints(); }
+
+    private double[] anchorPoints() {
+        double ax = bodyA.getTransform().getTranslationX(), ay = bodyA.getTransform().getTranslationY();
+        if (data.getAnchorA() != null) {
+            double c = Math.cos(bodyA.getTransform().getRotationAngle()), sn = Math.sin(bodyA.getTransform().getRotationAngle());
+            ax += c * data.getAnchorA().x() - sn * data.getAnchorA().y();
+            ay += sn * data.getAnchorA().x() + c * data.getAnchorA().y();
+        }
+        double bx = bodyB.getTransform().getTranslationX(), by = bodyB.getTransform().getTranslationY();
+        if (data.getConnectTo2() != null && data.getAnchorB() != null) {
+            double c = Math.cos(bodyB.getTransform().getRotationAngle()), sn = Math.sin(bodyB.getTransform().getRotationAngle());
+            bx += c * data.getAnchorB().x() - sn * data.getAnchorB().y();
+            by += sn * data.getAnchorB().x() + c * data.getAnchorB().y();
+        }
+        return new double[]{ax, ay, bx, by};
     }
 
     private double reducedMass() {

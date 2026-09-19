@@ -59,7 +59,7 @@ const SPRING_K = 20, SPRING_L0 = 1.2, SPRING_WALL_X = -2.9, SPRING_ZETA = 0.3  /
 /** 卡3：水平弹簧振子（vwall 固定端，ζ 阻尼收敛到自然长） */
 const gkSlopeSpring = (): GeoTemplate => {
   // SpringElement 量「锚点↔块中心」距（anchorA 偏移不参与，与 RopeElement 语义不同——已知，记入 ledger）
-  const restX = SPRING_WALL_X + SPRING_L0  // 自然长时块心 x
+  const restX = SPRING_WALL_X + SPRING_L0 + 0.5  // 锚点语义：块左锚距墙锚=L0 → 块心再+半宽
   const block = mk('block', restX, 0.1, { m: 1, v0: 4, mu: 0 })
   const spring = mk('spring', SPRING_WALL_X, 0.1, { k: SPRING_K, L0: SPRING_L0, zeta: SPRING_ZETA }, 0,
     [{ toId: block.id, kind: 'spring', anchorA: '右端', anchorB: '左' }])
@@ -91,9 +91,9 @@ const gkSlopeSpringCorrect = (): GeoTemplate => {
   const dir = { x: (botEnd.x - topEnd.x) / slopeLen, y: (botEnd.y - topEnd.y) / slopeLen }
   const nrm = { x: -dir.y, y: dir.x }
   // 块心自然位（沿轴投影）：锚 m_A=6.29，块心距=L0 → 投影 m_c=√(L0²−0.5²)=1.091 → m_nat=5.20
-  // 薄刃规避：块操作区须距斜面底端顶点 ≥1.9m（triangle 底端为零宽顶点，块接触面悬出即失稳穿面——实测 m≈5.7 穿面）
-  const mAnchor = 4.5 + Math.sqrt(SS_L0 * SS_L0 - 0.25)
-  const mNat = mAnchor - Math.sqrt(SS_L0 * SS_L0 - 0.25)
+  // 锚点语义（任务E·第5模式修复后）：力沿「固定锚↔块底锚」连线，两锚均在斜面线上 → 纯沿轴
+  const mAnchor = slopeLen - 0.64
+  const mNat = mAnchor - SS_L0
   // 块置于自然点（弹簧松弛起态），初速按等效滑程 3.5m 换算（Java 弹簧全程连接式，
   // 若从上方拉伸处起跑会成弹弓——原始模板同病，故用 v₀ 显式给能）
   const SS_SLIDE_EQ = 3.5
@@ -446,7 +446,8 @@ const gkEBEMulti = (): GeoTemplate => {
   }
 }
 
-// E-OPEN（第5模式）：钝化后模板仍净下移悬垂于角外（rest m≈7.05 悬于锚下）——需轨迹级调试，见交接文档
+// E-OPEN（第6模式，引擎修复已落地）：锚点连线+质心作用后块停于面附近且速度归零（第5模式悬垂已消除），
+// 残余=瞬停+微离面0.09m接触异常（疑斜面接触与弹簧力偶合）——数据：t=0.3 (0.73,-1.09) v(-1.3,+0.74)、t=1.6 起 rest (0.77,-1.113)
 const FACTORIES: (() => GeoTemplate)[] = [
   gkSlopeSpring, gkConveyorBoard, gkBoardBlock, gkCollisionSpring,
   gkCollisionChain, gkCircularCritical, gkProjectileLoop, gkConnectedBodies,
