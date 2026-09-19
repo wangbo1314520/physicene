@@ -17,7 +17,7 @@ import type { Analysis } from '../analysis/EngineAnalyzer'
 const PHASE4 = new Set(['cylinder', 'piston', 'gas_cell', 'heater', 'rail_pair', 'rod_bar',
   'light_source', 'prism', 'optic_screen', 'photo_tube', 'h_atom'])
 /** 不建刚体的显示/检测类（静默跳过） */
-const NO_BODY = new Set(['photogate', 'force_sensor', 'trail', 'energy_meter', 'timeline', 'anchor_point'])
+const NO_BODY = new Set(['photogate', 'force_sensor', 'trail', 'energy_meter', 'timeline', 'anchor_point', 'accel_sensor', 'speed_sensor', 'range_finder'])
 
 export interface RunPose { x: number; y: number; angle?: number }
 

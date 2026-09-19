@@ -44,7 +44,10 @@ class UnifyPhase35Test {
                 new CubeElementFactory(), new WallElementFactory(), new SphereElementFactory(),
                 new SlopeElementFactory(), new PointChargeFactory(), new EFieldFactory(), new BFieldFactory(),
                 new RopeElementFactory(), new RodElementFactory(), new SpringElementFactory(),
-                new PulleyElementFactory(), new BeltElementFactory(), new LoopTrackElementFactory());
+                new PulleyElementFactory(), new BeltElementFactory(), new LoopTrackElementFactory(),
+                new com.physicene.backend.physics.element.SpeedSensorFactory(),
+                new com.physicene.backend.physics.element.RangeFinderFactory(),
+                new com.physicene.backend.physics.element.SensorElementFactory());
         return new ElementRegistry(factories);
     }
 
@@ -353,5 +356,33 @@ class UnifyPhase35Test {
         System.out.println("[perf] 50-body 3s at-rest=ON:  " + enabledMs + "ms");
         System.out.println("[perf] 差异: " + String.format("%.1f%%", Math.abs((double)(disabledMs - enabledMs) / Math.max(enabledMs, 1)) * 100));
         assertTrue(disabledMs < 30000, "50体3s OFF=" + disabledMs + "ms ON=" + enabledMs + "ms 差异" + String.format("%.1f%%", Math.abs((double)(disabledMs - enabledMs) / Math.max(enabledMs, 1)) * 100));
+    }
+
+    /** 检测器三件采样精度：自由落体 speed_sensor vs v=gt <2% */
+    @Test void speedSensorAccuracy() {
+        PhysicsElement sensor = new PhysicsElement();
+        sensor.setId("sp"); sensor.setType("speed_sensor");
+        sensor.setPosition(new Vector2D(0, 0));
+        sensor.setConnectTo("ball");
+        PhysicsElement ball = new PhysicsElement();
+        ball.setId("ball"); ball.setType("sphere"); ball.setPosition(new Vector2D(0, 5));
+        ball.getProperties().setMass(1);
+
+        Scene sc = new Scene(); sc.setElements(List.of(sensor, ball));
+        SimulationConfig cfg = new SimulationConfig();
+        cfg.setMaxDuration(1.0); cfg.setSubsteps(4); sc.setConfig(cfg);
+        SimulationInstance in = new SimulationInstance("t-sensor", sc, registry());
+        double[] lastRead = {0, 0};
+        in.addFrameListener(f -> {
+            if (f.getProbes() != null && f.getProbes().containsKey("sp")) {
+                double[] p = f.getProbes().get("sp");
+                lastRead[0] = p[0]; lastRead[1] = p[1];
+            }
+        });
+        in.runToEndSync();
+        // 1s 自由落体 v = g·t = 9.8
+        double theory = 9.8;
+        assertTrue(Math.abs(lastRead[1] - theory) / theory < 0.05,
+                "speed_sensor 1s 采样应 ≈ 9.8 m/s（实测 " + lastRead[1] + "，±5% 含接触/空气损耗）");
     }
 }

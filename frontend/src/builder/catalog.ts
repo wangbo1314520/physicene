@@ -131,6 +131,9 @@ export const CATALOG: ElementSpec[] = [
   el('rigid_roller', '转动惯量滚子', '◎', 'mech', ['2D', '2.5D'], '#F5A623', 'I=k·mR²：圆环(1)/圆盘(0.5)/球(0.4)，滚下斜面验证 a=g·sinθ/(1+k)', [MASS, P('k', 'I 系数 k', 0.1, 1, 0.1, 0.5)], 'body', ['滚子', '转动惯量'], [
     ATTACH(0, -0.5, '底'), ATTACH(0, 0.5, '顶'),
   ]),
+  el('accel_sensor', '加速度传感器', 'Ⓐ', 'util', ['2D', '2.5D'], '#E05555', '指定刚体加速度（差分），probes 通道 30fps 上帧', [], 'detector', ['传感器']),
+  el('speed_sensor', '速度传感器', 'Ⓥ', 'util', ['2D', '2.5D'], '#3ecf8e', '指定刚体速度模，probes 通道 30fps 上帧', [], 'detector', ['传感器']),
+  el('range_finder', '距离传感器', 'Ⓛ', 'util', ['2D', '2.5D'], '#4A90D9', '到参考点距离，probes 通道 30fps 上帧', [], 'detector', ['传感器']),
   el('photogate', '光电门', 'Ⓥ', 'util', ['2.5D'], '#3ecf8e', '测速', [], 'detector', ['传感器']),
   el('force_sensor', '力传感器', 'Ⓕ', 'util', ['2.5D'], '#3ecf8e', '显示力', [], 'detector', ['传感器']),
   el('trail', '轨迹追踪', '⋯', 'util', ['2.5D'], '#8a8a0', '显示轨迹', [], 'display', ['轨迹']),

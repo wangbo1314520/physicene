@@ -67,7 +67,7 @@ describe('数字口径闸门', () => {
     const { PLAN_COUNT, CATALOG } = await import('../catalog')
     const { TEMPLATES } = await import('./registry')
     expect(PLAN_COUNT).toBe(CATALOG.length)
-    expect(PLAN_COUNT).toBe(34)   // 任务 E 补件后更新此数 + 审计文档
+    expect(PLAN_COUNT).toBe(38)   // 35+3 sensor（任务E检测器三件）   // 任务 E 补件后更新此数 + 审计文档
     expect(TEMPLATES.length).toBe(17)
   })
 })

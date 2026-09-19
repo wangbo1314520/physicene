@@ -82,6 +82,7 @@ public class SimulationInstance {
     private final Map<String, double[]> loops = new LinkedHashMap<>();
     /** P0-1: slope 表面 [中心x, 中心y, 角度rad, 中心到面距离] */
     private final java.util.List<double[]> slopeSurfaces = new java.util.ArrayList<>();
+    private final java.util.List<com.physicene.backend.physics.element.SensorElement> sensors = new java.util.ArrayList<>();
     /** loop_track id -> 元件实例（解析导轨力） */
     private final Map<String, LoopTrackElement> loopGuides = new LinkedHashMap<>();
     /** 动态体 id -> 本契约步是否有导轨力（步首清零，子步置位） */
@@ -140,6 +141,9 @@ public class SimulationInstance {
         for (PhysicsElement element : scene.getElements()) {
             ElementBehavior behavior = registry.create(element);
             behaviors.add(behavior);
+            if (behavior instanceof com.physicene.backend.physics.element.SensorElement se) {
+                sensors.add(se);
+            }
             if ("slope".equals(element.getType())) {
                 // P0-1 修正：存斜边法向量 [cx, cy, cosθ, sinθ]——θ=斜面倾角
                 double th = Math.toRadians(Math.toDegrees(Math.atan2(
@@ -189,6 +193,11 @@ public class SimulationInstance {
             if (jb instanceof com.physicene.backend.physics.element.PulleyElement pe) {
                 pulleys.add(pe);
             }
+        }
+
+        // 检测器绑定目标
+        for (var se : sensors) {
+            se.bindTarget(bodies);
         }
 
         // 传送带：接触求解前按带速设表面切向速度（dyn4j 官方传送带语义，方案 §3.1）
@@ -338,6 +347,15 @@ public class SimulationInstance {
         // 30fps 推帧：60Hz 计算每两步通知一次
         if (frameCount % 2 == 0) {
             Frame frame = new Frame(t, snapshot, "full");
+            // 检测器采样上帧（任务E：probes 通道 30fps）
+            if (!sensors.isEmpty()) {
+                java.util.Map<String, double[]> probes = new java.util.LinkedHashMap<>();
+                for (var se : sensors) {
+                    double[] val = se.sample(t);
+                    if (val != null) probes.put(se.ownId(), val);
+                }
+                if (!probes.isEmpty()) frame.setProbes(probes);
+            }
             frameListeners.forEach(l -> l.accept(frame));
         }
 
