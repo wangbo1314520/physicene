@@ -136,6 +136,32 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       g.add(bar, t1, t2)
       return { mesh: g, baseAngle: 0 }
     }
+    case 'rigid_roller': {
+      // 转动惯量滚子：k 区分外观（1=圆环环体/0.5=圆盘/0.4=球）+ 旋转轴标记
+      const g = new THREE.Group()
+      const r = 0.5
+      const k = p.k ?? 0.5
+      if (Math.abs(k - 1) < 0.05) {
+        // 圆环：Torus 主体
+        g.add(new THREE.Mesh(new THREE.TorusGeometry(r, 0.12, 10, 28), mat(color)))
+      } else if (Math.abs(k - 0.5) < 0.05) {
+        // 圆盘：薄 Cylinder + 辐条
+        g.add(new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.1, 28), mat(color)))
+        for (let i = 0; i < 4; i++) {
+          const sp = new THREE.Mesh(new THREE.BoxGeometry(r * 1.9, 0.04, 0.08), mat(color))
+          sp.rotation.z = (i * Math.PI) / 4
+          g.add(sp)
+        }
+      } else {
+        // 球：Sphere + 经纬线
+        g.add(new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), mat(color, { opacity: 0.9 })))
+        g.add(new THREE.Mesh(new THREE.TorusGeometry(r * 0.98, 0.02, 6, 24), mat('#8a8aa0')))
+      }
+      // 旋转轴标记（竖线 + k 值）
+      const axis = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, r * 2.4, 6), mat('#d9a05a'))
+      g.add(axis)
+      return { mesh: g, baseAngle: 0 }
+    }
     case 'sphere': case 'particle': {
       return { mesh: new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 16), mat(color)), baseAngle: 0 }
     }

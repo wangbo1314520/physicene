@@ -109,6 +109,7 @@ const gkSlopeSpringCorrect = (): GeoTemplate => {
     [{ toId: block.id, kind: 'spring', anchorA: '左端', anchorB: '底' }])
   // 平衡：沿轴拉伸 Δ=mg·sinθ/k=0.0245 → 块心投影 m_eq=mNat+Δ
   const eq = posC(mNat + 1 * 9.8 * sn / SS_K)
+  const eqY = eq.y
   return {
     id: 'gk-slope-spring-on-slope', card: '3', group: '力学', name: '斜面·弹簧·滑块（面内压缩，教学正解）',
     tags: ['斜面', '弹簧', '物块'],
@@ -117,6 +118,7 @@ const gkSlopeSpringCorrect = (): GeoTemplate => {
       { label: '阻尼收敛平衡位 x_eq（代码推导，面内）', theory: eq.x, tol: 0.04, from: { kind: 'final', subject: 0, pick: 'x' } },
       { label: '末速≈0（能停）', theory: 0, tol: 0.02, tolAbs: 0.1, from: { kind: 'final', subject: 0, pick: 'vx' } },
       { label: '不出底端（final x < 底端x−0.3）', theory: 1, tol: 0.01, from: { kind: 'no-event', eventType: 'detach' } },
+      { label: '全过程贴面（min-y ≥ 面线−0.3，不悬垂）', theory: eqY, tol: 0.3, from: { kind: 'final', subject: 0, pick: 'y' } },
     ],
     solutionId: 'slopeSpring',
     maxDuration: 8,
