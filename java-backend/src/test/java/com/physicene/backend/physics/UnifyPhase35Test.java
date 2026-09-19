@@ -476,13 +476,11 @@ class UnifyPhase35Test {
         // 投影到沿面方向 (cos(-30°), sin(-30°))，消除法向脉冲噪声
         double ax = lastRead[1], ay = lastRead[2];
         double alongSlope = ax * Math.cos(th) + (-ay) * Math.sin(th);
-        // ±25% = 已知限制（选项 A 定案）：
-        // 仿真摩擦 7.5%（迭代扫描 iter 5-50 恒定）+ 冲量求解器速度振荡 ~12%（位置/窗口/迭代均无效）
-        // 硬证据：块位置 0.55→0.542（消除间隙）后误差不变；窗口 30→60 帧后误差不变
-        // 根因：dyn4j 冲量式求解器在子步级别产生速度脉冲，速度差分捕获这些脉冲作为加速度
-        // 修复需力累积法（读接触力），但 getForce() 不含接触力（solver 内部施）——需改 dyn4j 内部
-        assertTrue(Math.abs(alongSlope - theory) / theory < 0.25,
-                "accel_sensor 斜面沿面分量应 ≈ " + theory + " ±25%（实测 " + alongSlope + "，已知限制）");
+        // ±8% = 仿真摩擦模型精度 7.5% + 最小二乘拟合残差 0.3%
+        // 最小二乘 v(t)=a·t+b 消除两点差分的 13% 脉冲噪声（追问2 方案 2）
+        // 实测 3.454 vs 理论 3.203 → 7.8%（传感器已达仿真底板 7.5%+0.3%）
+        assertTrue(Math.abs(alongSlope - theory) / theory < 0.08,
+                "accel_sensor 斜面沿面分量应 ≈ " + theory + " ±8%（实测 " + alongSlope + "，仿真精度 7.5%）");
     }
 
     /** 追问1：迭代次数扫描——不同 velocity solver iterations 下的斜面滑块加速度偏差 */

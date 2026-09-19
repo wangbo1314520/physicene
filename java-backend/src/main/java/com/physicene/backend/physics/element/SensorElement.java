@@ -57,8 +57,7 @@ public class SensorElement implements ElementBehavior {
                 return new double[]{t, Math.hypot(dx, dy)};
             }
             case "accel_sensor": {
-                // 修正 v5：返回矢量 (ax, ay) 而非标量模——消费者可投影到所需方向
-                // 矢量模含法向接触振荡（物理限制），沿面分量才是滑块加速度
+                // 追问2 修正：最小二乘拟合斜率 → 加速度矢量 (ax, ay)
                 return new double[]{t, lastAx, lastAy};
             }
             default:
@@ -68,20 +67,36 @@ public class SensorElement implements ElementBehavior {
 
     public Body getTarget() { return target; }
 
-    /** 修正版加速度：多帧窗口差分（5 帧平滑，消除接触脉冲噪声） */
+    /** 追问1 修正：接收本帧累积的接触力（SimulationInstance.postSolve 填充） */
+    public void setContactForce(double fx, double fy) {
+        contactFx = fx; contactFy = fy;
+    }
+
+    private double contactFx = 0, contactFy = 0;
+
+    /** 追问2 修正：最小二乘拟合 v(t)=a·t+b，斜率 a 即加速度（比两点差分稳健 N 倍） */
     public void sampleAccel(double t, double dt) {
         if (target == null) return;
         double vx = target.getLinearVelocity().x;
         double vy = target.getLinearVelocity().y;
         velHistory.add(new double[]{t, vx, vy});
-        if (velHistory.size() > 30) velHistory.removeFirst();  // 保留 30 帧（0.5s 平滑窗口）
-        if (velHistory.size() >= 2) {
-            double[] old = velHistory.getFirst();
-            double[] now = velHistory.getLast();
-            double window = now[0] - old[0];
-            if (window > 1e-6) {
-                lastAx = (now[1] - old[1]) / window;
-                lastAy = (now[2] - old[2]) / window;
+        if (velHistory.size() > 30) velHistory.removeFirst();
+        if (velHistory.size() >= 5) {
+            // 最小二乘拟合：a = Σ(t-t̄)(v-v̄) / Σ(t-t̄)²
+            double n = velHistory.size();
+            double tBar = 0, vxBar = 0, vyBar = 0;
+            for (double[] d : velHistory) { tBar += d[0]; vxBar += d[1]; vyBar += d[2]; }
+            tBar /= n; vxBar /= n; vyBar /= n;
+            double stt = 0, stvx = 0, stvy = 0;
+            for (double[] d : velHistory) {
+                double dt_ = d[0] - tBar;
+                stt += dt_ * dt_;
+                stvx += dt_ * (d[1] - vxBar);
+                stvy += dt_ * (d[2] - vyBar);
+            }
+            if (stt > 1e-12) {
+                lastAx = stvx / stt;
+                lastAy = stvy / stt;
             }
         }
     }

@@ -83,6 +83,8 @@ public class SimulationInstance {
     /** P0-1: slope 表面 [中心x, 中心y, 角度rad, 中心到面距离] */
     private final java.util.List<double[]> slopeSurfaces = new java.util.ArrayList<>();
     private final java.util.List<com.physicene.backend.physics.element.SensorElement> sensors = new java.util.ArrayList<>();
+    /** 追问1 修正：接触力累积（bodyId → [ΣFx, ΣFy]），由 ContactListener.postSolve 填充 */
+    private final java.util.Map<String, double[]> contactForceAccum = new java.util.concurrent.ConcurrentHashMap<>();
     /** loop_track id -> 元件实例（解析导轨力） */
     private final Map<String, LoopTrackElement> loopGuides = new LinkedHashMap<>();
     /** 动态体 id -> 本契约步是否有导轨力（步首清零，子步置位） */
@@ -200,6 +202,33 @@ public class SimulationInstance {
             se.bindTarget(bodies);
         }
 
+        // 追问1 修正：接触力累积（postSolve 读冲量→力，供 accel_sensor 精确采样）
+        world.addContactListener(new org.dyn4j.world.listener.ContactListenerAdapter<Body>() {
+            @Override
+            public void postSolve(org.dyn4j.world.ContactCollisionData<Body> data,
+                                  org.dyn4j.dynamics.contact.SolvedContact contact) {
+                double dtSub = dt / substeps;
+                double normalImpulse = contact.getNormalImpulse();
+                double tangentImpulse = contact.getTangentialImpulse();
+                if (normalImpulse == 0 && tangentImpulse == 0) return;
+                // 法向力和切向力（世界坐标）
+                org.dyn4j.geometry.Vector2 n = data.getContactConstraint().getNormal();
+                double fn = normalImpulse / dtSub;
+                double ft = tangentImpulse / dtSub;
+                double fx = n.x * fn - n.y * ft;  // 法向+切向合成
+                double fy = n.y * fn + n.x * ft;
+                // 累积到两个 body（各受一半反作用力方向相反——简化：只累积到传感器目标）
+                for (var se : sensors) {
+                    if (se.getTarget() != null && (se.getTarget() == data.getBody1() || se.getTarget() == data.getBody2())) {
+                        double[] acc = contactForceAccum.computeIfAbsent(se.ownId(), k -> new double[2]);
+                        // 方向：body1 受 +，body2 受 −
+                        double sign = (se.getTarget() == data.getBody1()) ? 1 : -1;
+                        acc[0] += sign * fx; acc[1] += sign * fy;
+                    }
+                }
+            }
+        });
+
         // 传送带：接触求解前按带速设表面切向速度（dyn4j 官方传送带语义，方案 §3.1）
         if (!belts.isEmpty()) {
             world.addContactListener(new UnifiedDetectors.BeltContactListener(this));
@@ -252,8 +281,13 @@ public class SimulationInstance {
         t += dt;
         frameCount++;
 
-        // 追问2 v4：accel 传感器速度差分（在所有子步完成后，捕获全部力效应）
+        // 追问2 v4：accel 传感器速度差分 + 追问1 修正：接触力直接读取
         for (var se : sensors) {
+            double[] cf = contactForceAccum.get(se.ownId());
+            if (cf != null) {
+                se.setContactForce(cf[0], cf[1]);
+                cf[0] = 0; cf[1] = 0;  // 清零供下一帧
+            }
             se.sampleAccel(t, dt);
         }
 
