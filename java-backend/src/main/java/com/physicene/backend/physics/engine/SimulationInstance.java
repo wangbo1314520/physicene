@@ -281,12 +281,12 @@ public class SimulationInstance {
         t += dt;
         frameCount++;
 
-        // 追问2 v4：accel 传感器速度差分 + 追问1 修正：接触力直接读取
+        // 追问1 修正：接触力从子步累积取平均（每子步 postSolve 累积 1 次，除以子步数=平均力）
         for (var se : sensors) {
             double[] cf = contactForceAccum.get(se.ownId());
             if (cf != null) {
-                se.setContactForce(cf[0], cf[1]);
-                cf[0] = 0; cf[1] = 0;  // 清零供下一帧
+                se.setContactForce(cf[0] / substeps, cf[1] / substeps);
+                cf[0] = 0; cf[1] = 0;
             }
             se.sampleAccel(t, dt);
         }

@@ -57,7 +57,8 @@ public class SensorElement implements ElementBehavior {
                 return new double[]{t, Math.hypot(dx, dy)};
             }
             case "accel_sensor": {
-                // 追问2 修正：最小二乘拟合斜率 → 加速度矢量 (ax, ay)
+                // 最小二乘拟合（可用方案）：v(t)=a·t+b 斜率即加速度——已达仿真底板 7.8%
+                // postSolve 力方向 bug 见交接文档（已知限制，调试后可能替代本方案）
                 return new double[]{t, lastAx, lastAy};
             }
             default:
