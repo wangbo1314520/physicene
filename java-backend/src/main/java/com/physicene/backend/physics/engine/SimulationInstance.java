@@ -667,6 +667,15 @@ public class SimulationInstance {
         return null;
     }
 
+    /** 测试钩子：元件逐体参数是否在 Java 侧生效（bullet/fixRot） */
+    public boolean bodyFlagsOf(String id, String flag) {
+        Body b = bodies.get(id);
+        if (b == null) return false;
+        if ("bullet".equals(flag)) return b.isBullet();
+        if ("fixRot".equals(flag)) return b.getMass().getInverseInertia() == 0;  // 锁转=逆惯量 0
+        return false;
+    }
+
     boolean latch(String key) { return eventLatches.add(key); }
 
     void fireKeyEvent(double time, String type, String label, Map<String, Double> payload) {

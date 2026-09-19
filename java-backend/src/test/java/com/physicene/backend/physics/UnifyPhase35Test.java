@@ -284,4 +284,21 @@ class UnifyPhase35Test {
         // 块心低于面线 >0.75（半高0.5+接触余量）= 穿面；钝化前实测 m≈5.7 处穿面
         assertTrue(worstPen[0] < 0.75, "面区段内不得穿面（最深=" + String.format("%.3f", worstPen[0]) + "）");
     }
+
+    /** 追问3：pickWireParams 透传参数 Java 侧可见性（此前 bullet/fixRot 通道断裂的防回归闸门） */
+    @Test void wireParamsVisibleInJava() {
+        PhysicsElement blk = new PhysicsElement();
+        blk.setId("b1"); blk.setType("cube"); blk.setPosition(new Vector2D(0, 5));
+        blk.getParams().put("bullet", 1.0);
+        blk.getParams().put("fixRot", 1.0);
+        Scene sc = new Scene(); sc.setElements(List.of(blk));
+        SimulationConfig cfg = new SimulationConfig(); cfg.setMaxDuration(0.2); cfg.setSubsteps(2);
+        sc.setConfig(cfg);
+        SimulationInstance in = new SimulationInstance("t-wire", sc, registry());
+        in.runToEndSync();
+        // bullet 生效：body 标记为 bullet
+        assertTrue(in.bodyFlagsOf("b1", "bullet"), "bullet=1 应在 Java 侧可见并生效");
+        // fixRot 生效：massType 为 FIXED_ANGULAR_VELOCITY（角度保持）
+        assertTrue(in.bodyFlagsOf("b1", "fixRot"), "fixRot=1 应在 Java 侧可见并生效");
+    }
 }
