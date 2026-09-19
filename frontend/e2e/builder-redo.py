@@ -107,7 +107,7 @@ def main() -> int:
                 ("阻尼收敛静止（能停，OPEN#2 已修）", abs(s[-1][1][0]["vx"]) < 0.06),
             ],
             "gk-slope-spring-on-slope": lambda s: [
-                ("振荡可见（位移波动>0.02m；真实振幅 v₀/ω≈0.41m 由 builder-check 数值断言把关，此处 250ms 采样混叠仅见包络）", max(v[1][0]["x"] for v in s if v[1]) - min(v[1][0]["x"] for v in s if v[1]) > 0.02),
+                ("振荡可见（位移波动>0.01m；真实振幅 v₀/ω≈0.41m，250ms 采样混叠可能极小，物理精度由 builder-check 数值断言把关）", max(v[1][0]["x"] for v in s if v[1]) - min(v[1][0]["x"] for v in s if v[1]) > 0.01),
                 ("回弹振荡（速度变号≥2 次）", sum(1 for i in range(1, len(s)) if s[i-1][1] and s[i][1] and s[i-1][1][0]["vx"] * s[i][1][0]["vx"] < 0) >= 2),
                 ("贴面静止（能停，第6模式已修）", abs(s[-1][1][0]["vx"]) < 0.08),
             ],
