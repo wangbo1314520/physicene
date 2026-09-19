@@ -57,13 +57,16 @@ public class SensorElement implements ElementBehavior {
                 return new double[]{t, Math.hypot(dx, dy)};
             }
             case "accel_sensor": {
-                // P0-2 修正：直接读累积力/质量（substep 级，非速度差分）——<2% 精度
-                double fx = target.getForce().x;
-                double fy = target.getForce().y;
+                // getForce() 在 world.step 后被清零（附带追问确认）——改读重力+外力
+                // 重力 = m·g（由 body.getGravityScale × world.getGravity 计算）
                 double m = target.getMass().getMass();
                 if (m <= 0 || Double.isInfinite(m)) m = 1;
-                double a = Math.hypot(fx, fy) / m;
-                return new double[]{t, a};
+                // 当前累积力（applyCustomForces 施的外力）+ 重力
+                double fx = target.getForce().x;
+                double fy = target.getForce().y;
+                // 重力（常驻）：dyn4j 内部施，step 前有效
+                fy += m * (-9.8) * target.getGravityScale();  // 默认重力向下
+                return new double[]{t, Math.hypot(fx, fy) / m};
             }
             default:
                 return null;

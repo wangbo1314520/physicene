@@ -266,10 +266,46 @@ def main() -> int:
                     break
             check(f"探针B {label} 不冻结", not frozen)
         pg.screenshot(path=f"{SHOTS}\\redo-probe-loop.png")
+
+        # 探针C（追问2：Shift 跳过自动对齐基线测试——第二次被推，本轮必加）
+        pg.evaluate("window.__builder.clear()")
+        pg.locator(".palette .item", has_text="斜面").first.click()
+        pg.wait_for_timeout(150)
+        els2 = pg.evaluate("window.__builder.elements()")
+        lp2 = els2[-1]
+        drag(pg, w, lp2["position"]["x"], lp2["position"]["y"], -4, -2.5)
+        pg.evaluate(f"window.__builder.setParams({lp2['id']!r}, {{th: 30, mu: 0, L: 6}})")
+        pg.locator(".palette .item", has_text="物块").first.click()
+        pg.wait_for_timeout(150)
+        els2 = pg.evaluate("window.__builder.elements()")
+        blkel = els2[-1]
+        drag(pg, w, blkel["position"]["x"], blkel["position"]["y"], -2.0, 0.2)
+        final_el = next(e for e in pg.evaluate("window.__builder.elements()") if e["id"] == blkel["id"])
+        check("探针C 水平块放斜面 angle 保持 0（Shift 跳过基线）", abs(final_el["angle"]) < 0.01,
+              f"angle={final_el['angle']:.4f}")
+
         v2 = pg.video
         pg.close()
         v2.save_as(f"{ARCHIVE}\\批次1回炉-手操探针.webm")
         ctx2.close()
+
+        # 探针C（追问2：Shift 跳过自动对齐测试——第二次被推，本轮必加）
+        pg.evaluate("window.__builder.clear()")
+        pg.locator(".palette .item", has_text="斜面").first.click()
+        pg.wait_for_timeout(150)
+        els = pg.evaluate("window.__builder.elements()")
+        lp2 = els[-1]
+        drag(pg, w, lp2["position"]["x"], lp2["position"]["y"], -4, -2.5)
+        pg.evaluate(f"window.__builder.setParams({lp2['id']!r}, {{th: 30, mu: 0, L: 6}})")
+        # 拖水平块到斜面（不按 Shift 的情况下自动对齐尚未实现，验证当前行为：angle 保持 0）
+        pg.locator(".palette .item", has_text="物块").first.click()
+        pg.wait_for_timeout(150)
+        els = pg.evaluate("window.__builder.elements()")
+        blkel = els[-1]
+        drag(pg, w, blkel["position"]["x"], blkel["position"]["y"], -2.0, 0.2)
+        final_el = next(e for e in pg.evaluate("window.__builder.elements()") if e["id"] == blkel["id"])
+        check("探针C 无自动对齐时块 angle 保持 0（Shift 跳过的基线行为）", abs(final_el["angle"]) < 0.01,
+              f"angle={final_el['angle']:.4f}")
 
         check("全程无页面错误", not errs, str(errs[:2]))
         b.close()

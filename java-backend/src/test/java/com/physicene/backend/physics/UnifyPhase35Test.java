@@ -460,4 +460,38 @@ class UnifyPhase35Test {
             assertTrue(true, "采样不足，跳过（非失败）");
         }
     }
+
+    /** 追问3：有接触场景 accel_sensor（斜面滑块 a = g·sinθ − μg·cosθ） */
+    @Test void accelSensorWithContact() {
+        double th = Math.toRadians(30), mu = 0.2;
+        PhysicsElement slope = new PhysicsElement();
+        slope.setId("s"); slope.setType("slope");
+        slope.setPosition(new Vector2D(-1, -0.768));
+        slope.setScale(new Vector2D(3.0, 3.464));
+        slope.getProperties().setFriction(mu);
+        PhysicsElement sensor = new PhysicsElement();
+        sensor.setId("as"); sensor.setType("accel_sensor");
+        sensor.setPosition(new Vector2D(0, 0));
+        sensor.setConnectTo("b");
+        PhysicsElement blk = new PhysicsElement();
+        blk.setId("b"); blk.setType("cube"); blk.setPosition(new Vector2D(-2.27, 0.55));
+        blk.getProperties().setMass(1);
+        blk.getProperties().setFriction(mu);
+
+        Scene sc = new Scene(); sc.setElements(List.of(slope, sensor, blk));
+        SimulationConfig cfg = new SimulationConfig();
+        cfg.setMaxDuration(0.5); cfg.setSubsteps(4); sc.setConfig(cfg);
+        SimulationInstance in = new SimulationInstance("t-asc", sc, registry());
+        double[] lastRead = {0, 0};
+        in.addFrameListener(f -> {
+            if (f.getProbes() != null && f.getProbes().containsKey("as")) {
+                double[] p = f.getProbes().get("as");
+                lastRead[0] = p[0]; lastRead[1] = p[1];
+            }
+        });
+        in.runToEndSync();
+        double theory = 9.8 * Math.sin(th) - mu * 9.8 * Math.cos(th);  // ≈ 4.9 - 1.70 = 3.20
+        assertTrue(Math.abs(lastRead[1] - theory) / theory < 0.10,
+                "accel_sensor 斜面接触场景应 ≈ " + theory + " ±10%（实测 " + lastRead[1] + "，含接触求解损耗）");
+    }
 }

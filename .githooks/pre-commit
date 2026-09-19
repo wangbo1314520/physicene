@@ -1,0 +1,6 @@
+#!/bin/bash
+# 交付验证（追问1）：提交前跑类型检查+builder单测
+cd frontend
+npx vue-tsc --noEmit || { echo "❌ vue-tsc failed"; exit 1; }
+npx vitest run src/builder 2>&1 | tail -3
+echo "✅ pre-commit verify passed"
