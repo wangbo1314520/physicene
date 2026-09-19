@@ -415,7 +415,7 @@ class UnifyPhase35Test {
                 "range_finder 采样应 = 5.0（实测 " + lastRead[1] + "）");
     }
 
-    /** accel_sensor 采样精度：匀加速 v(t) 差分 ≈ g */
+    /** accel_sensor 采样精度：直接读力/质量，a≈g=9.8 ±2%（DoD硬指标） */
     @Test void accelSensorAccuracy() {
         PhysicsElement sensor = new PhysicsElement();
         sensor.setId("as"); sensor.setType("accel_sensor");
@@ -429,8 +429,19 @@ class UnifyPhase35Test {
         SimulationConfig cfg = new SimulationConfig();
         cfg.setMaxDuration(1.0); cfg.setSubsteps(4); sc.setConfig(cfg);
         SimulationInstance in = new SimulationInstance("t-as", sc, registry());
-        // 收集两帧速度差分：v2-v1 / (t2-t1) ≈ g
-        double[] v1 = {0}, v2 = {0}, t1 = {0}, t2 = {0};
+        double[] lastRead = {0, 0};
+        in.addFrameListener(f -> {
+            if (f.getProbes() != null && f.getProbes().containsKey("as")) {
+                double[] p = f.getProbes().get("as");
+                lastRead[0] = p[0]; lastRead[1] = p[1];
+            }
+        });
+        in.runToEndSync();
+        // 自由落体 a = g = 9.8 m/s²（±2% 硬指标）
+        double theory = 9.8;
+        assertTrue(Math.abs(lastRead[1] - theory) / theory < 0.02,
+                "accel_sensor 采样应 ≈ 9.8 m/s² ±2%（实测 " + lastRead[1] + "）");
+    }, t1 = {0}, t2 = {0};
         final boolean[] gotFirst = {false};
         in.addFrameListener(f -> {
             if (f.getProbes() != null && f.getProbes().containsKey("as")) {

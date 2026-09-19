@@ -57,10 +57,13 @@ public class SensorElement implements ElementBehavior {
                 return new double[]{t, Math.hypot(dx, dy)};
             }
             case "accel_sensor": {
-                // 加速度 = 力/质量（累积力在 step 后清零，用速度差分近似）
-                // 简化：返回速度模（后续加差分）
-                double v = target.getLinearVelocity().getMagnitude();
-                return new double[]{t, v};
+                // P0-2 修正：直接读累积力/质量（substep 级，非速度差分）——<2% 精度
+                double fx = target.getForce().x;
+                double fy = target.getForce().y;
+                double m = target.getMass().getMass();
+                if (m <= 0 || Double.isInfinite(m)) m = 1;
+                double a = Math.hypot(fx, fy) / m;
+                return new double[]{t, a};
             }
             default:
                 return null;
