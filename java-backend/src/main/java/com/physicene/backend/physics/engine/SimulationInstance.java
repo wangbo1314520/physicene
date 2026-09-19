@@ -80,6 +80,8 @@ public class SimulationInstance {
     private final Map<String, double[]> belts = new LinkedHashMap<>();
     /** loop_track id -> [cx, cy, R]：脱离角/过顶检测 */
     private final Map<String, double[]> loops = new LinkedHashMap<>();
+    /** P0-1: slope 表面 [中心x, 中心y, 角度rad, 中心到面距离] */
+    private final java.util.List<double[]> slopeSurfaces = new java.util.ArrayList<>();
     /** loop_track id -> 元件实例（解析导轨力） */
     private final Map<String, LoopTrackElement> loopGuides = new LinkedHashMap<>();
     /** 动态体 id -> 本契约步是否有导轨力（步首清零，子步置位） */
@@ -138,6 +140,11 @@ public class SimulationInstance {
         for (PhysicsElement element : scene.getElements()) {
             ElementBehavior behavior = registry.create(element);
             behaviors.add(behavior);
+            if ("slope".equals(element.getType())) {
+                double h = Math.max(0.05, element.getScale().y());
+                slopeSurfaces.add(new double[]{element.getPosition().x(), element.getPosition().y(),
+                        element.getAngle(), h / 2});
+            }
             if (behavior instanceof LoopTrackElement lt) {
                 loops.put(element.getId(), new double[]{element.getPosition().x(),
                         element.getPosition().y(), lt.radius()});
@@ -376,6 +383,26 @@ public class SimulationInstance {
 
             }
         }
+        // P0-1 补强：逐子步脱离检测（240Hz，斜面场景）——块中心到斜面距离超阈值记 slope_detach 事件
+        if (!slopeSurfaces.isEmpty()) {
+            for (int i = 0; i < dynamicBodies.size(); i++) {
+                Body b = dynamicBodies.get(i);
+                PhysicsElement el = dynamicElements.get(i);
+                for (double[] sl : slopeSurfaces) {
+                    double dx = b.getTransform().getTranslationX() - sl[0];
+                    double dy = b.getTransform().getTranslationY() - sl[1];
+                    double dist = Math.hypot(dx, dy);
+                    if (dist > sl[3] + 0.3 && t > dt * 4) {  // 超过面距+0.3m 容差
+                        if (latch("sdetach:" + el.getId())) {
+                            fireKeyEvent(t, "slope_detach",
+                                    el.getId() + " 脱离斜面（dist=" + String.format("%.2f", dist) + " > " + String.format("%.2f", sl[3] + 0.3) + "）",
+                                    null);
+                        }
+                    }
+                }
+            }
+        }
+
         // 圆轨道解析导轨（方案 §3.2 解析化）：对每个动态体按位置/速度/质量/等效半径施加径向罚力
         if (!loopGuides.isEmpty()) {
             for (int i = 0; i < dynamicBodies.size(); i++) {
