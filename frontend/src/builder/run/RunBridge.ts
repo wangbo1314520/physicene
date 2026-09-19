@@ -74,6 +74,10 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
           initialState: v0 ? { velocity: { x: v0 * Math.cos(ang), y: v0 * Math.sin(ang) } } : undefined })
         break
       }
+      case 'rigid_roller':
+        asBody({ type: 'rigid_roller', properties: { mass: num(p.m, 1), friction: num(p.mu ?? 0.2, 0.2), restitution: 0 },
+          params: { k: num(p.k, 0.5) } })
+        break
       case 'sphere':
         asBody({ type: 'sphere', properties: { mass: num(p.m, 1), friction: num(p.mus, 0), restitution: num(p.e, 1) },
           initialState: v0State(p) })
