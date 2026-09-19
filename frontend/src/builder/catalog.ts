@@ -128,6 +128,9 @@ export const CATALOG: ElementSpec[] = [
   el('photo_tube', '光电管', '⚲', 'modern', ['2D'], '#8a8a0', '材料', [SEL('mat', '材料', 0, [{ value: 0, label: '钠 2.28eV' }, { value: 1, label: '钾 2.25eV' }, { value: 2, label: '铯 1.94eV' }])], 'device', ['光电管']),
   el('h_atom', '氢原子', 'Ⓗ', 'modern', ['2D'], '#F5C542', '初末能级', [P('m', '初能级 m', 2, 6, 1, 3), P('n', '末能级 n', 1, 5, 1, 2)], 'device', ['氢原子']),
   // ── 通用 detector/display ──
+  el('rigid_roller', '转动惯量滚子', '◎', 'mech', ['2D', '2.5D'], '#F5A623', 'I=k·mR²：圆环(1)/圆盘(0.5)/球(0.4)，滚下斜面验证 a=g·sinθ/(1+k)', [MASS, P('k', 'I 系数 k', 0.1, 1, 0.1, 0.5)], 'body', ['滚子', '转动惯量'], [
+    ATTACH(0, -0.5, '底'), ATTACH(0, 0.5, '顶'),
+  ]),
   el('photogate', '光电门', 'Ⓥ', 'util', ['2.5D'], '#3ecf8e', '测速', [], 'detector', ['传感器']),
   el('force_sensor', '力传感器', 'Ⓕ', 'util', ['2.5D'], '#3ecf8e', '显示力', [], 'detector', ['传感器']),
   el('trail', '轨迹追踪', '⋯', 'util', ['2.5D'], '#8a8a0', '显示轨迹', [], 'display', ['轨迹']),
