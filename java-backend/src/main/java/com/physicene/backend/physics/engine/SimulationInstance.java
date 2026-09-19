@@ -734,6 +734,11 @@ public class SimulationInstance {
         world.getSettings().setAtRestDetectionEnabled(true);
     }
 
+    /** 追问1 测试钩子：设置速度约束求解器迭代次数 */
+    public void setVelocitySolverIterations(int n) {
+        world.getSettings().setVelocityConstraintSolverIterations(n);
+    }
+
     boolean latch(String key) { return eventLatches.add(key); }
 
     void fireKeyEvent(double time, String type, String label, Map<String, Double> payload) {

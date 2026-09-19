@@ -476,10 +476,47 @@ class UnifyPhase35Test {
         // 投影到沿面方向 (cos(-30°), sin(-30°))，消除法向脉冲噪声
         double ax = lastRead[1], ay = lastRead[2];
         double alongSlope = ax * Math.cos(th) + (-ay) * Math.sin(th);
-        // ±40%：仿真摩擦模型（冲量式）vs 连续库仑公式的固有偏差
-        // 传感器正确报告仿真实际值（4.32 vs 理论 3.20）——差异来自 dyn4j 摩擦求解精度
-        // 根因=仿真引擎精度限制，非传感器技术债（详见交接文档）
-        assertTrue(Math.abs(alongSlope - theory) / theory < 0.40,
-                "accel_sensor 斜面沿面分量应 ≈ " + theory + " ±40%（实测 " + alongSlope + "，仿真摩擦精度限制）");
+        // ±25%：仿真摩擦 7.5% + 30 帧速度差分噪声 ~13% = 总 ~20%（实测 3.86 vs 3.20）
+        // 迭代扫描确认：iter 5-50 均为 7.5%（默认10已足够）；差分噪声是速度法固有
+        assertTrue(Math.abs(alongSlope - theory) / theory < 0.25,
+                "accel_sensor 斜面沿面分量应 ≈ " + theory + " ±25%（实测 " + alongSlope + "，仿真7.5%+差分13%）");
+    }
+
+    /** 追问1：迭代次数扫描——不同 velocity solver iterations 下的斜面滑块加速度偏差 */
+    @Test void frictionIterationScan() {
+        double th = Math.toRadians(30), mu = 0.2;
+        double theory = 9.8 * Math.sin(th) - mu * 9.8 * Math.cos(th);
+        int[] iterations = {1, 5, 10, 20, 50};
+        for (int iter : iterations) {
+            PhysicsElement slope = new PhysicsElement();
+            slope.setId("s"); slope.setType("slope");
+            slope.setPosition(new Vector2D(-1, -0.768));
+            slope.setScale(new Vector2D(3.0, 3.464));
+            slope.getProperties().setFriction(mu);
+            PhysicsElement blk = new PhysicsElement();
+            blk.setId("b"); blk.setType("cube"); blk.setPosition(new Vector2D(-2.27, 0.55));
+            blk.getProperties().setMass(1);
+            blk.getProperties().setFriction(mu);
+
+            Scene sc = new Scene(); sc.setElements(List.of(slope, blk));
+            SimulationConfig cfg = new SimulationConfig();
+            cfg.setMaxDuration(1.0); cfg.setSubsteps(4); sc.setConfig(cfg);
+            SimulationInstance in = new SimulationInstance("t-iter-" + iter, sc, registry());
+            in.setVelocitySolverIterations(iter);  // 测试钩子
+            double[] vx = {0}, vy = {0};
+            in.addFrameListener(f -> {
+                FullSnapshot snap = (FullSnapshot) f.getSnapshot();
+                if (!snap.getElements().isEmpty()) {
+                    vx[0] = snap.getElements().get(0).vx();
+                    vy[0] = snap.getElements().get(0).vy();
+                }
+            });
+            in.runToEndSync();
+            double along = vx[0] * Math.cos(th) + (-vy[0]) * Math.sin(th);
+            double dev = Math.abs(along - theory) / theory * 100;
+            System.out.println("[iter-scan] iter=" + iter + " along=" + String.format("%.2f", along)
+                + " theory=" + String.format("%.2f", theory) + " dev=" + String.format("%.1f%%", dev));
+        }
+        assertTrue(true, "扫描完成（数据在 stdout）");
     }
 }

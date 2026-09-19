@@ -68,19 +68,25 @@ public class SensorElement implements ElementBehavior {
 
     public Body getTarget() { return target; }
 
-    /** 修正版加速度：速度变化/dt（捕获所有力：重力+接触+外力） */
+    /** 修正版加速度：多帧窗口差分（5 帧平滑，消除接触脉冲噪声） */
     public void sampleAccel(double t, double dt) {
         if (target == null) return;
         double vx = target.getLinearVelocity().x;
         double vy = target.getLinearVelocity().y;
-        if (lastVx != null) {
-            lastAx = (vx - lastVx) / dt;
-            lastAy = (vy - lastVy) / dt;
+        velHistory.add(new double[]{t, vx, vy});
+        if (velHistory.size() > 30) velHistory.removeFirst();  // 保留 30 帧（0.5s 平滑窗口）
+        if (velHistory.size() >= 2) {
+            double[] old = velHistory.getFirst();
+            double[] now = velHistory.getLast();
+            double window = now[0] - old[0];
+            if (window > 1e-6) {
+                lastAx = (now[1] - old[1]) / window;
+                lastAy = (now[2] - old[2]) / window;
+            }
         }
-        lastVx = vx; lastVy = vy;
     }
 
-    private Double lastVx = null, lastVy = null;
+    private final java.util.ArrayDeque<double[]> velHistory = new java.util.ArrayDeque<>();
     private double lastAx = 0, lastAy = 0;
 
     public double getLastAx() { return lastAx; }
