@@ -105,14 +105,14 @@ export const CATALOG: ElementSpec[] = [
     SURFACE_END(0, 0, '右端'),
   ]),
   // ── 电磁 field ──
-  el('e_region', '匀强电场', '⇉', 'em', ['3D'], '#3ecf8e', 'E', [P('Ex', 'Ex', -20, 20, 0.5, 0, 'N/C'), P('Ey', 'Ey', -20, 20, 0.5, 9.8, 'N/C')], 'field', ['电场']),
+  el('e_region', '匀强电场', '⇉', 'em', ['2D', '2.5D', '3D'], '#3ecf8e', 'E（默认空场区，按需设分量）', [P('Ex', 'Ex', -20, 20, 0.5, 0, 'N/C'), P('Ey', 'Ey', -20, 20, 0.5, 0, 'N/C')], 'field', ['电场']),
   el('b_region', '匀强磁场', '⊗', 'em', ['3D'], '#b06ce6', 'B', [BMAG, SEL('dir', '方向', 0, [{ value: 0, label: '⊗ 向里' }, { value: 1, label: '⊙ 向外' }])], 'field', ['磁场']),
   el('point_charge', '带电粒子', '⊕', 'em', ['2D', '2.5D', '3D'], '#F5C542', '比荷（负值为阴离子）、初速', [P('qm', '比荷 q/m', -2, 2, 0.1, 1), V0], 'body', ['带电粒子']),
   // ── 电磁 circuit ──
   el('rail_pair', '导轨对', '═╤═', 'em', ['3D'], '#8a8aa0', '间距 L', [P('L', '间距 L', 0.5, 2, 0.1, 1, 'm')], 'circuit', ['导轨'], [
     TERMINAL(-3, 0, '左端'), TERMINAL(3, 0, '右端'),
   ]),
-  el('rod_bar', '导体棒', '┃', 'em', ['3D'], '#E05555', '质量、电阻', [MASS, V0, RES], 'circuit', ['导体棒'], [
+  el('rod_bar', '导体棒', '┃', 'em', ['2D', '2.5D', '3D'], '#E05555', '质量、电阻（v₀=0 中性起步）', [MASS, V0, RES], 'circuit', ['导体棒'], [
     TERMINAL(0, -0.5, '下端'), TERMINAL(0, 0.5, '上端'),
   ]),
   // ── 热学 ──
