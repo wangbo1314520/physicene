@@ -94,7 +94,8 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
         // builder 原点=直角角点 → Java 原点=三角形中心（基准 2×1 缩放：底 2·sx 高 sy）
         const c = Math.cos(e.angle), s = Math.sin(e.angle)
         asBody({ type: 'slope', scale: { x: L / 2, y: H },
-          position: { x: e.position.x + (c * L - s * H) / 2, y: e.position.y + (s * L + c * H) / 2 } })
+          position: { x: e.position.x + (c * L - s * H) / 2, y: e.position.y + (s * L + c * H) / 2 },
+          properties: { friction: num(p.mu, 0.2) } })  // 透传 μ（此前漏传致 Java 默认 0）
         break
       }
       case 'ground':
