@@ -11,8 +11,10 @@ if [ -n "$UNTRACKED" ]; then
   echo "$UNTRACKED"
   exit 1
 fi
-IGNORED=$(git status --ignored=matching --short -- frontend/src java-backend/src frontend/e2e python-ai-service/src python-ai-service/scripts docs 2>/dev/null \
-  | grep '^!!' | grep -aE '\.(ts|vue|js|py|java|sql|md)$' | grep -avE '__pycache__|/out/|\.pyc')
+# 第②层实现注记：git status --ignored 只列目录级（不随 -uall 展开），故用 find+check-ignore 精确到文件
+IGNORED=$(find frontend/src java-backend/src frontend/e2e python-ai-service/src python-ai-service/scripts docs \
+  -type f \( -name '*.ts' -o -name '*.vue' -o -name '*.js' -o -name '*.py' -o -name '*.java' -o -name '*.sql' -o -name '*.md' \) 2>/dev/null \
+  | git check-ignore --stdin 2>/dev/null | grep -avE '__pycache__|/out/|\.pyc')
 if [ -n "$IGNORED" ]; then
   echo "❌ 被 .gitignore 忽略的源文件（疑似规则误伤，参照 data/ 事故）："
   echo "$IGNORED"

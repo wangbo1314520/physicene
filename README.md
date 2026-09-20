@@ -51,3 +51,9 @@ cd frontend && pnpm dev
 - Python 锁 **3.12**（PaddleOCR/sentence-transformers 生态，V5 验证项）
 - API 密钥一律走 `.env`（已 gitignore），不进代码
 - Java 功能分包：scene/physics/analysis/report/profile/teacher/ai/common，跨包只走 DTO 与接口
+
+## 开发操作红线（事故教训，面向所有 contributor）
+
+- **Windows junction/symlink 目录禁止 `rm -rf`**：会穿透链接删除目标实体（2026-09-20 事故：worktree 清理穿透 node_modules junction，主仓依赖被删，靠 pnpm 本地 store 2.3s 恢复）。正确姿势：先 `rmdir <链接>`（只删链接本身）再处理实体目录。
+- **跨提交对比/基线验证不用 mklink**：标准替代 = `git archive <ref> | tar -x -C <目录>` 导出纯检出 + 在该目录 `pnpm install --prefer-offline`（2 秒级，天然零未跟踪文件，最贴近 CI 真实）。
+- **提交闸门（.githooks/pre-commit）双层源码扫描**：①全仓未跟踪源类文件即红；②源目录里被 .gitignore 命中的源类文件即红（data/ 规则误伤同型防线）。自测：`bash .githooks/selftest.sh`。
