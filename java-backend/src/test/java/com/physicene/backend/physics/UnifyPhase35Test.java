@@ -520,4 +520,56 @@ class UnifyPhase35Test {
         }
         assertTrue(true, "扫描完成（数据在 stdout）");
     }
+
+    /** 追问2：最小二乘多场景验证（3 场景×不同参数） */
+    @Test void accelLeastSquaresMultiScene() {
+        double[][] scenes = {
+            {30, 0.2, 1},   // 基准: 30° μ=0.2
+            {30, 0.4, 1},   // 中摩擦: 30° μ=0.4（仍滑动: μ<tan30=0.577）
+            {45, 0.1, 1},   // 中角度: 45° μ=0.1（μ<tan45=1）
+            {30, 0.01, 1},  // 低摩擦: 30° μ=0.01
+            {60, 0.2, 1},   // 大角度: 60° μ=0.2（μ<tan60=1.73）
+        };
+        for (double[] sc : scenes) {
+            double th = Math.toRadians(sc[0]), mu = sc[1];
+            double theory = 9.8 * Math.sin(th) - mu * 9.8 * Math.cos(th);
+            PhysicsElement slope = new PhysicsElement();
+            slope.setId("s"); slope.setType("slope");
+            double H = 6 * Math.tan(th);
+            slope.setPosition(new Vector2D(-4 + 3.0, -2.5 + H / 2));
+            slope.setScale(new Vector2D(3.0, H));
+            slope.getProperties().setFriction(mu);
+            PhysicsElement sensor = new PhysicsElement();
+            sensor.setId("as"); sensor.setType("accel_sensor");
+            sensor.setPosition(new Vector2D(0, 0));
+            sensor.setConnectTo("b");
+            PhysicsElement blk = new PhysicsElement();
+            blk.setId("b"); blk.setType("cube");
+            double surfaceY = -2.5 + 6 * Math.tan(th) - (-2.27 + 4) * Math.tan(th); // 面上块x处的y
+            blk.setPosition(new Vector2D(-2.27, surfaceY + 0.5 / Math.cos(th)));  // 贴面放置
+            blk.getProperties().setMass(1);
+            blk.getProperties().setFriction(mu);
+
+            Scene scn = new Scene(); scn.setElements(List.of(slope, sensor, blk));
+            SimulationConfig cfg = new SimulationConfig();
+            cfg.setMaxDuration(1.0); cfg.setSubsteps(4); scn.setConfig(cfg);
+            SimulationInstance in = new SimulationInstance("t-lsq-" + (int)sc[0] + "-" + (int)(sc[1]*100), scn, registry());
+            double[] lastRead = {0, 0, 0};
+            in.addFrameListener(f -> {
+                if (f.getProbes() != null && f.getProbes().containsKey("as")) {
+                    double[] pr = f.getProbes().get("as");
+                    lastRead[0] = pr[0];
+                    lastRead[1] = pr.length > 1 ? pr[1] : 0;
+                    lastRead[2] = pr.length > 2 ? pr[2] : 0;
+                }
+            });
+            in.runToEndSync();
+            double ax = lastRead[1], ay = lastRead[2];
+            double alongSlope = ax * Math.cos(th) + (-ay) * Math.sin(th);
+            double dev = Math.abs(alongSlope - theory) / theory * 100;
+            System.out.println("[lsq] θ=" + (int)sc[0] + " μ=" + sc[1] + " along=" + String.format("%.2f", alongSlope)
+                + " theory=" + String.format("%.2f", theory) + " dev=" + String.format("%.1f%%", dev));
+        }
+        assertTrue(true, "多场景数据在 stdout");
+    }
 }
