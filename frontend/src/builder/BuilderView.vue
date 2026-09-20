@@ -65,7 +65,18 @@ async function doRun() {
   if (err) say(err)
 }
 /** ended → 数据面板记录（readout=末帧各主体位姿/速度 + 能量尾部；events=keyEvents） */
+/** D5 断绳集合：keyEvents 出现 rope_break:<id> 即标记（run 重启时清空），画布据此渲染垂挂贝塞尔 */
+const brokenRopes = ref(new Set<string>())
+watch(() => sim.keyEvents.length, () => {
+  for (const k of sim.keyEvents) {
+    if (k.eventType.startsWith('rope_break:')) {
+      const id = k.eventType.slice('rope_break:'.length)
+      if (!brokenRopes.value.has(id)) brokenRopes.value = new Set([...brokenRopes.value, id])
+    }
+  }
+})
 watch(() => sim.status, (st) => {
+  if (st === 'running' && sim.currentT < 0.05) brokenRopes.value = new Set()  // 重启清空断绳标记
   if (st !== 'ended') return
   const subj = sim.subjects.map((s) => `${s.id}: x=${s.x.toFixed(2)} y=${s.y.toFixed(2)} v=(${s.vx.toFixed(2)},${s.vy.toFixed(2)})`).join('；')
   const ek = sim.ekSeries.length ? sim.ekSeries[sim.ekSeries.length - 1].v : null
@@ -312,7 +323,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
               <span class="nm">{{ t.name }}</span><span class="cd">卡 {{ t.card }}</span>
             </button>
           </div>
-          <BuilderCanvas ref="canvasRef" :elements="elements" :selected-id="selectedId" :link-mode="linkMode" :link-from="linkFrom" :run-states="bridge.runStates.value"
+          <BuilderCanvas ref="canvasRef" :elements="elements" :selected-id="selectedId" :link-mode="linkMode" :link-from="linkFrom" :run-states="bridge.runStates.value" :broken-ropes="brokenRopes"
             @select="selectedId = $event" @dragging="onDragging" @drop="onDrop" @anchor-pick="onAnchorPick" @add-at="(t, x, y) => addElement(t, x, y)" />
           <p v-if="!elements.length" class="empty">从左侧拖入元件（米制世界坐标，滚轮缩放）。例：斜面 + 物块 → 传送带 + 物块 → 竖直圆轨道 + 小球</p>
         </div>

@@ -10,6 +10,7 @@ import * as THREE from 'three'
 import type { GeoElement, AnchorTemplate } from '../catalog'
 import { byType } from '../catalog'
 import { findSnap } from '../model/snap'
+import { resolveAnchors } from '../model/anchors'
 import { buildUnifiedMesh, buildConnectionLine, updateLine, updateHelix } from './Renderer'
 
 const props = defineProps<{
@@ -20,6 +21,8 @@ const props = defineProps<{
   linkFrom: { id: string; anchorId: string } | null
   /** 运行态帧位姿（RunBridge.runStates）；非空时画布按帧驱动、禁用编辑 */
   runStates?: Map<string, { x: number; y: number; angle?: number }> | null
+  /** D5 断绳集合（rope 元件 id）：断后连线改两段垂挂贝塞尔（纯渲染） */
+  brokenRopes?: Set<string>
 }>()
 const emit = defineEmits<{
   (e: 'select', id: string | null): void
@@ -185,16 +188,32 @@ function syncMeshes() {
   syncLinks()
 }
 
-/** 连接线：owner.links 一条一段线，端点 = 两锚点世界坐标（运行态跟随帧位姿） */
-function anchorWorldPos(e: GeoElement, tmpl: AnchorTemplate): { x: number; y: number } {
+/** 连接线：owner.links 一条一段线，端点 = 两锚点世界坐标（运行态跟随帧位姿）。
+ *  锚点解析统一走 resolveAnchors（参数化）——第三处解析层收编（原静态目录读取漏网，第二十五轮修）。
+ *  D5 断绳：rope 元件在 brokenRopes 集合内时改两段垂挂贝塞尔（下垂=√(L²−d²)/6 同式，z=0.4，纯渲染）。 */
+function anchorWorldPos(e: GeoElement, anchorId: string): { x: number; y: number } {
   const pose = poseOf(e)
-  const c = Math.cos(pose.angle), s = Math.sin(pose.angle)
-  return { x: pose.x + c * tmpl.local.x - s * tmpl.local.y, y: pose.y + s * tmpl.local.x + c * tmpl.local.y }
+  const tilt = e.type === 'belt' ? (e.params.th ?? 0) * Math.PI / 180 : 0
+  const a = pose.angle + tilt
+  const c = Math.cos(a), s = Math.sin(a)
+  const t = resolveAnchors(e).find((x) => x.id === anchorId) ?? { local: { x: 0, y: 0 } }
+  return { x: pose.x + c * t.local.x - s * t.local.y, y: pose.y + s * t.local.x + c * t.local.y }
+}
+function updateBrokenRope(line: THREE.Line, pa: { x: number; y: number }, pb: { x: number; y: number }, len: number) {
+  // 两段各 L/2 从两端垂挂：二次贝塞尔采样（下垂 = 段长/3 视觉近似，z=0.4 在物体之上吸附预览之下）
+  const pts: THREE.Vector3[] = []
+  const sag = len / 2
+  const drop = (p: { x: number; y: number }, dir: number) =>
+    new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(p.x, p.y, 0.4),
+      new THREE.Vector3(p.x + 0.12 * dir, p.y - sag * 0.55, 0.4),
+      new THREE.Vector3(p.x + 0.18 * dir, p.y - sag, 0.4)).getPoints(10)
+  pts.push(...drop(pa, 1), ...drop(pb, -1))
+  line.geometry.setFromPoints(pts)
 }
 function syncLinks() {
   const seen = new Set<string>()
   for (const e of props.elements) {
-    const spec = byType.get(e.type)
     for (const l of e.links) {
       const key = `${e.id}:${l.anchorA}->${l.toId}:${l.anchorB}`
       seen.add(key)
@@ -205,12 +224,14 @@ function syncLinks() {
         lineMap.set(key, line)
       }
       const target = props.elements.find((t) => t.id === l.toId)
-      const ta = spec?.anchors?.find((a) => a.id === l.anchorA)
-      const tb = target ? byType.get(target.type)?.anchors?.find((a) => a.id === l.anchorB) : undefined
+      const ta = resolveAnchors(e).find((a) => a.id === l.anchorA)
+      const tb = target ? resolveAnchors(target).find((a) => a.id === l.anchorB) : undefined
       if (target && ta && tb) {
-        const pa = anchorWorldPos(e, ta), pb = anchorWorldPos(target, tb)
+        const pa = anchorWorldPos(e, l.anchorA), pb = anchorWorldPos(target, l.anchorB)
         if (l.kind === 'spring') updateHelix(line, pa.x, pa.y, pb.x, pb.y)
-        else updateLine(line, pa.x, pa.y, pb.x, pb.y)
+        else if (l.kind === 'rope' && props.brokenRopes?.has(e.id)) {
+          updateBrokenRope(line, pa, pb, e.params.L ?? 2)
+        } else updateLine(line, pa.x, pa.y, pb.x, pb.y)
       }
     }
   }
@@ -238,7 +259,7 @@ function syncAnchors() {
     const isSel = e.id === props.selectedId
     if (!isSel && !props.linkMode) continue
     for (const tmpl of spec.anchors) {
-      const p = anchorWorldPos(e, tmpl)
+      const p = anchorWorldPos(e, tmpl.id)
       const fromLink = props.linkFrom?.id === e.id && props.linkFrom.anchorId === tmpl.id
       const color = fromLink ? 0xf5c542 : isSel ? 0x4a90d9 : 0x565675
       const size = props.linkMode ? 0.11 : 0.07
@@ -275,10 +296,10 @@ function drawSnapPreview() {
   if (!snap) return
   const draggedEl = dragged
   const target = props.elements.find((x) => x.id === snap.targetId)
-  const ta = byType.get(draggedEl.type)?.anchors?.find((a) => a.id === snap.anchorA)
-  const tb = target ? byType.get(target.type)?.anchors?.find((a) => a.id === snap.anchorB) : undefined
+  const ta = resolveAnchors(draggedEl).find((a) => a.id === snap.anchorA)
+  const tb = target ? resolveAnchors(target).find((a) => a.id === snap.anchorB) : undefined
   if (!target || !ta || !tb) return
-  const pa = anchorWorldPos(draggedEl, ta), pb = anchorWorldPos(target, tb)
+  const pa = anchorWorldPos(draggedEl, snap.anchorA), pb = anchorWorldPos(target, snap.anchorB)
   const line = new THREE.Line(
     new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute([pa.x, pa.y, 0.4, pb.x, pb.y, 0.4], 3)),
     new THREE.LineBasicMaterial({ color: 0xf5c542 }))

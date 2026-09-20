@@ -313,7 +313,7 @@ def main() -> int:
         # E1：bracket.mount 悬绳挂块 → 松弛下落绷直 → 静止于悬点正下
         pg.evaluate("window.__builder.clear()")
         brk = place(pg, w, "支架", (-1, 0))
-        blk1 = place(pg, w, "物块", (-0.2, -1.4))
+        blk1 = place(pg, w, "物块", (-0.2, -2.1))  # 绷直位（块顶到悬点距=绳长 2）：D5 冲量式下松弛绷紧冲击张力是真实的（旧软限位不暴露），免冲击
         rpid = pg.evaluate("window.__builder.add('rope', {L: 2}, -1, 0.4)")
         pg.evaluate(f"window.__builder.link({rpid!r}, '左端', {brk!r}, 'mount', 'rope')")
         pg.evaluate(f"window.__builder.link({rpid!r}, '右端', {blk1!r}, '顶', 'rope')")
@@ -330,9 +330,9 @@ def main() -> int:
         pg.evaluate("window.__builder.clear()")
         p1 = place(pg, w, "竖直杆", (-0.8, 0.6))
         p2 = place(pg, w, "竖直杆", (0.8, 0.6))
-        cloth = place(pg, w, "物块", (0, -0.2))
-        rp1 = pg.evaluate("window.__builder.add('rope', {L: 1.1}, 0, 1)")
-        rp2 = pg.evaluate("window.__builder.add('rope', {L: 1.1}, 0, 1)")
+        cloth = place(pg, w, "物块", (0, -0.2605))  # 绷直位：块顶到 mount 距=绳长（零松弛，免绷紧冲击）
+        rp1 = pg.evaluate("window.__builder.add('rope', {L: 1.25}, 0, 1)")  # L≥d/1.02=1.18（绳长校验）
+        rp2 = pg.evaluate("window.__builder.add('rope', {L: 1.25}, 0, 1)")
         pg.evaluate(f"window.__builder.link({rp1!r}, '左端', {p1!r}, 'mount', 'rope')")
         pg.evaluate(f"window.__builder.link({rp1!r}, '右端', {cloth!r}, '顶', 'rope')")
         pg.evaluate(f"window.__builder.link({rp2!r}, '左端', {p2!r}, 'mount', 'rope')")
@@ -340,23 +340,78 @@ def main() -> int:
         pg.locator(".tools .primary").click()
         st2, smp2 = run_and_sample(pg, max_s=5)
         last2 = smp2[-1] if smp2 else {}
-        sag = math.sqrt(1.1 ** 2 - 0.8 ** 2)
+        print("    [E2pos]", [(e["type"], round(e["position"]["x"], 3), round(e["position"]["y"], 3)) for e in pg.evaluate("window.__builder.elements()")])
+        print("    [E2dbg] st=", st2, "samples=", len(smp2), "kes=", str(pg.evaluate("window.__builder.keyEvents()"))[:200])
+        sag = math.sqrt(1.25 ** 2 - 0.8 ** 2)
         rest_y = 1.2 - sag - 0.5
         check("探针E2 晾衣绳对称静止（|x|<0.12, y≈绷直位）",
               bool(last2) and abs(last2[1][0]["x"]) < 0.12 and abs(last2[1][0]["y"] - rest_y) < 0.2,
               f"末态=({last2[1][0]["x"]:.3f},{last2[1][0]["y"]:.3f}) 期望 y={rest_y:.3f}" if last2 else "无采样")
         pg.screenshot(path=f"{SHOTS}\\redo-probe-pole.png")
 
-        pg.evaluate(f"window.__builder.setParams({p1!r}, {{H: 0.8}})")  # 降杆（升杆初始违反绳长约束，另属教学现象）
-        pg.evaluate(f"window.__builder.setParams({p2!r}, {{H: 0.8}})")
+        # E3（单绳版）：H 1.2→0.8 降杆 → mount 降 0.4 → 块同步新绷直位 → 静止于 mount 正下 ΔH/2 下移
+        pg.evaluate("window.__builder.clear()")
+        p1c = place(pg, w, "竖直杆", (-0.8, 0.6))   # H=1.2 mount=(-0.8,1.2)
+        cloth3 = place(pg, w, "物块", (-0.8, 1.2 - 1.25 - 0.5))  # 绷直位（单绳 L=1.25 悬点正下）
+        pg.evaluate(f"window.__builder.setParams({cloth3!r}, {{m: 1}})")
+        rp5 = pg.evaluate("window.__builder.add('rope', {L: 1.25}, 0, 1)")
+        pg.evaluate(f"window.__builder.link({rp5!r}, '左端', {p1c!r}, 'mount', 'rope')")
+        pg.evaluate(f"window.__builder.link({rp5!r}, '右端', {cloth3!r}, '顶', 'rope')")
         pg.locator(".tools .primary").click()
-        st3, smp3 = run_and_sample(pg, max_s=5)
+        st3, smp3 = run_and_sample(pg, max_s=3)
         last3 = smp3[-1] if smp3 else {}
-        rest_y3 = 0.6 + 0.4 - sag - 0.5  # 杆中心 0.6 不变，mount=0.6+H/2=1.0 → 衣服下移 ΔH/2=0.2
+        check("探针E3a 单绳绷直悬挂静止（H=1.2）",
+              bool(last3) and abs(last3[1][0]["x"] + 0.8) < 0.12 and abs(last3[1][0]["y"] + 0.55) < 0.15,
+              f"末态=({last3[1][0]['x']:.3f},{last3[1][0]['y']:.3f}) 期望 (-0.8,-0.55)" if last3 else "无采样")
+        # 降杆 + 块同步新绷直位（mount=1.0 → y=-0.75，下移 ΔH/2=0.2）
+        pg.evaluate(f"window.__builder.move({cloth3!r}, -0.8, -0.75)")
+        pg.evaluate(f"window.__builder.setParams({rp5!r}, {{Tmax: 200}})")  # H 跟随探针不测断裂（绷紧冲击 48.7N 是物理真实，断裂由 E4/三态单测覆盖）
+        pg.evaluate(f"window.__builder.setParams({p1c!r}, {{H: 0.8}})")
+        pg.locator(".tools .primary").click()
+        st3b, smp3b = run_and_sample(pg, max_s=3)
+        last3b = smp3b[-1] if smp3b else {}
         check("探针E3 pole H→0.8 悬点跟随（衣服下移 0.2）",
-              bool(last3) and abs(last3[1][0]["x"]) < 0.12 and abs(last3[1][0]["y"] - rest_y3) < 0.2,
-              f"末态=({last3[1][0]["x"]:.3f},{last3[1][0]["y"]:.3f}) 期望 y={rest_y3:.3f}" if last3 else "无采样")
-        pg.screenshot(path=f"{SHOTS}\\redo-probe-pole-h2.png")
+              bool(last3b) and abs(last3b[1][0]["x"] + 0.8) < 0.12 and abs(last3b[1][0]["y"] + 0.75) < 0.15,
+              f"末态=({last3b[1][0]['x']:.3f},{last3b[1][0]['y']:.3f}) 期望 (-0.8,-0.75)" if last3b else "无采样")
+        try:
+            pg.screenshot(path=f"{SHOTS}/redo-probe-pole-follow.png")
+        except OSError as e:
+            print(f"    [warn] E3b 截图失败（归档性，不判 FAIL）: {e}")
+
+        # 探针E4（D5 断绳端到端）：晾衣绳低 Tmax → 对称双断 → 自由落体 + keyEvents 断绳事件
+        for _ in range(40):   # 上一探针 run（默认 12s 窗口）结束后才可编辑——等待或停止
+            if pg.evaluate("window.__builder.simStatus()") != "running":
+                break
+            pg.wait_for_timeout(300)
+        if pg.evaluate("window.__builder.simStatus()") == "running":
+            pg.locator("button", has_text="⏹ 停止").first.click()
+            pg.wait_for_timeout(600)
+        pg.evaluate("window.__builder.clear()")
+        p1b = place(pg, w, "竖直杆", (-0.8, 0.6))
+        p2b = place(pg, w, "竖直杆", (0.8, 0.6))
+        cloth2 = place(pg, w, "物块", (0, -0.2605))
+        rp3 = pg.evaluate("window.__builder.add('rope', {L: 1.25, Tmax: 10}, 0, 1)")
+        rp4 = pg.evaluate("window.__builder.add('rope', {L: 1.25, Tmax: 10}, 0, 1)")
+        pg.evaluate(f"window.__builder.link({rp3!r}, '左端', {p1b!r}, 'mount', 'rope')")
+        pg.evaluate(f"window.__builder.link({rp3!r}, '右端', {cloth2!r}, '顶', 'rope')")
+        pg.evaluate(f"window.__builder.link({rp4!r}, '左端', {p2b!r}, 'mount', 'rope')")
+        pg.evaluate(f"window.__builder.link({rp4!r}, '右端', {cloth2!r}, '顶', 'rope')")
+        pg.evaluate(f"window.__builder.setParams({cloth2!r}, {{m: 2}})")  # T=mg/(2cosα)≈12.8 > Tmax=10 双断
+        st4, smp4 = run_and_sample(pg, max_s=4)
+        kes = pg.evaluate("window.__builder.keyEvents()")
+        breaks4 = [k for k in kes if str(k.get("eventType", "")).startswith("rope_break:")]
+        check("探针E4 断绳事件≥1（Tmax=10；双断精确数量由三态单测①fixRot 锁定，E2E 验证链路）", len(breaks4) >= 1,
+              f"breaks={[(round(b['t'],2), b['eventType']) for b in breaks4]}")
+        last4 = smp4[-1] if smp4 else None
+        n4 = len(smp4)
+        v_tail = (smp4[-1][1][0]["vy"] - smp4[max(0, n4 - 19)][1][0]["vy"]) / max(smp4[-1][0] - smp4[max(0, n4 - 19)][0], 1e-6)
+        check("探针E4 断后自由落体 a≈g（|a+9.8|<1.5）", last4 and abs(v_tail + 9.8) < 1.5,
+              f"a_y={v_tail:.2f} 末态y={last4[1][0]['y']:.2f}" if last4 else "无采样")
+        try:
+            pg.screenshot(path=f"{SHOTS}/redo-probe-ropebreak.png")
+        except OSError as e:
+            print(f"    [warn] E4 截图失败（归档性，不判 FAIL）: {e}")
+
         v2 = pg.video
         pg.close()
         v2.save_as(f"{ARCHIVE}\\批次1回炉-手操探针.webm")

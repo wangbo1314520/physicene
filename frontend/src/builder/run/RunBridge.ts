@@ -164,7 +164,7 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
               y: e.position.y + s2 * unlinked.local.x + c2 * unlinked.local.y }
           }
         }
-        if (e.type === 'rope') base.params = { jointLength: num(p.L, 2) }
+        if (e.type === 'rope') base.params = { jointLength: num(p.L, 2), tMax: num(p.Tmax, 40) }  // D5：断裂阈值透传
         else base.params = { jointLength: num(p.L0, 1), stiffness: num(p.k, 100), dampingRatio: num(p.zeta, 0.05) }
         base.type = e.type
         list.push(base)

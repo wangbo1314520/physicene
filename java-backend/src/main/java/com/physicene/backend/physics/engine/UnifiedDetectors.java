@@ -205,22 +205,27 @@ final class UnifiedDetectors {
                 sim.fireKeyEvent(t, "spring_natural", "弹簧恢复原长", Map.of("length", sn[0]));
             }
         }
+        // D5 落地（2026-09-20）：绳已改冲量式（DistanceJoint 弃用，张力 = −λ/h 可直接判定断裂）——
+        // 绷紧/松弛检测读冲量式绳的当前锚距；spring 仍走 DistanceJoint 原路径
+        for (com.physicene.backend.physics.element.RopeElement rope : sim.ropesSnapshot()) {
+            if (rope.isBroken()) {
+                continue;
+            }
+            double cur = rope.currentDistance();
+            boolean taut = cur >= rope.length() - 1e-4;
+            String key = rope.ownId() + "#rope";
+            if (taut && sim.latch("taut:" + key)) {
+                sim.fireKeyEvent(t, "rope_taut", "绳绷紧（L=" + String.format("%.3f", rope.length()) + " m）",
+                        Map.of("length", cur));
+            } else if (!taut && sim.latch("slack:" + key)) {
+                sim.fireKeyEvent(t, "rope_slack", "绳松弛（当前 " + String.format("%.3f", cur) + " m）",
+                        Map.of("length", cur));
+            }
+        }
         for (Map.Entry<String, DistanceJoint<Body>> e : sim.stringJointsSnapshot()) {
             DistanceJoint<Body> j = e.getValue();
             double cur = j.getCurrentDistance();
-            String kind = e.getKey().endsWith("#spring") ? "spring" : e.getKey().endsWith("#rod") ? "rod" : "rope";
-            if ("rope".equals(kind)) {
-                // D5（E-OPEN）：getReactionForce 对 limit 模式 DistanceJoint 实测恒 0（dyn4j 不累计 limit 冲量）——
-                // 断裂检测须待「绳改冲量式约束」（与滑轮同框架，冲量 λ 即张力）一并落地，见交接文档
-                boolean taut = j.isUpperLimitEnabled() && cur >= j.getUpperLimit() - 1e-4;
-                if (taut && sim.latch("taut:" + e.getKey())) {
-                    sim.fireKeyEvent(t, "rope_taut", "绳绷紧（L=" + String.format("%.3f", j.getUpperLimit()) + " m）",
-                            Map.of("length", cur));
-                } else if (!taut && sim.latch("slack:" + e.getKey())) {
-                    sim.fireKeyEvent(t, "rope_slack", "绳松弛（当前 " + String.format("%.3f", cur) + " m）",
-                            Map.of("length", cur));
-                }
-            } else if ("spring".equals(kind)) {
+            if (e.getKey().endsWith("#spring")) {
                 if (Math.abs(cur - j.getRestDistance()) < 0.005 * Math.max(1e-6, j.getRestDistance())
                         && sim.latch("nat:" + e.getKey())) {
                     sim.fireKeyEvent(t, "spring_natural", "弹簧恢复原长", Map.of("length", cur));

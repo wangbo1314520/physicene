@@ -93,6 +93,8 @@ public class SimulationInstance {
     private final Map<String, Boolean> loopContactPrev = new java.util.concurrent.ConcurrentHashMap<>();
     /** 滑轮元件（自研绳段罚力对） */
     private final java.util.List<com.physicene.backend.physics.element.PulleyElement> pulleys = new java.util.ArrayList<>();
+    /** D5 冲量式绳（断裂判定 + rope_break 事件） */
+    private final java.util.List<com.physicene.backend.physics.element.RopeElement> ropes = new java.util.ArrayList<>();
     /** 弹簧元件（力对施加） */
     private final java.util.List<com.physicene.backend.physics.element.SpringElement> springs = new java.util.ArrayList<>();
     /** 关节键 -> DistanceJoint：绳绷紧/松弛、弹簧原长事件 */
@@ -189,6 +191,9 @@ public class SimulationInstance {
             if (jb instanceof RopeElement rope && joint instanceof DistanceJoint dj) {
                 stringJoints.put(rope.ownId() + "#" + rope.getType(), dj);
             }
+            if (jb instanceof RopeElement rope && !(jb instanceof com.physicene.backend.physics.element.RodElement)) {
+                ropes.add(rope);  // D5 冲量式绳（createJoint 返回 null 不入 stringJoints）
+            }
             if (jb instanceof com.physicene.backend.physics.element.SpringElement se) {
                 springs.add(se);
             }
@@ -275,6 +280,18 @@ public class SimulationInstance {
             // 冲量式绳/滑轮约束（阶段三·五 D1）：速度约束 + Baumgarte 位置偏置，替代罚力对
             for (com.physicene.backend.physics.element.PulleyElement pe : pulleys) {
                 pe.applyImpulse(dt / substeps);
+            }
+            // D5 冲量式绳：约束冲量 + 张力超限断裂（每条绳独立判定）
+            for (com.physicene.backend.physics.element.RopeElement rope : ropes) {
+                double tension = rope.applyImpulse(dt / substeps);
+                if (!rope.isBroken() && tension > rope.tMax()) {
+                    rope.markBroken();
+                    KeyEvent ev = new KeyEvent(t, "rope_break:" + rope.ownId(), "绳断裂（T=" + String.format("%.1f", tension)
+                            + "N > T_max=" + String.format("%.1f", rope.tMax()) + "N）", frameCount,
+                            Map.of("tension", tension, "tmax", rope.tMax()));
+                    keyEvents.add(ev);
+                    keyEventListeners.forEach(l -> l.accept(ev));
+                }
             }
             world.step(1);
         }
@@ -690,6 +707,9 @@ public class SimulationInstance {
     java.util.Collection<double[]> loopsSnapshot() { return loops.values(); }
 
     java.util.Set<Map.Entry<String, DistanceJoint<Body>>> stringJointsSnapshot() { return stringJoints.entrySet(); }
+
+    /** D5 冲量式绳快照（UnifiedDetectors 绷紧/松弛检测用） */
+    java.util.List<com.physicene.backend.physics.element.RopeElement> ropesSnapshot() { return ropes; }
 
     /** D5：按 joints 键（ownId#type）查绳 Tmax（0=不判断裂） */
     double ropeTmaxOf(String jointKey) {
