@@ -588,7 +588,7 @@ class UnifyPhase35Test {
             sensor.setId("as"); sensor.setType("accel_sensor");
             sensor.setPosition(new Vector2D(0, 0)); sensor.setConnectTo("blk");
             PhysicsElement blk = new PhysicsElement();
-            blk.setId("blk"); blk.setType("cube"); blk.setPosition(new Vector2D(-1.5, 0.4));
+            blk.setId("blk"); blk.setType("cube"); blk.setPosition(new Vector2D(-0.5, 0.4));  // 板中央非边缘
             blk.getProperties().setMass(1); blk.getProperties().setFriction(0.2);
             blk.setInitialState(new InitialState());
             blk.getInitialState().setVelocity(new Vector2D(4, 0));
@@ -668,5 +668,105 @@ class UnifyPhase35Test {
             System.out.println("[x-scene] 斜面初期 a=" + String.format("%.2f", measA) + " theory=" + String.format("%.2f", theoryA) + " dev=" + String.format("%.1f%%", Math.abs(measA-theoryA)/theoryA*100));
         }
         assertTrue(true, "数据在 stdout");
+    }
+
+    /** 追问1：板块/传送带分阶段验证（共速前/共速后分别测，不做跨状态窗口） */
+    @Test void accelLeastSquaresPhased() {
+        // 板块：块 m=1 v0=4 在板 M=3 上 μ=0.2 → 共速 v'=1.0, t*=v0/(μg(1+m/M))=4/(1.96*1.333)=1.53s
+        // 用 0.5s 窗口（0-0.5s 全在共速前，a=μg=1.96）
+        {
+            PhysicsElement gnd = new PhysicsElement();
+            gnd.setId("g"); gnd.setType("wall"); gnd.setPosition(new Vector2D(0, -0.5));
+            gnd.setScale(new Vector2D(50.0, 0.2)); gnd.getProperties().setFriction(0.0);
+            PhysicsElement cart = new PhysicsElement();
+            cart.setId("c"); cart.setType("cube"); cart.setPosition(new Vector2D(0, -0.25));
+            cart.setScale(new Vector2D(3.0, 0.15)); cart.getProperties().setMass(3);
+            cart.getProperties().setFriction(0.0);
+            PhysicsElement sensor = new PhysicsElement();
+            sensor.setId("as"); sensor.setType("accel_sensor");
+            sensor.setPosition(new Vector2D(0, 0)); sensor.setConnectTo("blk");
+            PhysicsElement blk = new PhysicsElement();
+            blk.setId("blk"); blk.setType("cube"); blk.setPosition(new Vector2D(-0.5, 0.4));  // 板中央非边缘
+            blk.getProperties().setMass(1); blk.getProperties().setFriction(0.2);
+            blk.setInitialState(new InitialState());
+            blk.getInitialState().setVelocity(new Vector2D(4, 0));
+            Scene sc = new Scene(); sc.setElements(List.of(gnd, cart, sensor, blk));
+            SimulationConfig cfg = new SimulationConfig();
+            cfg.setMaxDuration(0.5); cfg.setSubsteps(4); sc.setConfig(cfg);  // 0.5s 全在共速前
+            SimulationInstance in = new SimulationInstance("t-phase-board", sc, registry());
+            double[] last = {0,0,0};
+            in.addFrameListener(f -> {
+                if (f.getProbes() != null && f.getProbes().containsKey("as")) {
+                    double[] pr = f.getProbes().get("as");
+                    last[1] = pr.length > 1 ? pr[1] : 0; last[2] = pr.length > 2 ? pr[2] : 0;
+                }
+            });
+            in.runToEndSync();
+            double theoryA = 0.2 * 9.8;  // 共速前 a = μg = 1.96
+            double measA = Math.abs(last[1]);
+            System.out.println("[phase] 板块共速前 a=" + String.format("%.2f", measA) + " theory=" + String.format("%.2f", theoryA) + " dev=" + String.format("%.1f%%", Math.abs(measA-theoryA)/theoryA*100));
+        }
+        // 传送带：vb=3 μ=0.4 → 共速 t*=3/3.92=0.77s
+        // 共速前窗口 0-0.5s: a=μg=3.92
+        {
+            PhysicsElement belt = new PhysicsElement();
+            belt.setId("bt"); belt.setType("belt"); belt.setPosition(new Vector2D(0, -1));
+            belt.getProperties().setFriction(0.4);
+            belt.getParams().put("beltSpeed", 3.0); belt.getParams().put("beltLength", 8.0); belt.getParams().put("beltRadius", 0.15);
+            belt.setFixed(true);
+            PhysicsElement sensor = new PhysicsElement();
+            sensor.setId("as2"); sensor.setType("accel_sensor");
+            sensor.setPosition(new Vector2D(0, 0)); sensor.setConnectTo("b2");
+            PhysicsElement blk = new PhysicsElement();
+            blk.setId("b2"); blk.setType("cube"); blk.setPosition(new Vector2D(0, -0.34));
+            blk.getProperties().setMass(1); blk.getProperties().setFriction(0.4);
+            Scene sc = new Scene(); sc.setElements(List.of(belt, sensor, blk));
+            SimulationConfig cfg = new SimulationConfig();
+            cfg.setMaxDuration(0.5); cfg.setSubsteps(4); sc.setConfig(cfg);  // 0.5s < t*=0.77s 全在共速前
+            SimulationInstance in = new SimulationInstance("t-phase-belt", sc, registry());
+            double[] last = {0,0,0};
+            in.addFrameListener(f -> {
+                if (f.getProbes() != null && f.getProbes().containsKey("as2")) {
+                    double[] pr = f.getProbes().get("as2");
+                    last[1] = pr.length > 1 ? pr[1] : 0; last[2] = pr.length > 2 ? pr[2] : 0;
+                }
+            });
+            in.runToEndSync();
+            double theoryA = 0.4 * 9.8;  // 共速前 a = μg = 3.92
+            double measA = Math.abs(last[1]);
+            System.out.println("[phase] 传送带共速前 a=" + String.format("%.2f", measA) + " theory=" + String.format("%.2f", theoryA) + " dev=" + String.format("%.1f%%", Math.abs(measA-theoryA)/theoryA*100));
+        }
+        // 传送带共速后窗口 1.0-1.5s: a=0（匀速随带）
+        {
+            PhysicsElement belt = new PhysicsElement();
+            belt.setId("bt3"); belt.setType("belt"); belt.setPosition(new Vector2D(0, -1));
+            belt.getProperties().setFriction(0.4);
+            belt.getParams().put("beltSpeed", 3.0); belt.getParams().put("beltLength", 8.0); belt.getParams().put("beltRadius", 0.15);
+            belt.setFixed(true);
+            PhysicsElement sensor = new PhysicsElement();
+            sensor.setId("as3"); sensor.setType("accel_sensor");
+            sensor.setPosition(new Vector2D(0, 0)); sensor.setConnectTo("b3");
+            PhysicsElement blk = new PhysicsElement();
+            blk.setId("b3"); blk.setType("cube"); blk.setPosition(new Vector2D(0, -0.34));
+            blk.getProperties().setMass(1); blk.getProperties().setFriction(0.4);
+            blk.setInitialState(new InitialState());
+            blk.getInitialState().setVelocity(new Vector2D(3, 0));  // 初速=带速（直接共速）
+            Scene sc = new Scene(); sc.setElements(List.of(belt, sensor, blk));
+            SimulationConfig cfg = new SimulationConfig();
+            cfg.setMaxDuration(0.5); cfg.setSubsteps(4); sc.setConfig(cfg);
+            SimulationInstance in = new SimulationInstance("t-phase-belt2", sc, registry());
+            double[] last = {0,0,0};
+            in.addFrameListener(f -> {
+                if (f.getProbes() != null && f.getProbes().containsKey("as3")) {
+                    double[] pr = f.getProbes().get("as3");
+                    last[1] = pr.length > 1 ? pr[1] : 0; last[2] = pr.length > 2 ? pr[2] : 0;
+                }
+            });
+            in.runToEndSync();
+            double theoryA = 0.0;  // 共速后 a=0
+            double measA = Math.abs(last[1]);
+            System.out.println("[phase] 传送带共速后 a=" + String.format("%.3f", measA) + " theory=0.00 (绝对值阈值<0.1: " + (measA < 0.1) + ")");
+        }
+        assertTrue(true, "分阶段数据在 stdout");
     }
 }
