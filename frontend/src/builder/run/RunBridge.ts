@@ -173,9 +173,14 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
       case 'pulley': {
         const links = e.links
         if (links.length < 2) { notes.push(`滑轮「${e.id}」需两端跨绳连接，已跳过`); continue }
-        const tA = els.find((x) => x.id === links[0].toId)?.type
-        const tB = els.find((x) => x.id === links[1].toId)?.type
-        if (!tA || !tB) { notes.push(`滑轮「${e.id}」连接对象缺失，已跳过`); continue }
+        const aEl = els.find((x) => x.id === links[0].toId)
+        const bEl = els.find((x) => x.id === links[1].toId)
+        if (!aEl || !bEl) { notes.push(`滑轮「${e.id}」连接对象缺失，已跳过`); continue }
+        // NO_BODY 固定端不可作绳端（Java PulleyElement 要求两端 body；支架悬挂由滑轮位置表达——吸附 bracket.mount 即可）
+        if (NO_BODY.has(aEl.type) || NO_BODY.has(bEl.type)) {
+          notes.push(`滑轮「${e.id}」两端须为运动物体（固定悬挂=把滑轮吸附到 bracket/pole 的 mount 锚点，勿直接连线），已跳过`)
+          continue
+        }
         base.type = 'pulley'
         base.connectTo = links[0].toId
         base.connectTo2 = links[1].toId

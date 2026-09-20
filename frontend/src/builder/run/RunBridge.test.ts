@@ -61,6 +61,19 @@ describe('NO_BODY 固定端（bracket/pole）与单端收编', () => {
     expect(notes.some((n) => n.includes('无 body 连体'))).toBe(true)
   })
 })
+describe('NO_BODY 连接目标矩阵（历史缺陷排查收口）', () => {
+  it('pulley 连 bracket（NO_BODY）：友好跳过并提示悬挂语义，不发 Java', () => {
+    const br = mk('bracket', 'br1')
+    const blk = mk('block', 'b1')
+    const blk2 = mk('block', 'b2')
+    const pul = mk('pulley', 'p1', { links: [
+      { toId: 'br1', kind: 'pulley-rope', anchorA: '悬挂点', anchorB: 'mount' },
+      { toId: 'b1', kind: 'pulley-rope', anchorA: '悬挂点', anchorB: '右' } ] })
+    const { list, notes } = toPhysicsElements([br, blk, blk2, pul])
+    expect(list.filter((x) => x.type === 'pulley')).toHaveLength(0)
+    expect(notes.some((n) => n.includes('固定悬挂'))).toBe(true)
+  })
+})
 describe('toPhysicsElements 类型映射', () => {
   it('block → cube（质量/摩擦/恢复0）', () => {
     const { list } = toPhysicsElements([mk('block', 'b1', { params: { m: 2, v0: 0, mu: 0.3 } })])

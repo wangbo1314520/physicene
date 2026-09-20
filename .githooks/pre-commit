@@ -1,5 +1,14 @@
 #!/bin/bash
 # 交付验证（追问1）：提交前跑类型检查+builder单测
+# untracked 源码扫描（2026-09-20 gitignore 事故制度）：src 下未跟踪源码非空即红
+# —— aiAgent.ts/api.ts 曾被 data/ 规则误伤从未入库，几十轮 E2E 依赖未版本控制文件
+cd "$(git rev-parse --show-toplevel)"
+UNTRACKED=$(git ls-files --others --exclude-standard -- 'frontend/src/**/*.ts' 'frontend/src/**/*.vue' 'frontend/src/**/*.js' 'java-backend/src/**/*.java')
+if [ -n "$UNTRACKED" ]; then
+  echo "❌ untracked 源码文件（未版本控制，换机即丢）："
+  echo "$UNTRACKED"
+  exit 1
+fi
 cd frontend
 npx vue-tsc --noEmit || { echo "❌ vue-tsc failed"; exit 1; }
 npx vitest run src/builder 2>&1 | tail -3
