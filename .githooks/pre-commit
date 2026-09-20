@@ -1,12 +1,21 @@
 #!/bin/bash
 # 交付验证（追问1）：提交前跑类型检查+builder单测
-# untracked 源码扫描（2026-09-20 gitignore 事故制度）：src 下未跟踪源码非空即红
-# —— aiAgent.ts/api.ts 曾被 data/ 规则误伤从未入库，几十轮 E2E 依赖未版本控制文件
+# 【untracked 双层扫描（2026-09-20 gitignore 事故制度，第二十三轮升级）】
+# ① 全仓源类未跟踪文件（ts/vue/js/py/java/sql/md/json）非空即红——换机即丢
+# ② 源目录里被 .gitignore 命中的源类文件非白名单即红——data/ 规则误伤同类防线
+#    （--exclude-standard 会跳过被忽略文件，故 ① 抓不到错匹配，必须独立 ②）
 cd "$(git rev-parse --show-toplevel)"
-UNTRACKED=$(git ls-files --others --exclude-standard -- 'frontend/src/**/*.ts' 'frontend/src/**/*.vue' 'frontend/src/**/*.js' 'java-backend/src/**/*.java')
+UNTRACKED=$(git ls-files --others --exclude-standard -- '*.ts' '*.vue' '*.js' '*.py' '*.java' '*.sql' '*.md' '*.json')
 if [ -n "$UNTRACKED" ]; then
   echo "❌ untracked 源码文件（未版本控制，换机即丢）："
   echo "$UNTRACKED"
+  exit 1
+fi
+IGNORED=$(git status --ignored=matching --short -- frontend/src java-backend/src frontend/e2e python-ai-service/src python-ai-service/scripts docs 2>/dev/null \
+  | grep '^!!' | grep -aE '\.(ts|vue|js|py|java|sql|md)$' | grep -avE '__pycache__|/out/|\.pyc')
+if [ -n "$IGNORED" ]; then
+  echo "❌ 被 .gitignore 忽略的源文件（疑似规则误伤，参照 data/ 事故）："
+  echo "$IGNORED"
   exit 1
 fi
 cd frontend
