@@ -42,6 +42,8 @@ Thumbs.db
 # ===== 数据卷（Docker 持久化目录）=====
 data/
 !docs/**/data/
+# 前端源码目录误伤修正（2026-09-20 发现：src/experiments/data/ 是 AI 代理/API 源码，从未入库）
+!frontend/src/experiments/data/
 
 # 调试临时文件（含 token，绝不入库）
 .token*
