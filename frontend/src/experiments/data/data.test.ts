@@ -23,10 +23,10 @@ describe('tidyMath —— LaTeX 轻量转写（纯文本侧栏可读）', () => 
     expect(tidyMath(String.raw`\frac{mv^2}{2}`)).toBe('(mv^2)/(2)')
     expect(tidyMath(String.raw`\sqrt{2gh}`)).toBe('√(2gh)')
   })
-  it('cdot/times → ·/×；希腊字母映射', () => {
-    expect(tidyMath(String.raw`F\cdot s`)).toBe('F· s')  // 当前行为：替换不吞后随空格（如实锁定）
-    expect(tidyMath('3\\times 4')).toBe('3× 4')  // 同上：替换不吞后随空格（如实锁定）
-    expect(tidyMath(String.raw`\mu mg\cos\theta`)).toBe('μ mg\\cosθ')  // 空格保留 + \cos 不在映射表（当前行为如实锁定）
+  it('cdot/times → ·/×（吞后随空格）；希腊字母与三角函数映射', () => {
+    expect(tidyMath(String.raw`F\cdot s`)).toBe('F·s')  // 修复后：cdot 替换吞一个后随空格
+    expect(tidyMath('3\\times 4')).toBe('3×4')
+    expect(tidyMath(String.raw`\mu mg\cos\theta`)).toBe('μ mgcosθ')  // 修复后：三角函数入映射表去反斜杠；源无空格不凭空产生
     expect(tidyMath(String.raw`\Delta\phi`)).toBe('Δφ')
   })
   it('排版命令剥离（text/mathrm/left/right/逗号分号）+ 上下标花括号展开', () => {
