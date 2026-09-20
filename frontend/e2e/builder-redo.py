@@ -379,13 +379,17 @@ def main() -> int:
             print(f"    [warn] E3b 截图失败（归档性，不判 FAIL）: {e}")
 
         # 探针E4（D5 断绳端到端）：晾衣绳低 Tmax → 对称双断 → 自由落体 + keyEvents 断绳事件
-        for _ in range(40):   # 上一探针 run（默认 12s 窗口）结束后才可编辑——等待或停止
+        for _ in range(66):   # 上一探针 run（默认 12s 窗口）结束后才可编辑——等待（20s 上限覆盖 12s+裕量）或停止
             if pg.evaluate("window.__builder.simStatus()") != "running":
                 break
             pg.wait_for_timeout(300)
         if pg.evaluate("window.__builder.simStatus()") == "running":
             pg.locator("button", has_text="⏹ 停止").first.click()
-            pg.wait_for_timeout(600)
+        for _ in range(20):   # 停止后轮询至终态（idle/ended）——固定 600ms 在停止竞态下不够（第二十七轮 E4 间歇根因）
+            st0 = pg.evaluate("window.__builder.simStatus()")
+            if st0 in ("idle", "ended"):
+                break
+            pg.wait_for_timeout(300)
         pg.evaluate("window.__builder.clear()")
         p1b = place(pg, w, "竖直杆", (-0.8, 0.6))
         p2b = place(pg, w, "竖直杆", (0.8, 0.6))

@@ -5,6 +5,7 @@
 截图输出到 frontend/e2e/out/exp-<id>.png
 """
 import argparse
+import re
 import json
 import sys
 import urllib.request
@@ -167,6 +168,18 @@ STAGE_SEL = ".lab canvas, .exp canvas:not(.hist), .alt-stage canvas, .sim25d can
 ALPHA_ELEMENTS = ["① α粒子源", "② 准直狭缝", "③ 金箔", "④ 环形荧光屏", "⑤ 散射轨迹", "⑥ 散射角量角器", "⑦ 原子核"]
 
 
+def wait_text(page, pattern, sel=".panel", timeout_s=15, interval=0.4):
+    """轮询等待文本出现（E2E 制度：替代裸 wait_for_timeout 长等待——文本出现即断言，超时返回当下文本）"""
+    import time as _t
+    deadline = _t.time() + timeout_s
+    txt = ""
+    while _t.time() < deadline:
+        txt = page.locator(sel).inner_text()
+        if re.search(pattern, txt):
+            return txt
+        page.wait_for_timeout(int(interval * 1000))
+    return txt
+
 def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
     """按实验的专项断言（元件对账 / 物理量），返回描述行"""
     import re
@@ -178,8 +191,8 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         lines.append(f"  {'✓' if ok else '✗'} α散射 7 类元件对账 {'齐全' if ok else '缺 ' + str(missing)}")
         if not ok:
             failures.append(f"{exp_id}: 元件缺失 {missing}")
-        page.wait_for_timeout(3500)
-        m = re.search(r"已发射 (\d+)/(\d+)", page.locator(".panel .result").inner_text())
+        res_txt = wait_text(page, r"已发射 \d+/\d+", sel=".panel .result")
+        m = re.search(r"已发射 (\d+)/(\d+)", res_txt)
         emitted, total = (int(m.group(1)), int(m.group(2))) if m else (0, 0)
         ok2 = total > 10 and emitted > 10
         lines.append(f"  {'✓' if ok2 else '✗'} 轨迹数 > 10 且已逐个发射（{emitted}/{total}）")
@@ -203,8 +216,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 等时性断言失败 {ts}")
     if exp_id == "gk-clothesline":
-        page.wait_for_timeout(8000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"T 恒为 [\d.]+ N")
         m = re.search(r"T 恒为 ([\d.]+) N", txt)
         t_meas = float(m.group(1)) if m else -1.0
         d, L, mg = 0.8 * 2.0, 2.0, 2 * 9.8
@@ -214,8 +226,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 张力断言失败 {t_meas} vs {t_th:.2f}")
     if exp_id == "gk-multistage":
-        page.wait_for_timeout(6500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"停止：总位移 x=[\d.]+ m")
         m = re.search(r"停止：总位移 x=([\d.]+) m", txt)
         x = float(m.group(1)) if m else -1.0
         ok = abs(x - 15.2) <= 0.15
@@ -486,10 +497,12 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
             page.wait_for_timeout(500)
         m = re.search(r"完全进入：v=([\d.]+) m/s", txt)
         v = float(m.group(1)) if m else -1.0
-        ok = abs(v - 3.0) <= 0.03 and "q=1.000" in txt
+        mq = re.search(r"q=([\d.]+) C（理论", txt)
+        qv = float(mq.group(1)) if mq else -1.0
+        ok = abs(v - 3.0) <= 0.03 and abs(qv - 1.0) <= 0.005   # q 实测显示偶发 0.999（0.9995 舍入），数值容差替代字符串精确匹配
         lines.append(f"  {'✓' if ok else '✗'} 线框进入：完全进入时 v={v} m/s（理论 v₀−B²L²a/mR=3.00），q=BLa/R=1.000 C")
         if not ok:
-            failures.append(f"{exp_id}: 线框进入断言失败 {v}")
+            failures.append(f"{exp_id}: 线框进入断言失败 v={v} q={qv}")
     if exp_id == "gk-rod-incline-b":
         page.wait_for_timeout(6500)
         txt = page.locator(".panel").inner_text()
