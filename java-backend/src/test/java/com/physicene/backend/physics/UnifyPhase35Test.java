@@ -480,7 +480,7 @@ class UnifyPhase35Test {
         // 最小二乘 v(t)=a·t+b 消除两点差分的 13% 脉冲噪声（追问2 方案 2）
         // 实测 3.454 vs 理论 3.203 → 7.8%（传感器已达仿真底板 7.5%+0.3%）
         assertTrue(Math.abs(alongSlope - theory) / theory < 0.08,
-                "accel_sensor 斜面沿面分量应 ≈ " + theory + " ±8%（实测 " + alongSlope + "，仿真精度 7.5%）");
+                "accel_sensor 斜面沿面分量应 ≈ " + theory + " ±8%（实测 " + alongSlope + "）");
     }
 
     /** 追问1：迭代次数扫描——不同 velocity solver iterations 下的斜面滑块加速度偏差 */
@@ -581,14 +581,14 @@ class UnifyPhase35Test {
             gnd.setId("g"); gnd.setType("wall"); gnd.setPosition(new Vector2D(0, -0.5));
             gnd.setScale(new Vector2D(50.0, 0.2)); gnd.getProperties().setFriction(0.0);
             PhysicsElement cart = new PhysicsElement();
-            cart.setId("c"); cart.setType("cube"); cart.setPosition(new Vector2D(0, -0.25));
-            cart.setScale(new Vector2D(3.0, 0.15)); cart.getProperties().setMass(3);
-            cart.getProperties().setFriction(0.0);
+            cart.setId("c"); cart.setType("cube"); cart.setPosition(new Vector2D(0, -0.325));  // 板底=-0.325 恰触地面顶(-0.4+0.1)；原-0.25悬空0.075m→前0.12s自由落体N=0
+            cart.setScale(new Vector2D(6.0, 0.15)); cart.getProperties().setMass(3);  // 宽6：相对位移0.5s=1.67/1.0s=2.69(共速1.53s内)，块+半宽2.69<3 不滑出板
+            cart.getProperties().setFriction(0.2);  // dyn4j合成μ=sqrt(μ1μ2)：块-板=0.2✓ 板-地=sqrt(0.2×0)=0仍光滑✓（原0.0→块-板=0→0.00根因）
             PhysicsElement sensor = new PhysicsElement();
             sensor.setId("as"); sensor.setType("accel_sensor");
             sensor.setPosition(new Vector2D(0, 0)); sensor.setConnectTo("blk");
             PhysicsElement blk = new PhysicsElement();
-            blk.setId("blk"); blk.setType("cube"); blk.setPosition(new Vector2D(-0.5, 0.4));  // 板中央非边缘
+            blk.setId("blk"); blk.setType("cube"); blk.setPosition(new Vector2D(-0.5, 0.25));  // 精确贴板（板顶=-0.325+0.075=-0.25, 块底=-0.25→中心=-0.25+0.5=0.25）
             blk.getProperties().setMass(1); blk.getProperties().setFriction(0.2);
             blk.setInitialState(new InitialState());
             blk.getInitialState().setVelocity(new Vector2D(4, 0));
@@ -607,8 +607,10 @@ class UnifyPhase35Test {
             double theoryA = 0.2 * 9.8;
             double measA = Math.abs(last[1]);
             System.out.println("[x-scene] 板块 a=" + String.format("%.2f", measA) + " theory=" + String.format("%.2f", theoryA) + " dev=" + String.format("%.1f%%", Math.abs(measA-theoryA)/theoryA*100));
+            assertTrue(Math.abs(measA - theoryA) / theoryA < 0.08,
+                "板块 a 应 ≈ μg=1.96 ±8%（实测 " + String.format("%.2f", measA) + "）");
         }
-        // B: 传送带共速
+        // B: 传送带共速（窗口1.0s > 共速0.77s，含共速后a=0段→读数偏低是窗口跨段，非物理错误；精确窗口断言见 accelLeastSquaresPhased 的信息输出）
         {
             PhysicsElement belt = new PhysicsElement();
             belt.setId("bt"); belt.setType("belt"); belt.setPosition(new Vector2D(0, -1));
@@ -619,7 +621,7 @@ class UnifyPhase35Test {
             sensor.setId("as2"); sensor.setType("accel_sensor");
             sensor.setPosition(new Vector2D(0, 0)); sensor.setConnectTo("b2");
             PhysicsElement blk = new PhysicsElement();
-            blk.setId("b2"); blk.setType("cube"); blk.setPosition(new Vector2D(0, -0.34));
+            blk.setId("b2"); blk.setType("cube"); blk.setPosition(new Vector2D(0, -0.35));  // 恰触带面(带顶=-0.85,块底=-0.85→中心=-0.35)；原-0.34留0.01m落体冲击
             blk.getProperties().setMass(1); blk.getProperties().setFriction(0.4);
             Scene sc = new Scene(); sc.setElements(List.of(belt, sensor, blk));
             SimulationConfig cfg = new SimulationConfig();
@@ -679,14 +681,14 @@ class UnifyPhase35Test {
             gnd.setId("g"); gnd.setType("wall"); gnd.setPosition(new Vector2D(0, -0.5));
             gnd.setScale(new Vector2D(50.0, 0.2)); gnd.getProperties().setFriction(0.0);
             PhysicsElement cart = new PhysicsElement();
-            cart.setId("c"); cart.setType("cube"); cart.setPosition(new Vector2D(0, -0.25));
-            cart.setScale(new Vector2D(3.0, 0.15)); cart.getProperties().setMass(3);
-            cart.getProperties().setFriction(0.0);
+            cart.setId("c"); cart.setType("cube"); cart.setPosition(new Vector2D(0, -0.325));  // 板底=-0.325 恰触地面顶(-0.4+0.1)；原-0.25悬空0.075m→前0.12s自由落体N=0
+            cart.setScale(new Vector2D(6.0, 0.15)); cart.getProperties().setMass(3);  // 宽6：相对位移0.5s=1.67/1.0s=2.69(共速1.53s内)，块+半宽2.69<3 不滑出板
+            cart.getProperties().setFriction(0.2);  // dyn4j合成μ=sqrt(μ1μ2)：块-板=0.2✓ 板-地=sqrt(0.2×0)=0仍光滑✓（原0.0→块-板=0→0.00根因）
             PhysicsElement sensor = new PhysicsElement();
             sensor.setId("as"); sensor.setType("accel_sensor");
             sensor.setPosition(new Vector2D(0, 0)); sensor.setConnectTo("blk");
             PhysicsElement blk = new PhysicsElement();
-            blk.setId("blk"); blk.setType("cube"); blk.setPosition(new Vector2D(-0.5, 0.4));  // 板中央非边缘
+            blk.setId("blk"); blk.setType("cube"); blk.setPosition(new Vector2D(-0.5, 0.25));  // 精确贴板（板顶=-0.325+0.075=-0.25, 块底=-0.25→中心=-0.25+0.5=0.25）
             blk.getProperties().setMass(1); blk.getProperties().setFriction(0.2);
             blk.setInitialState(new InitialState());
             blk.getInitialState().setVelocity(new Vector2D(4, 0));
@@ -705,8 +707,10 @@ class UnifyPhase35Test {
             double theoryA = 0.2 * 9.8;  // 共速前 a = μg = 1.96
             double measA = Math.abs(last[1]);
             System.out.println("[phase] 板块共速前 a=" + String.format("%.2f", measA) + " theory=" + String.format("%.2f", theoryA) + " dev=" + String.format("%.1f%%", Math.abs(measA-theoryA)/theoryA*100));
+            assertTrue(Math.abs(measA - theoryA) / theoryA < 0.08,
+                "板块共速前 a 应 ≈ μg=1.96 ±8%（实测 " + String.format("%.2f", measA) + "）");
         }
-        // 传送带：vb=3 μ=0.4 → 共速 t*=3/3.92=0.77s
+        // 传送带：vb=3 μ=0.4 → 共速 t*=3/3.92=0.77s；信息项：+11% 属求解器冲量热启动累积（同类底板见斜面接触 7.5%），板块平摩擦减速段 0.0% 证明 μ 合成本身正确
         // 共速前窗口 0-0.5s: a=μg=3.92
         {
             PhysicsElement belt = new PhysicsElement();
@@ -718,7 +722,7 @@ class UnifyPhase35Test {
             sensor.setId("as2"); sensor.setType("accel_sensor");
             sensor.setPosition(new Vector2D(0, 0)); sensor.setConnectTo("b2");
             PhysicsElement blk = new PhysicsElement();
-            blk.setId("b2"); blk.setType("cube"); blk.setPosition(new Vector2D(0, -0.34));
+            blk.setId("b2"); blk.setType("cube"); blk.setPosition(new Vector2D(0, -0.35));  // 恰触带面(带顶=-0.85,块底=-0.85→中心=-0.35)；原-0.34留0.01m落体冲击
             blk.getProperties().setMass(1); blk.getProperties().setFriction(0.4);
             Scene sc = new Scene(); sc.setElements(List.of(belt, sensor, blk));
             SimulationConfig cfg = new SimulationConfig();
@@ -747,7 +751,7 @@ class UnifyPhase35Test {
             sensor.setId("as3"); sensor.setType("accel_sensor");
             sensor.setPosition(new Vector2D(0, 0)); sensor.setConnectTo("b3");
             PhysicsElement blk = new PhysicsElement();
-            blk.setId("b3"); blk.setType("cube"); blk.setPosition(new Vector2D(0, -0.34));
+            blk.setId("b3"); blk.setType("cube"); blk.setPosition(new Vector2D(0, -0.35));  // 恰触带面同上
             blk.getProperties().setMass(1); blk.getProperties().setFriction(0.4);
             blk.setInitialState(new InitialState());
             blk.getInitialState().setVelocity(new Vector2D(3, 0));  // 初速=带速（直接共速）
