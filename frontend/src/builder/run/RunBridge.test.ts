@@ -14,6 +14,53 @@ const mk = (type: string, id: string, patch: Partial<GeoElement> = {}): GeoEleme
   }
 }
 
+
+describe('NO_BODY 固定端（bracket/pole）与单端收编', () => {
+  it('rope A端pole+B端block：悬点=pole mount 世界坐标，连体占 connectTo/anchorA 槽位', () => {
+    const pole = mk('pole', 'p1', { position: { x: 2, y: 1 }, params: { H: 2.0 } })
+    const blk = mk('block', 'b1')
+    const rope = mk('rope', 'r1', { params: { L: 1.5 }, links: [
+      { toId: 'p1', kind: 'rope', anchorA: '左端', anchorB: 'mount' },
+      { toId: 'b1', kind: 'rope', anchorA: '右端', anchorB: '顶' }] })
+    const { list } = toPhysicsElements([pole, blk, rope])
+    expect(list.filter((x) => x.type !== 'rope')).toHaveLength(1)  // pole 无 body，block 有
+    const r = list.find((x) => x.type === 'rope')!
+    expect(r.connectTo).toBe('b1')            // 连体=block（Java 悬点语义）
+    expect(r.anchorA).toEqual({ x: 0, y: 0.5 })  // block 顶局部锚
+    expect(r.connectTo2).toBeUndefined()
+    expect(r.position).toEqual({ x: 2, y: 2 })   // mount = (2,1)+(0,H/2=1)
+  })
+  it('spring B端bracket：悬点 = (0.8, 0.4)+position，连体 A 保持 connectTo', () => {
+    const br = mk('bracket', 'br1', { position: { x: 1, y: 0 } })
+    const blk = mk('block', 'b1')
+    const sp = mk('spring', 's1', { params: { k: 20, L0: 1.2 }, links: [
+      { toId: 'b1', kind: 'spring', anchorA: '左端', anchorB: '右' },
+      { toId: 'br1', kind: 'spring', anchorA: '右端', anchorB: 'mount' }] })
+    const { list } = toPhysicsElements([br, blk, sp])
+    const r = list.find((x) => x.type === 'spring')!
+    expect(r.connectTo).toBe('b1')
+    expect(r.connectTo2).toBeUndefined()
+    expect(r.position).toEqual({ x: 1.8, y: 0.4 })  // (1,0)+(0.8,0.4)
+  })
+  it('单端弹簧（无第二目标）未连端 = resolveAnchors 解析（L0=1.2 非默认）', () => {
+    const sp = mk('spring', 's2', { position: { x: 0, y: 0 }, params: { L0: 1.2 }, links: [{ toId: 'b1', kind: 'spring', anchorA: '左端', anchorB: '右' }] })
+    const blk = mk('block', 'b1')
+    const { list } = toPhysicsElements([sp, blk])
+    const r = list.find((x) => x.type === 'spring')!
+    expect(r.position!.x).toBeCloseTo(1.2, 6)  // 原点+rot(0)·(L0,0)
+    expect(r.connectTo).toBe('b1')
+  })
+  it('两端均固定端（bracket+pole）→ 无动力学，跳过并提示', () => {
+    const br = mk('bracket', 'br2')
+    const pole = mk('pole', 'p2')
+    const sp = mk('spring', 's3', { links: [
+      { toId: 'br2', kind: 'spring', anchorA: '左端', anchorB: 'mount' },
+      { toId: 'p2', kind: 'spring', anchorA: '右端', anchorB: 'mount' } ] })
+    const { list, notes } = toPhysicsElements([br, pole, sp])
+    expect(list.filter((x) => x.type === 'spring')).toHaveLength(0)
+    expect(notes.some((n) => n.includes('无 body 连体'))).toBe(true)
+  })
+})
 describe('toPhysicsElements 类型映射', () => {
   it('block → cube（质量/摩擦/恢复0）', () => {
     const { list } = toPhysicsElements([mk('block', 'b1', { params: { m: 2, v0: 0, mu: 0.3 } })])

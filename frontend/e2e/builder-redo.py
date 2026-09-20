@@ -284,28 +284,83 @@ def main() -> int:
         check("探针C 水平块放斜面 angle 保持 0（Shift 跳过基线）", abs(final_el["angle"]) < 0.01,
               f"angle={final_el['angle']:.4f}")
 
+        # 探针D（bracket/pole 批：旋转斜面 + 真实拖放吸附——resolveAnchors E2E 级验证）
+        pg.evaluate("window.__builder.clear()")
+        pg.locator(".palette .item", has_text="斜面").first.click()
+        pg.wait_for_timeout(150)
+        els2 = pg.evaluate("window.__builder.elements()")
+        slp = els2[-1]
+        drag(pg, w, slp["position"]["x"], slp["position"]["y"], 0, 0)
+        pg.evaluate(f"window.__builder.setParams({slp['id']!r}, {{th: 30, mu: 0, L: 6}})")
+        pg.evaluate(f"window.__builder.setAngle({slp['id']!r}, {math.pi / 2})")
+        sl = next(e for e in pg.evaluate("window.__builder.elements()") if e["id"] == slp["id"])
+        topx = sl["position"]["x"] - 6 * math.tan(math.radians(30))  # R(90°)·(0,h) = (−h, 0)
+        topy = sl["position"]["y"]
+        pg.locator(".palette .item", has_text="物块").first.click()
+        pg.wait_for_timeout(150)
+        els2 = pg.evaluate("window.__builder.elements()")
+        blkd = els2[-1]
+        drag(pg, w, blkd["position"]["x"], blkd["position"]["y"], topx - 0.5 + 0.18, topy + 0.18)
+        fblk = next(e for e in pg.evaluate("window.__builder.elements()") if e["id"] == blkd["id"])
+        rx = fblk["position"]["x"] + 0.5 * math.cos(fblk["angle"])
+        ry = fblk["position"]["y"] + 0.5 * math.sin(fblk["angle"])
+        check("探针D 旋转90°斜面顶端吸附（块右锚=顶锚 |Δ|<0.05）",
+              abs(rx - topx) < 0.05 and abs(ry - topy) < 0.05,
+              f"右锚=({rx:.3f},{ry:.3f}) 顶锚=({topx:.3f},{topy:.3f})")
+        pg.screenshot(path=f"{SHOTS}\\redo-probe-rotsnap.png")
+
+        # 探针E（bracket/pole 批：固定端两件端到端 + pole H 参数跟随）
+        # E1：bracket.mount 悬绳挂块 → 松弛下落绷直 → 静止于悬点正下
+        pg.evaluate("window.__builder.clear()")
+        brk = place(pg, w, "支架", (-1, 0))
+        blk1 = place(pg, w, "物块", (-0.2, -1.4))
+        rpid = pg.evaluate("window.__builder.add('rope', {L: 2}, -1, 0.4)")
+        pg.evaluate(f"window.__builder.link({rpid!r}, '左端', {brk!r}, 'mount', 'rope')")
+        pg.evaluate(f"window.__builder.link({rpid!r}, '右端', {blk1!r}, '顶', 'rope')")
+        pg.locator(".tools .primary").click()
+        st1, smp1 = run_and_sample(pg, max_s=5)
+        last1 = smp1[-1] if smp1 else {}
+        pend_x, pend_y = -0.2, 0.4 - 2 - 0.5
+        check("探针E1 bracket 悬绳挂块静止于悬点正下（|Δx|<0.15, |Δy|<0.25）",
+              bool(last1) and abs(last1[1][0]["x"] - pend_x) < 0.15 and abs(last1[1][0]["y"] - pend_y) < 0.25,
+              f"末态=({last1[1][0]["x"]:.3f},{last1[1][0]["y"]:.3f}) 期望=({pend_x},{pend_y})" if last1 else "无采样")
+        pg.screenshot(path=f"{SHOTS}\\redo-probe-bracket.png")
+
+        # E2：晾衣绳两段绳（pole×2 + 块）→ 对称静止；E3：H 1.2→2.0 重跑 → 悬点跟随上移 0.4
+        pg.evaluate("window.__builder.clear()")
+        p1 = place(pg, w, "竖直杆", (-0.8, 0.6))
+        p2 = place(pg, w, "竖直杆", (0.8, 0.6))
+        cloth = place(pg, w, "物块", (0, -0.2))
+        rp1 = pg.evaluate("window.__builder.add('rope', {L: 1.1}, 0, 1)")
+        rp2 = pg.evaluate("window.__builder.add('rope', {L: 1.1}, 0, 1)")
+        pg.evaluate(f"window.__builder.link({rp1!r}, '左端', {p1!r}, 'mount', 'rope')")
+        pg.evaluate(f"window.__builder.link({rp1!r}, '右端', {cloth!r}, '顶', 'rope')")
+        pg.evaluate(f"window.__builder.link({rp2!r}, '左端', {p2!r}, 'mount', 'rope')")
+        pg.evaluate(f"window.__builder.link({rp2!r}, '右端', {cloth!r}, '顶', 'rope')")
+        pg.locator(".tools .primary").click()
+        st2, smp2 = run_and_sample(pg, max_s=5)
+        last2 = smp2[-1] if smp2 else {}
+        sag = math.sqrt(1.1 ** 2 - 0.8 ** 2)
+        rest_y = 1.2 - sag - 0.5
+        check("探针E2 晾衣绳对称静止（|x|<0.12, y≈绷直位）",
+              bool(last2) and abs(last2[1][0]["x"]) < 0.12 and abs(last2[1][0]["y"] - rest_y) < 0.2,
+              f"末态=({last2[1][0]["x"]:.3f},{last2[1][0]["y"]:.3f}) 期望 y={rest_y:.3f}" if last2 else "无采样")
+        pg.screenshot(path=f"{SHOTS}\\redo-probe-pole.png")
+
+        pg.evaluate(f"window.__builder.setParams({p1!r}, {{H: 0.8}})")  # 降杆（升杆初始违反绳长约束，另属教学现象）
+        pg.evaluate(f"window.__builder.setParams({p2!r}, {{H: 0.8}})")
+        pg.locator(".tools .primary").click()
+        st3, smp3 = run_and_sample(pg, max_s=5)
+        last3 = smp3[-1] if smp3 else {}
+        rest_y3 = 0.6 + 0.4 - sag - 0.5  # 杆中心 0.6 不变，mount=0.6+H/2=1.0 → 衣服下移 ΔH/2=0.2
+        check("探针E3 pole H→0.8 悬点跟随（衣服下移 0.2）",
+              bool(last3) and abs(last3[1][0]["x"]) < 0.12 and abs(last3[1][0]["y"] - rest_y3) < 0.2,
+              f"末态=({last3[1][0]["x"]:.3f},{last3[1][0]["y"]:.3f}) 期望 y={rest_y3:.3f}" if last3 else "无采样")
+        pg.screenshot(path=f"{SHOTS}\\redo-probe-pole-h2.png")
         v2 = pg.video
         pg.close()
         v2.save_as(f"{ARCHIVE}\\批次1回炉-手操探针.webm")
         ctx2.close()
-
-        # 探针C（追问2：Shift 跳过自动对齐测试——第二次被推，本轮必加）
-        pg.evaluate("window.__builder.clear()")
-        pg.locator(".palette .item", has_text="斜面").first.click()
-        pg.wait_for_timeout(150)
-        els = pg.evaluate("window.__builder.elements()")
-        lp2 = els[-1]
-        drag(pg, w, lp2["position"]["x"], lp2["position"]["y"], -4, -2.5)
-        pg.evaluate(f"window.__builder.setParams({lp2['id']!r}, {{th: 30, mu: 0, L: 6}})")
-        # 拖水平块到斜面（不按 Shift 的情况下自动对齐尚未实现，验证当前行为：angle 保持 0）
-        pg.locator(".palette .item", has_text="物块").first.click()
-        pg.wait_for_timeout(150)
-        els = pg.evaluate("window.__builder.elements()")
-        blkel = els[-1]
-        drag(pg, w, blkel["position"]["x"], blkel["position"]["y"], -2.0, 0.2)
-        final_el = next(e for e in pg.evaluate("window.__builder.elements()") if e["id"] == blkel["id"])
-        check("探针C 无自动对齐时块 angle 保持 0（Shift 跳过的基线行为）", abs(final_el["angle"]) < 0.01,
-              f"angle={final_el['angle']:.4f}")
 
         check("全程无页面错误", not errs, str(errs[:2]))
         b.close()

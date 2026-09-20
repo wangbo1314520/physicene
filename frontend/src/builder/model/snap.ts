@@ -4,20 +4,22 @@
  */
 import type { GeoElement, AnchorTemplate, AnchorKind } from '../catalog'
 import { byType } from '../catalog'
+import { resolveAnchors, resolveTilt } from './anchors'
 
 export interface SnapProposal {
   dragId: string; anchorA: string; targetId: string; anchorB: string
   dx: number; dy: number; dth: number; dist: number; priority: number
 }
 
-/** 世界坐标变换：局部锚点 + position + rotation(angle) */
+/** 世界坐标变换：局部锚点 + position + rotation(angle + 固有倾角 tilt) */
 function anchorWorld(e: GeoElement, tmpl: AnchorTemplate): { x: number; y: number; angle: number } {
-  const c = Math.cos(e.angle), s = Math.sin(e.angle)
+  const a = e.angle + resolveTilt(e)
+  const c = Math.cos(a), s = Math.sin(a)
   const lx = tmpl.local.x, ly = tmpl.local.y
   return {
     x: e.position.x + c * lx - s * ly,
     y: e.position.y + s * lx + c * ly,
-    angle: e.angle,
+    angle: a,
   }
 }
 
@@ -29,15 +31,16 @@ function compatible(a: AnchorKind, b: AnchorKind, accepts: AnchorKind[]): boolea
 export function findSnap(dragged: GeoElement, all: GeoElement[], threshold = 0.35): SnapProposal | null {
   const specA = byType.get(dragged.type)
   if (!specA?.anchors?.length) return null
+  const anchorsA = resolveAnchors(dragged)
   let best: SnapProposal | null = null
 
-  for (const tmplA of specA.anchors) {
+  for (const tmplA of anchorsA) {
     const wa = anchorWorld(dragged, tmplA)
     for (const other of all) {
       if (other.id === dragged.id) continue
       const specB = byType.get(other.type)
       if (!specB?.anchors) continue
-      for (const tmplB of specB.anchors) {
+      for (const tmplB of resolveAnchors(other)) {
         if (!compatible(tmplA.kind, tmplB.kind, tmplA.accepts)) continue
         const wb = anchorWorld(other, tmplB)
         const dist = Math.hypot(wa.x - wb.x, wa.y - wb.y)

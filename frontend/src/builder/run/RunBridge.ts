@@ -10,34 +10,31 @@
  */
 import { computed } from 'vue'
 import { useSimulationSocket, type PhysicsElementInput } from '../../composables/useSimulationSocket'
-import { byType, type GeoElement } from '../catalog'
+import { byType, BELT_RADIUS, type GeoElement } from '../catalog'
+import { resolveAnchorById, anchorWorldOf } from '../model/anchors'
 import type { Analysis } from '../analysis/EngineAnalyzer'
 
 /** 阶段四才接入联合运行的类型（画布可搭、运行桥暂拒绝） */
 const PHASE4 = new Set(['cylinder', 'piston', 'gas_cell', 'heater', 'rail_pair', 'rod_bar',
   'light_source', 'prism', 'optic_screen', 'photo_tube', 'h_atom'])
-/** 不建刚体的显示/检测类（静默跳过） */
-const NO_BODY = new Set(['photogate', 'force_sensor', 'trail', 'energy_meter', 'timeline', 'anchor_point', 'accel_sensor', 'speed_sensor', 'range_finder'])
+/** 不建刚体的显示/检测类（静默跳过）；bracket/pole = 理想固定端（无碰撞体，绳/弹簧连接端折算固定悬点） */
+const NO_BODY = new Set(['photogate', 'force_sensor', 'trail', 'energy_meter', 'timeline', 'anchor_point',
+  'accel_sensor', 'speed_sensor', 'range_finder', 'bracket', 'pole'])
 
 export interface RunPose { x: number; y: number; angle?: number }
 
 const num = (v: number | undefined, fb: number): number => (Number.isFinite(v) ? (v as number) : fb)
 const deg2rad = (d: number) => (d * Math.PI) / 180
 
-/** 锚点名 → 局部坐标（目录模板） */
-function anchorLocal(type: string, anchorId: string): { x: number; y: number } {
-  const a = byType.get(type)?.anchors?.find((t) => t.id === anchorId)
-  return a ? { x: a.local.x, y: a.local.y } : { x: 0, y: 0 }
+/** 锚点名 → 局部坐标：按元件实际参数解析（resolveAnchors 统一机制，原静态目录读取已收编） */
+function anchorLocalOf(e: GeoElement, anchorId: string): { x: number; y: number } {
+  const t = resolveAnchorById(e, anchorId)
+  return { x: t.local.x, y: t.local.y }
 }
 
-/** 绳/弹簧未连接端的锚点名（目录约定 左端/右端） */
-const otherEnd = (endId: string): string => (endId === '左端' ? '右端' : '左端')
-
-/** 元件自身的锚点世界坐标（含旋转） */
+/** 元件自身的锚点世界坐标（含旋转 + 固有倾角） */
 function anchorWorldOfSelf(e: GeoElement, anchorId: string): { x: number; y: number } {
-  const l = anchorLocal(e.type, anchorId)
-  const c = Math.cos(e.angle), s = Math.sin(e.angle)
-  return { x: e.position.x + c * l.x - s * l.y, y: e.position.y + s * l.x + c * l.y }
+  return anchorWorldOf(e, anchorId)
 }
 
 /** 透传 Java 侧逐体参数（bullet/fixRot），其余 params 由各 case 显式映射 */
@@ -120,39 +117,51 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
       case 'belt':
         asBody({ type: 'belt', angle: e.angle + deg2rad(num(p.th, 0)), fixed: true,
           properties: { friction: num(p.mu, 0.4) },
-          params: { beltSpeed: num(p.vb, 3), beltLength: num(p.L, 6), beltRadius: 0.15 } })
+          params: { beltSpeed: num(p.vb, 3), beltLength: num(p.L, 6), beltRadius: BELT_RADIUS } })
         break
       case 'loop_track':
         asBody({ type: 'loop_track', fixed: true,
           params: { radius: num(p.radius, 1), arcA0: 0, arcA1: 360, arcSideCode: num(p.side, 0) } })
         break
       case 'rope': case 'spring': {
-        // 连接映射：links[0] → connectTo/anchorA（连体 A 上锚点），links[1] → connectTo2/anchorB；
-        // 单端连接时 position = 未连接端的世界坐标（Java 以元件 position 为固定悬点）
+        // 连接映射：body 端 → connectTo(+anchorA=连体局部锚点)；双 body 端再加 connectTo2/anchorB。
+        // 固定端（NO_BODY：bracket/pole/anchor_point）或未连端 → Java 悬点语义：
+        //   position=悬点世界坐标（Java 以 rope/spring 自身 position 为固定悬点，connectTo 侧连体）
         const links = e.links
         if (links.length === 0) { notes.push(`${e.type}「${e.id}」未连接，已跳过`); continue }
         const a = links[0]
-        const aType = els.find((x) => x.id === a.toId)?.type
-        if (!aType) { notes.push(`${e.type}「${e.id}」连接对象缺失，已跳过`); continue }
-        base.connectTo = a.toId
-        base.anchorA = anchorLocal(aType, a.anchorB)
-        if (links.length >= 2) {
-          const b = links[1]
-          const bType = els.find((x) => x.id === b.toId)?.type
-          if (bType) {
-            base.connectTo2 = b.toId
-            base.anchorB = anchorLocal(bType, b.anchorB)
-          }
+        const aEl = els.find((x) => x.id === a.toId)
+        if (!aEl) { notes.push(`${e.type}「${e.id}」连接对象缺失，已跳过`); continue }
+        const b = links.length >= 2 ? links[1] : undefined
+        const bEl = b ? els.find((x) => x.id === b.toId) : undefined
+        const fixedA = NO_BODY.has(aEl.type)
+        const fixedB = bEl ? NO_BODY.has(bEl.type) : false
+        if (fixedA && (!bEl || fixedB)) {
+          notes.push(`${e.type}「${e.id}」无 body 连体（A端固定${bEl ? '且B端固定' : '且无B端'}），已跳过`); continue
+        }
+        if (fixedA && b && bEl) {
+          // A 端固定 → 悬点=A 锚世界坐标；连体=B（占据 connectTo/anchorA 槽位）
+          base.position = anchorWorldOfSelf(aEl, a.anchorB)
+          base.connectTo = b.toId
+          base.anchorA = anchorLocalOf(bEl, b.anchorB)
         } else {
-          // 单端连接：Java 以元件 position 为固定悬点——未连端局部坐标取参数化长度
-          //（spring 左端(0)/右端(L0)，rope 左端(0)/右端(L)；目录静态锚点 (1,0)/(2,0) 仅对默认长度成立）
-          const len = e.type === 'spring' ? num(p.L0, 1) : num(p.L, 2)
-          if (a.anchorA === '左端') {
-            // 未连的右端在局部 +len 处
-            const c2 = Math.cos(e.angle), s2 = Math.sin(e.angle)
-            base.position = { x: e.position.x + c2 * len, y: e.position.y + s2 * len }
+          base.connectTo = a.toId
+          base.anchorA = anchorLocalOf(aEl, a.anchorB)
+          if (bEl && b) {
+            if (fixedB) {
+              // B 端固定 → 悬点=B 锚世界坐标（A 为连体）
+              base.position = anchorWorldOfSelf(bEl, b.anchorB)
+            } else {
+              base.connectTo2 = b.toId
+              base.anchorB = anchorLocalOf(bEl, b.anchorB)
+            }
           } else {
-            base.position = { x: e.position.x, y: e.position.y } // 未连的左端即元件原点
+            // 单端连接（另一端无目标）：未连端局部坐标由 resolveAnchors 按参数解析
+            //（spring 右端=(L0,0)、rope 右端=(L,0)，含旋转——原特判已收编）
+            const unlinked = resolveAnchorById(e, a.anchorA === '左端' ? '右端' : '左端')
+            const c2 = Math.cos(e.angle), s2 = Math.sin(e.angle)
+            base.position = { x: e.position.x + c2 * unlinked.local.x - s2 * unlinked.local.y,
+              y: e.position.y + s2 * unlinked.local.x + c2 * unlinked.local.y }
           }
         }
         if (e.type === 'rope') base.params = { jointLength: num(p.L, 2) }

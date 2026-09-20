@@ -185,8 +185,19 @@ function saveScene() {
   persist()
   say('已保存到本机')
 }
-function loadScene(s: Saved) { snapshot(); sceneName.value = s.name; restore(JSON.stringify(s.elements)); seq = elements.length + 1; say(`已载入「${s.name}」`) }
+function loadScene(s: Saved) { snapshot(); sceneName.value = s.name; restore(JSON.stringify(s.elements)); seq = elements.length + 1; say(`已载入「${s.name}」`); anchorFixNotice() }
 function deleteScene(s: Saved) { saved.value = saved.value.filter((x) => x.id !== s.id); persist() }
+/** 锚点解析修正提示：仅「加载已保存/导入」时触发（新拖放实时解析无快照差异）。
+ *  判据 = 8 个锚点参数化元件之一且对应几何参数偏离默认（|p−def|>1e-9，10 个参数对）。 */
+const ANCHOR_PARAM_PAIRS: Record<string, [string, number][]> = {
+  cart: [['L', 6]], slope: [['L', 6], ['th', 30]], vwall: [['H', 6]], lead_in: [['L', 2]],
+  belt: [['L', 6], ['th', 0]], loop_track: [['radius', 1]], spring: [['L0', 1]], rope: [['L', 2]],
+}
+function anchorFixNotice() {
+  const hit = elements.some((e) =>
+    (ANCHOR_PARAM_PAIRS[e.type] ?? []).some(([k, def]) => Math.abs((e.params[k] ?? def) - def) > 1e-9))
+  if (hit) say('已按元件参数修正锚点位置，连线端点如有微调属正常')
+}
 function exportJson() {
   const blob = new Blob([JSON.stringify({ name: sceneName.value, dim: dim.value, elements, records: records.value }, null, 2)], { type: 'application/json' })
   dl(URL.createObjectURL(blob), `${sceneName.value}.json`)
@@ -202,6 +213,7 @@ function importJson(ev: Event) {
       restore(JSON.stringify(j.elements ?? []))
       seq = elements.length + 1
       say('已导入')
+      anchorFixNotice()
     } catch { say('JSON 无法解析') }
   })
 }

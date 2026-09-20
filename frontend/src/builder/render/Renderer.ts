@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three'
 import type { GeoElement } from '../catalog'
-import { byType } from '../catalog'
+import { byType, BELT_RADIUS, BRACKET_POST, BRACKET_ARM, POLE_WIDTH } from '../catalog'
 
 export interface UnifiedMeshResult {
   mesh: THREE.Mesh | THREE.Group
@@ -45,7 +45,7 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
   switch (e.type) {
     case 'belt': {
       // 胶囊带体（Box + 两端半圆柱）+ 顶面条纹条；th 为倾角，几何沿 +x 建造后旋转
-      const len = Math.max(0.2, p.L ?? 6), r = 0.15
+      const len = Math.max(0.2, p.L ?? 6), r = BELT_RADIUS
       const g = new THREE.Group()
       const body = new THREE.Mesh(new THREE.BoxGeometry(len, r * 2, 0.3), mat(color, { opacity: 0.9 }))
       const capGeo = new THREE.CylinderGeometry(r, r, 0.3, 16)
@@ -192,6 +192,41 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       const bar = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.06, 0.06), mat(color))
       bar.position.set(0, 0.28, 0)
       g.add(bar)
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'bracket': {
+      // L 形桌夹支架（卡 5/21 连接体）：局部原点=底座中心（竖杆底贴桌面），
+      // 竖杆 BRACKET_POST 向上 + 横臂 BRACKET_ARM 向右；mount 锚点=横臂末端；
+      // 45° 固定阴影画在底座（惯例同 vwall 的 0x565675 斜线）
+      const g = new THREE.Group()
+      const post = new THREE.Mesh(new THREE.BoxGeometry(POLE_WIDTH, BRACKET_POST, POLE_WIDTH), mat(color))
+      post.position.set(0, BRACKET_POST / 2, 0)
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(BRACKET_ARM, 0.08, 0.08), mat(color))
+      arm.position.set(BRACKET_ARM / 2, BRACKET_POST - 0.04, 0)
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.06, 0.24), mat(color))
+      base.position.set(0, 0.03, 0)
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), mat('#d4af37', { emissive: 0.4 }))
+      knob.position.set(BRACKET_ARM, BRACKET_POST, 0)
+      g.add(post, arm, base, knob)
+      for (let xx = -0.12; xx <= 0.12; xx += 0.08) {
+        g.add(seg2(xx - 0.05, 0.0, xx + 0.05, 0.1, 0x565675))
+      }
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'pole': {
+      // 竖直杆（卡 23 晾衣绳）：局部原点=杆中心（与锚点约定一致：mount=(0,H/2)=杆顶），
+      // H 参数化默认 1.2；底座+45° 固定阴影在杆底
+      const H = Math.max(0.6, p.H ?? 1.2)
+      const g = new THREE.Group()
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(POLE_WIDTH, H, POLE_WIDTH), mat(color)))
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 0.2), mat(color))
+      base.position.set(0, -H / 2 + 0.03, 0)
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), mat('#d4af37', { emissive: 0.4 }))
+      knob.position.set(0, H / 2, 0)
+      g.add(base, knob)
+      for (let xx = -0.1; xx <= 0.1; xx += 0.07) {
+        g.add(seg2(xx - 0.04, -H / 2, xx + 0.04, -H / 2 + 0.1, 0x565675))
+      }
       return { mesh: g, baseAngle: 0 }
     }
     case 'lead_in': {
