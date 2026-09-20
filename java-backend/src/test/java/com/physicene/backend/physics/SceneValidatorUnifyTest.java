@@ -89,6 +89,54 @@ class SceneValidatorUnifyTest {
     }
 
     @Test
+    void ropeInitialStretchRejected() {
+        // redo 探针 E3 升杆场景暴露的缺失：端点距离 > 绳长 → 初始拉伸违反（不可伸长绳），error
+        PhysicsElement ball = el("ball_001", "sphere", 0, -2);
+        PhysicsElement rope = el("r1", "rope", 0, 0);
+        rope.setParams(new HashMap<>(java.util.Map.of("jointLength", 1.1)));
+        rope.setConnectTo("ball_001");
+        rope.setPosition(new Vector2D(0, 1.6));  // 悬点距球 3.6 > 1.1×1.02
+        Scene sc = new Scene();
+        sc.setElements(List.of(rope, ball));
+        sc.setConfig(new SimulationConfig());
+        var r = validator.validate(sc);
+        assertFalse(r.isValid(), "悬点到连体距离 3.6 > 绳长 1.1 应报初始拉伸违反");
+        assertTrue(r.getErrors().stream().anyMatch(e -> e.getField().contains("geometry")),
+                "应为 geometry 类错误，实测: " + r.getErrors());
+    }
+
+    @Test
+    void ropeSlackAllowed() {
+        // 松弛（d < L）合法：绳垂挂的正常状态
+        PhysicsElement ball = el("ball_001", "sphere", 0, -1);
+        PhysicsElement rope = el("r1", "rope", 0, 0);
+        rope.setParams(new HashMap<>(java.util.Map.of("jointLength", 2.0)));
+        rope.setConnectTo("ball_001");
+        rope.setPosition(new Vector2D(0, 0.5));  // 悬点距球 1.5 < 2.0 松弛
+        Scene sc = new Scene();
+        sc.setElements(List.of(rope, ball));
+        sc.setConfig(new SimulationConfig());
+        var r = validator.validate(sc);
+        assertTrue(r.getErrors().stream().noneMatch(e -> e.getField().contains("geometry")),
+                "松弛绳不应报 geometry 错，实测: " + r.getErrors());
+    }
+
+    @Test
+    void ropeTwoBodyStretchRejected() {
+        // 双体绳：两连体锚点距离 > L×1.02 同样报错
+        PhysicsElement a = el("a1", "sphere", 0, 0);
+        PhysicsElement b = el("b1", "sphere", 4, 0);
+        PhysicsElement rope = el("r1", "rope", 0, 0);
+        rope.setParams(new HashMap<>(java.util.Map.of("jointLength", 2.0)));
+        rope.setConnectTo("a1");
+        rope.setConnectTo2("b1");
+        Scene sc = new Scene();
+        sc.setElements(List.of(rope, a, b));
+        sc.setConfig(new SimulationConfig());
+        var r = validator.validate(sc);
+        assertFalse(r.isValid(), "双体绳端点距 4 > 2×1.02 应报初始拉伸违反");
+    }
+    @Test
     void pulleySubstepsWarningWhenLt4() {
         PhysicsElement p = el("p1", "pulley", 0, 3);
         p.setParams(new HashMap<>(java.util.Map.of("ratio", 1.0)));

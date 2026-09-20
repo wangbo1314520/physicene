@@ -118,8 +118,8 @@ public class SceneValidator {
                         errors.add(error(base + ".params.arcSideCode", "{0,1,2}", String.valueOf(side), "side 0=inner/1=outer/2=both", "error"));
                     }
                 }
-                case "rope", "rod" -> requireTarget(errors, base, e, ids, jointTypes, pr, "jointLength");
-                case "spring" -> requireTarget(errors, base, e, ids, jointTypes, pr, "stiffness");
+                case "rope", "rod" -> requireTarget(errors, base, e, ids, jointTypes, pr, "jointLength", scene.getElements());
+                case "spring" -> requireTarget(errors, base, e, ids, jointTypes, pr, "stiffness", scene.getElements());
                 case "pulley" -> {
                     if (e.getConnectTo() == null || e.getConnectTo2() == null) {
                         errors.add(error(base + ".connectTo/connectTo2", "非空", "null", "滑轮需要两个连接本体", "error"));
@@ -192,7 +192,8 @@ public class SceneValidator {
     /** 关节类元件公共校验：连接目标存在且非关节、参数为正 */
     private static void requireTarget(List<ValidationError> errors, String base, PhysicsElement e,
                                       java.util.Set<String> ids, java.util.Set<String> jointTypes,
-                                      java.util.Map<String, Double> pr, String posParam) {
+                                      java.util.Map<String, Double> pr, String posParam,
+                                      java.util.List<PhysicsElement> elements) {
         String tgt = e.getConnectTo();
         if (tgt == null || !ids.contains(tgt)) {
             errors.add(error(base + ".connectTo", "存在的元件 id", String.valueOf(tgt), "连接目标不存在", "error"));
@@ -211,6 +212,49 @@ public class SceneValidator {
                 errors.add(error(base + ".params.dampingRatio", "[0,1]", String.valueOf(z), "阻尼比超出范围", "error"));
             }
         }
+        // 绳长 vs 端点距离校验（不可伸长绳的初始位形约束——redo 探针 E3 升杆场景暴露的缺失）：
+        // 悬点模式（connectTo2 空）：d = |rope.position(悬点) − 连体锚世界|；
+        // 双体模式：d = |锚A世界 − 锚B世界|。d > L×1.02 → 初始拉伸违反（求解器瞬拉/震荡），error。
+        // d ≤ L 合法（松弛垂挂是绳的正常状态）。弹簧连接式拉压双向，无此约束，不校验。
+        if ("rope".equals(e.getType()) && tgt != null && ids.contains(tgt)) {
+            PhysicsElement a = elements.stream().filter(x -> tgt.equals(x.getId())).findFirst().orElse(null);
+            if (a != null && e.getPosition() != null && a.getPosition() != null) {
+                double[] aw = anchorWorld(a);
+                double d;
+                String tgt2 = e.getConnectTo2();
+                PhysicsElement b = tgt2 == null ? null
+                        : elements.stream().filter(x -> tgt2.equals(x.getId())).findFirst().orElse(null);
+                if (b != null && b.getPosition() != null) {
+                    double[] bw = anchorWorld(b);
+                    // 双体：两端各自锚点（anchorA 语义在前端桥已折算到 A 端锚；Java 锚A/锚B 均连体局部）
+                    double[] awA = anchorWorld(e, e.getAnchorA(), a);
+                    double[] bwB = anchorWorld(e, e.getAnchorB(), b);
+                    d = Math.hypot(awA[0] - bwB[0], awA[1] - bwB[1]);
+                } else {
+                    // 悬点：rope.position 即固定端（前端桥约定），连体侧取其锚点
+                    double[] awA = anchorWorld(e, e.getAnchorA(), a);
+                    d = Math.hypot(awA[0] - e.getPosition().x(), awA[1] - e.getPosition().y());
+                }
+                if (d > v * 1.02) {
+                    errors.add(error(base + ".geometry", "端点距离 ≤ 绳长 L×1.02",
+                            String.format("d=%.2f > L=%.2f", d, v),
+                            "绳初始位形违反不可伸长约束（端点距离超过绳长），求解器将瞬拉——请缩短绳长或移动端点", "error"));
+                }
+            }
+        }
+    }
+
+    /** 元件中心世界坐标（SceneValidator 层无 body，直接用 element position） */
+    private static double[] anchorWorld(PhysicsElement el) {
+        return new double[]{ el.getPosition().x(), el.getPosition().y() };
+    }
+
+    /** 连体上的锚点世界坐标：el.position + R(el.angle)·anchor（anchor 为连体局部坐标） */
+    private static double[] anchorWorld(PhysicsElement joint, com.physicene.backend.physics.model.Vector2D anchor, PhysicsElement el) {
+        double ang = el.getAngle();
+        double c = Math.cos(ang), s = Math.sin(ang);
+        double ax = anchor == null ? 0 : anchor.x(), ay = anchor == null ? 0 : anchor.y();
+        return new double[]{ el.getPosition().x() + c * ax - s * ay, el.getPosition().y() + s * ax + c * ay };
     }
 
     private static ValidationError error(String field, String expected, String actual,
