@@ -478,8 +478,12 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 磁聚焦断言失败 {angs}")
     if exp_id == "gk-frame-through-b":
-        page.wait_for_timeout(3000)
-        txt = page.locator(".panel").inner_text()
+        # 轮询等待「完全进入」文本出现（原固定 3s 在冷启动/负载下偶发竞态——第二十六轮 3+3 矩阵实测间歇失败根因）
+        for _ in range(20):
+            txt = page.locator(".panel").inner_text()
+            if "完全进入" in txt and "q=" in txt:   # v 与 q 两行可能异帧写入，两者齐再断言
+                break
+            page.wait_for_timeout(500)
         m = re.search(r"完全进入：v=([\d.]+) m/s", txt)
         v = float(m.group(1)) if m else -1.0
         ok = abs(v - 3.0) <= 0.03 and "q=1.000" in txt

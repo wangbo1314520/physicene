@@ -136,7 +136,7 @@ class UnifyPhase1Test {
         KeyEvent event = instance.getKeyEvents().stream()
                 .filter(e -> "belt_common_speed".equals(e.getType())).findFirst().orElse(null);
         assertNotNull(event, "应产生 belt_common_speed 事件");
-        assertTrue(Math.abs(event.getPayload().get("v") - 3.0) < 0.05, "共速值≈带速 3.0，实际 " + event.getPayload().get("v"));
+        assertTrue(Math.abs((Double) event.getPayload().get("v") - 3.0) < 0.05, "共速值≈带速 3.0，实际 " + event.getPayload().get("v"));
         assertTrue(event.getT() > 0.5 && event.getT() < 2.2, "共速时刻 t≈v/(μg)=1.53s，实际 " + event.getT());
         double vx = last(instance, 0).vx();
         assertTrue(Math.abs(vx - 3.0) < 0.1, "块末速≈3.0 m/s，实际 " + vx);
@@ -164,7 +164,7 @@ class UnifyPhase1Test {
         KeyEvent detach = instance.getKeyEvents().stream()
                 .filter(e -> "detach".equals(e.getType())).findFirst().orElse(null);
         assertNotNull(detach, "应产生 detach 事件（v₀=6 < √(5gR)=7）");
-        double theta = detach.getPayload().get("theta");
+        double theta = (Double) detach.getPayload().get("theta");
         double rc = 1.0 - 0.2; // 球心轨迹半径（不是轨道半径）
         double expected = Math.toDegrees(Math.acos((2 * 9.8 * rc - 36) / (3 * 9.8 * rc)));
         assertTrue(Math.abs(theta - expected) < 4.0, "脱离角 θ=" + theta + "°，理论(r_c=0.8) " + expected + "°");

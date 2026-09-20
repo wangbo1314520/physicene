@@ -42,7 +42,7 @@ export interface SimState {
   status: 'idle' | 'connecting' | 'running' | 'paused' | 'ended'
   currentT: number
   subjects: SubjectState[]
-  keyEvents: { t: number; label: string; eventType: string; payload?: Record<string, number> }[]
+  keyEvents: { t: number; label: string; eventType: string; payload?: Record<string, number | string> }[]
   vSeries: { t: number; vx: number; vy: number }[][] // 每个运动主体的速度分量序列（带符号）
   vIds: string[] // 运动主体 id（与 vSeries 下标对应，图例命名用）
   ekSeries: { t: number; v: number }[]

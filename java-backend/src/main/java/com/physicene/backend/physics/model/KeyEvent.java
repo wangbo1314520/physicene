@@ -25,7 +25,7 @@ public class KeyEvent {
     private Integer frameIndex;
 
     /** 数值载荷（可空；旧记录无此字段按 null 反序列化） */
-    private Map<String, Double> payload;
+    private Map<String, Object> payload;
 
     public KeyEvent(double t, String type, String label, Integer frameIndex) {
         this.t = t;
@@ -34,7 +34,7 @@ public class KeyEvent {
         this.frameIndex = frameIndex;
     }
 
-    public KeyEvent(double t, String type, String label, Integer frameIndex, Map<String, Double> payload) {
+    public KeyEvent(double t, String type, String label, Integer frameIndex, Map<String, Object> payload) {
         this(t, type, label, frameIndex);
         this.payload = payload;
     }

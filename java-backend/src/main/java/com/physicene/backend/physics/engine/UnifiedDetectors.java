@@ -175,7 +175,7 @@ final class UnifiedDetectors {
                         + other.getLinearVelocity().y * Math.sin(belt[1]);
                 if (Math.abs(vAlong - vb) < 0.02 && sim.latch("belt:" + pair)) {
                     sim.fireKeyEvent(t, "belt_common_speed",
-                            "与带共速 v=" + String.format("%.2f", vb) + " m/s", Map.of("v", vb));
+                            "与带共速 v=" + String.format("%.2f", vb) + " m/s", Map.<String, Object>of("v", vb));
                 }
             } else if (!ids[0].contains("#") && !ids[1].contains("#")) {
                 // dyn4j Vector2.subtract 会原地修改接收者（刚体速度！）：必须用纯算术，禁止对 getLinearVelocity() 的返回值做向量运算
@@ -183,7 +183,7 @@ final class UnifiedDetectors {
                 double dvy = b1.getLinearVelocity().y - b2.getLinearVelocity().y;
                 if (Math.hypot(dvx, dvy) < 0.02 && sim.latch("common:" + pair)) {
                     sim.fireKeyEvent(t, "common_speed", ids[0] + " 与 " + ids[1] + " 共速",
-                            Map.of("v", b1.getLinearVelocity().getMagnitude()));
+                            Map.<String, Object>of("v", b1.getLinearVelocity().getMagnitude()));
                 }
             }
         }
@@ -195,14 +195,14 @@ final class UnifiedDetectors {
                 double dy = b.getTransform().getTranslationY() - g[1];
                 if (Math.abs(Math.hypot(dx, dy) - g[2]) < 0.25 && dy > 0
                         && b.getLinearVelocity().y <= 0.01 && sim.latch("apex:" + id)) {
-                    sim.fireKeyEvent(t, "apex_pass", id + " 过最高点", Map.of("y", g[1] + dy));
+                    sim.fireKeyEvent(t, "apex_pass", id + " 过最高点", Map.<String, Object>of("y", g[1] + dy));
                 }
             }
         }
         for (String key : sim.springKeys()) {
             double[] sn = sim.springState(key);
             if (sn != null && Math.abs(sn[0] - sn[1]) < 0.005 * Math.max(1e-6, sn[1]) && sim.latch("nat:" + key)) {
-                sim.fireKeyEvent(t, "spring_natural", "弹簧恢复原长", Map.of("length", sn[0]));
+                sim.fireKeyEvent(t, "spring_natural", "弹簧恢复原长", Map.<String, Object>of("length", sn[0]));
             }
         }
         // D5 落地（2026-09-20）：绳已改冲量式（DistanceJoint 弃用，张力 = −λ/h 可直接判定断裂）——
@@ -216,10 +216,10 @@ final class UnifiedDetectors {
             String key = rope.ownId() + "#rope";
             if (taut && sim.latch("taut:" + key)) {
                 sim.fireKeyEvent(t, "rope_taut", "绳绷紧（L=" + String.format("%.3f", rope.length()) + " m）",
-                        Map.of("length", cur));
+                        Map.<String, Object>of("length", cur));
             } else if (!taut && sim.latch("slack:" + key)) {
                 sim.fireKeyEvent(t, "rope_slack", "绳松弛（当前 " + String.format("%.3f", cur) + " m）",
-                        Map.of("length", cur));
+                        Map.<String, Object>of("length", cur));
             }
         }
         for (Map.Entry<String, DistanceJoint<Body>> e : sim.stringJointsSnapshot()) {
@@ -228,7 +228,7 @@ final class UnifiedDetectors {
             if (e.getKey().endsWith("#spring")) {
                 if (Math.abs(cur - j.getRestDistance()) < 0.005 * Math.max(1e-6, j.getRestDistance())
                         && sim.latch("nat:" + e.getKey())) {
-                    sim.fireKeyEvent(t, "spring_natural", "弹簧恢复原长", Map.of("length", cur));
+                    sim.fireKeyEvent(t, "spring_natural", "弹簧恢复原长", Map.<String, Object>of("length", cur));
                 }
             }
         }

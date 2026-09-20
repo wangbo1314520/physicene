@@ -399,7 +399,7 @@ def main() -> int:
         pg.evaluate(f"window.__builder.setParams({cloth2!r}, {{m: 2}})")  # T=mg/(2cosα)≈12.8 > Tmax=10 双断
         st4, smp4 = run_and_sample(pg, max_s=4)
         kes = pg.evaluate("window.__builder.keyEvents()")
-        breaks4 = [k for k in kes if str(k.get("eventType", "")).startswith("rope_break:")]
+        breaks4 = [k for k in kes if k.get("eventType") == "rope_break"]
         check("探针E4 断绳事件≥1（Tmax=10；双断精确数量由三态单测①fixRot 锁定，E2E 验证链路）", len(breaks4) >= 1,
               f"breaks={[(round(b['t'],2), b['eventType']) for b in breaks4]}")
         last4 = smp4[-1] if smp4 else None

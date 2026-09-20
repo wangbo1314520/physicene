@@ -102,7 +102,7 @@ class RopeBreakTest {
     private static List<KeyEvent> breaks(Scene sc) {
         SimulationInstance in = new SimulationInstance("t-ropebreak2-" + System.nanoTime(), sc, registry());
         in.runToEndSync();
-        return in.getKeyEvents().stream().filter(e -> e.getType().startsWith("rope_break:")).toList();
+        return in.getKeyEvents().stream().filter(e -> "rope_break".equals(e.getType())).toList();
     }
 
     /** 末 0.3s 速度差分加速度 ay */
@@ -125,6 +125,8 @@ class RopeBreakTest {
         List<KeyEvent> breaks = breaks(sc);
         assertEquals(2, breaks.size(), "对称场景两绳应断（T=14.28 > Tmax=10），实测 " + breaks.size());
         assertEquals(breaks.get(0).getT(), breaks.get(1).getT(), 1e-9, "对称两绳同帧断");
+        assertTrue(breaks.stream().allMatch(e -> e.getPayload().get("ropeId") instanceof String),
+                "ropeId 应入 payload（字符串），type 保持纯净枚举");
 
         List<double[]> fr = capture(sc);
         double ay = tailAy(fr);
@@ -166,8 +168,9 @@ class RopeBreakTest {
         double period = (zc.get(zc.size() - 1) - zc.get(0)) / (zc.size() - 1);
         double phi0 = Math.toRadians(32);
         double theory = 2 * Math.PI * Math.sqrt(0.4717 / 9.8) * (1 + phi0 * phi0 / 16);
-        assertTrue(Math.abs(period - theory) / theory < 0.06,
-                "钟摆周期 ≈ " + String.format("%.3f", theory) + "s ±6%（实测 " + String.format("%.3f", period) + "s）");
+        // 实测 1.4073s vs 一阶大摆角修正理论 1.4054s（小角 1.3785s）——偏差 0.14%，±2% 容差为 13 倍余量
+        assertTrue(Math.abs(period - theory) / theory < 0.02,
+                "钟摆周期 ≈ " + String.format("%.3f", theory) + "s ±2%（实测 " + String.format("%.3f", period) + "s）");
     }
 
     @Test

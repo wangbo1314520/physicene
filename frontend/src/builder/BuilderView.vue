@@ -65,12 +65,12 @@ async function doRun() {
   if (err) say(err)
 }
 /** ended → 数据面板记录（readout=末帧各主体位姿/速度 + 能量尾部；events=keyEvents） */
-/** D5 断绳集合：keyEvents 出现 rope_break:<id> 即标记（run 重启时清空），画布据此渲染垂挂贝塞尔 */
+/** D5 断绳集合：keyEvents 的 rope_break 事件（payload.ropeId 标识哪条绳，type 保持纯净枚举）→ 画布垂挂贝塞尔 */
 const brokenRopes = ref(new Set<string>())
 watch(() => sim.keyEvents.length, () => {
   for (const k of sim.keyEvents) {
-    if (k.eventType.startsWith('rope_break:')) {
-      const id = k.eventType.slice('rope_break:'.length)
+    if (k.eventType === 'rope_break' && typeof k.payload?.ropeId === 'string') {
+      const id = k.payload.ropeId
       if (!brokenRopes.value.has(id)) brokenRopes.value = new Set([...brokenRopes.value, id])
     }
   }

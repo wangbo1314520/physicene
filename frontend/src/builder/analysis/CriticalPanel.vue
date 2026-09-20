@@ -11,7 +11,7 @@ export interface CriticalEvent {
   t: number
   label: string
   eventType: string
-  payload?: Record<string, number>
+  payload?: Record<string, number | string>
 }
 
 const props = defineProps<{ keyEvents: CriticalEvent[]; elements: GeoElement[] }>()
@@ -38,20 +38,20 @@ function checkOf(ev: CriticalEvent): Check | null {
   const p = ev.payload ?? {}
   if (ev.eventType === 'belt_common_speed' && p.v !== undefined && belts.length === 1) {
     const vb = belts[0].params.vb ?? 3
-    return { theory: `共速 v* = 带速 vb = ${vb.toFixed(2)} m/s`, actual: `实测 v = ${p.v.toFixed(2)} m/s`, dev: pct(p.v, vb), bad: pct(p.v, vb) > 0.02 }
+    return { theory: `共速 v* = 带速 vb = ${vb.toFixed(2)} m/s`, actual: `实测 v = ${Number(p.v).toFixed(2)} m/s`, dev: pct(Number(p.v), vb), bad: pct(Number(p.v), vb) > 0.02 }
   }
   if (ev.eventType === 'spring_natural' && p.length !== undefined && springs.length >= 1) {
     const L0 = springs[0].params.L0 ?? 1
-    return { theory: `原长 L₀ = ${L0.toFixed(2)} m`, actual: `实测 L = ${p.length.toFixed(3)} m`, dev: pct(p.length, L0), bad: pct(p.length, L0) > 0.02 }
+    return { theory: `原长 L₀ = ${L0.toFixed(2)} m`, actual: `实测 L = ${Number(p.length).toFixed(3)} m`, dev: pct(Number(p.length), L0), bad: pct(Number(p.length), L0) > 0.02 }
   }
   if (ev.eventType === 'apex_pass' && p.y !== undefined && loops.length === 1) {
     // payload.y = 球心过顶时刻 y = 圆心 y + (R − r球)；builder 球半径 0.5
     const hasSphere = props.elements.some((e) => e.type === 'sphere' || e.type === 'particle')
     const top = loops[0].position.y + (loops[0].params.radius ?? 1) - (hasSphere ? 0.5 : 0)
-    return { theory: `球心过顶 y = ${top.toFixed(2)} m（圆心+R−r）`, actual: `实测 y = ${p.y.toFixed(2)} m`, dev: pct(p.y, top), bad: pct(p.y, top) > 0.02 * (loops[0].params.radius ?? 1) }
+    return { theory: `球心过顶 y = ${top.toFixed(2)} m（圆心+R−r）`, actual: `实测 y = ${Number(p.y).toFixed(2)} m`, dev: pct(Number(p.y), top), bad: pct(Number(p.y), top) > 0.02 * (loops[0].params.radius ?? 1) }
   }
   if (ev.eventType === 'detach' && p.theta !== undefined) {
-    return { theory: '内轨脱离临界：顶点 v = √(gR)（低于此值此前已脱离）', actual: `脱离角 θ = ${p.theta.toFixed(1)}°`, dev: 0, bad: false }
+    return { theory: '内轨脱离临界：顶点 v = √(gR)（低于此值此前已脱离）', actual: `脱离角 θ = ${Number(p.theta).toFixed(1)}°`, dev: 0, bad: false }
   }
   return null
 }

@@ -286,9 +286,9 @@ public class SimulationInstance {
                 double tension = rope.applyImpulse(dt / substeps);
                 if (!rope.isBroken() && tension > rope.tMax()) {
                     rope.markBroken();
-                    KeyEvent ev = new KeyEvent(t, "rope_break:" + rope.ownId(), "绳断裂（T=" + String.format("%.1f", tension)
+                    KeyEvent ev = new KeyEvent(t, "rope_break", "绳断裂（T=" + String.format("%.1f", tension)
                             + "N > T_max=" + String.format("%.1f", rope.tMax()) + "N）", frameCount,
-                            Map.of("tension", tension, "tmax", rope.tMax()));
+                            Map.<String, Object>of("tension", tension, "tmax", rope.tMax(), "ropeId", rope.ownId()));
                     keyEvents.add(ev);
                     keyEventListeners.forEach(l -> l.accept(ev));
                 }
@@ -335,7 +335,7 @@ public class SimulationInstance {
                         if (upper && near && latch("detach:" + id)) {
                             fireKeyEvent(t, "detach",
                                     id + " 脱离轨道（θ=" + String.format("%.1f", theta) + "°）",
-                                    Map.of("theta", round(theta)));
+                                    Map.<String, Object>of("theta", round(theta)));
                         }
                     }
                 }
@@ -795,7 +795,7 @@ public class SimulationInstance {
 
     boolean latch(String key) { return eventLatches.add(key); }
 
-    void fireKeyEvent(double time, String type, String label, Map<String, Double> payload) {
+    void fireKeyEvent(double time, String type, String label, Map<String, Object> payload) {
         KeyEvent event = new KeyEvent(time, type, label, frameCount, payload);
         keyEvents.add(event);
         keyEventListeners.forEach(l -> l.accept(event));
@@ -817,7 +817,7 @@ public class SimulationInstance {
             if (upperHalf && withinAnnulus) {
                 fireKeyEvent(t, "detach",
                         dynamicId + " 脱离轨道（θ=" + String.format("%.1f", theta) + "°）",
-                        Map.of("theta", round(theta)));
+                        Map.<String, Object>of("theta", round(theta)));
                 return;
             }
         }
