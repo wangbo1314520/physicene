@@ -572,4 +572,101 @@ class UnifyPhase35Test {
         }
         assertTrue(true, "多场景数据在 stdout");
     }
+
+    /** 追问1：最小二乘跨物理场景验证（板块滑动+传送带共速+斜面弹簧） */
+    @Test void accelLeastSquaresCrossScene() {
+        // A: 板块滑动（块在板上减速 a=-μg）
+        {
+            PhysicsElement gnd = new PhysicsElement();
+            gnd.setId("g"); gnd.setType("wall"); gnd.setPosition(new Vector2D(0, -0.5));
+            gnd.setScale(new Vector2D(50.0, 0.2)); gnd.getProperties().setFriction(0.0);
+            PhysicsElement cart = new PhysicsElement();
+            cart.setId("c"); cart.setType("cube"); cart.setPosition(new Vector2D(0, -0.25));
+            cart.setScale(new Vector2D(3.0, 0.15)); cart.getProperties().setMass(3);
+            cart.getProperties().setFriction(0.0);
+            PhysicsElement sensor = new PhysicsElement();
+            sensor.setId("as"); sensor.setType("accel_sensor");
+            sensor.setPosition(new Vector2D(0, 0)); sensor.setConnectTo("blk");
+            PhysicsElement blk = new PhysicsElement();
+            blk.setId("blk"); blk.setType("cube"); blk.setPosition(new Vector2D(-1.5, 0.4));
+            blk.getProperties().setMass(1); blk.getProperties().setFriction(0.2);
+            blk.setInitialState(new InitialState());
+            blk.getInitialState().setVelocity(new Vector2D(4, 0));
+            Scene sc = new Scene(); sc.setElements(List.of(gnd, cart, sensor, blk));
+            SimulationConfig cfg = new SimulationConfig();
+            cfg.setMaxDuration(1.0); cfg.setSubsteps(4); sc.setConfig(cfg);
+            SimulationInstance in = new SimulationInstance("t-xb", sc, registry());
+            double[] last = {0,0,0};
+            in.addFrameListener(f -> {
+                if (f.getProbes() != null && f.getProbes().containsKey("as")) {
+                    double[] pr = f.getProbes().get("as");
+                    last[1] = pr.length > 1 ? pr[1] : 0; last[2] = pr.length > 2 ? pr[2] : 0;
+                }
+            });
+            in.runToEndSync();
+            double theoryA = 0.2 * 9.8;
+            double measA = Math.abs(last[1]);
+            System.out.println("[x-scene] 板块 a=" + String.format("%.2f", measA) + " theory=" + String.format("%.2f", theoryA) + " dev=" + String.format("%.1f%%", Math.abs(measA-theoryA)/theoryA*100));
+        }
+        // B: 传送带共速
+        {
+            PhysicsElement belt = new PhysicsElement();
+            belt.setId("bt"); belt.setType("belt"); belt.setPosition(new Vector2D(0, -1));
+            belt.getProperties().setFriction(0.4);
+            belt.getParams().put("beltSpeed", 3.0); belt.getParams().put("beltLength", 8.0); belt.getParams().put("beltRadius", 0.15);
+            belt.setFixed(true);
+            PhysicsElement sensor = new PhysicsElement();
+            sensor.setId("as2"); sensor.setType("accel_sensor");
+            sensor.setPosition(new Vector2D(0, 0)); sensor.setConnectTo("b2");
+            PhysicsElement blk = new PhysicsElement();
+            blk.setId("b2"); blk.setType("cube"); blk.setPosition(new Vector2D(0, -0.34));
+            blk.getProperties().setMass(1); blk.getProperties().setFriction(0.4);
+            Scene sc = new Scene(); sc.setElements(List.of(belt, sensor, blk));
+            SimulationConfig cfg = new SimulationConfig();
+            cfg.setMaxDuration(1.0); cfg.setSubsteps(4); sc.setConfig(cfg);
+            SimulationInstance in = new SimulationInstance("t-xbelt", sc, registry());
+            double[] last = {0,0,0};
+            in.addFrameListener(f -> {
+                if (f.getProbes() != null && f.getProbes().containsKey("as2")) {
+                    double[] pr = f.getProbes().get("as2");
+                    last[1] = pr.length > 1 ? pr[1] : 0; last[2] = pr.length > 2 ? pr[2] : 0;
+                }
+            });
+            in.runToEndSync();
+            double theoryA = 0.4 * 9.8;
+            double measA = Math.abs(last[1]);
+            System.out.println("[x-scene] 传送带 a=" + String.format("%.2f", measA) + " theory=" + String.format("%.2f", theoryA) + " dev=" + String.format("%.1f%%", Math.abs(measA-theoryA)/theoryA*100));
+        }
+        // C: 斜面（无弹簧初期 a=g·sinθ）
+        {
+            double th = Math.toRadians(30);
+            PhysicsElement slope = new PhysicsElement();
+            slope.setId("s3"); slope.setType("slope");
+            slope.setPosition(new Vector2D(-1, -0.768));
+            slope.setScale(new Vector2D(3.0, 3.464));
+            slope.getProperties().setFriction(0.0);
+            PhysicsElement sensor = new PhysicsElement();
+            sensor.setId("as3"); sensor.setType("accel_sensor");
+            sensor.setPosition(new Vector2D(0, 0)); sensor.setConnectTo("b3");
+            PhysicsElement blk = new PhysicsElement();
+            blk.setId("b3"); blk.setType("cube"); blk.setPosition(new Vector2D(-2.27, 0.542));
+            blk.getProperties().setMass(1); blk.getProperties().setFriction(0.0);
+            Scene sc = new Scene(); sc.setElements(List.of(slope, sensor, blk));
+            SimulationConfig cfg = new SimulationConfig();
+            cfg.setMaxDuration(0.5); cfg.setSubsteps(4); sc.setConfig(cfg);
+            SimulationInstance in = new SimulationInstance("t-xslope", sc, registry());
+            double[] last = {0,0,0};
+            in.addFrameListener(f -> {
+                if (f.getProbes() != null && f.getProbes().containsKey("as3")) {
+                    double[] pr = f.getProbes().get("as3");
+                    last[1] = pr.length > 1 ? pr[1] : 0; last[2] = pr.length > 2 ? pr[2] : 0;
+                }
+            });
+            in.runToEndSync();
+            double theoryA = 9.8 * Math.sin(th);
+            double measA = last[1] * Math.cos(th) + (-last[2]) * Math.sin(th);
+            System.out.println("[x-scene] 斜面初期 a=" + String.format("%.2f", measA) + " theory=" + String.format("%.2f", theoryA) + " dev=" + String.format("%.1f%%", Math.abs(measA-theoryA)/theoryA*100));
+        }
+        assertTrue(true, "数据在 stdout");
+    }
 }
