@@ -52,3 +52,6 @@ data/
 
 # E2E 截图产物
 frontend/e2e/out/
+
+# E2E 探针视频分片（playwright 未命名原始产物；正式归档为 save_as 命名的 webm）
+frontend/src/experiments/docs/visual-verification/**/page@*.webm
