@@ -132,9 +132,14 @@ export function useSimulationSocket() {
         break
       }
       case 'keyEvent': {
-        // 服务器订阅重播与 live 推送可能重复同一事件（WS 建立窗口竞态的根治配套）——按 t+type+label 去重
-        if (!state.keyEvents.some((k) => k.t === msg.t && k.eventType === msg.eventType && k.label === msg.label)) {
-          state.keyEvents.push({ t: msg.t, label: msg.label, eventType: msg.eventType, payload: msg.payload ?? undefined })
+        // 服务器订阅重播与 live 推送可能重复同一事件（WS 建立窗口竞态的根治配套）。
+        // 去重键 = t+type+label+payload 序列化（四元组）：三元组对「对称双断」会误杀——
+        // 两绳同帧断（t 同）type 同、张力数值若恰好相同则 label 也同，唯一可区分字段是 payload.ropeId。
+        const key4 = (k: { t: number; eventType: string; label: string; payload?: Record<string, number | string> }) =>
+          `${k.t}|${k.eventType}|${k.label}|${JSON.stringify(k.payload ?? {})}`
+        const incoming = { t: msg.t, label: msg.label, eventType: msg.eventType, payload: msg.payload ?? undefined }
+        if (!state.keyEvents.some((k) => key4(k) === key4(incoming))) {
+          state.keyEvents.push(incoming)
         }
         break
       }

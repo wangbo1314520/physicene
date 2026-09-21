@@ -37,7 +37,7 @@ def main() -> int:
 
         page.goto(args.url)
         page.wait_for_selector(".picker-trigger", timeout=15000)
-        page.wait_for_timeout(2500)  # 等实验库 3D 列表按需加载
+        # 原固定 2500ms 已删：后续 click 自带 actionability 自动等待，分组断言兜底（第二十九轮 A 类清理）
 
         # ── A. 分组选择器 ──
         print("A. 可折叠分组选择器")
@@ -99,7 +99,7 @@ def main() -> int:
         badge = page.locator(".dim-badge").text_content()
         check(badge == "3D", f"维度徽标 = {badge}")
         page.click("button:has-text('▶ 运行')")
-        page.wait_for_timeout(4500)
+        page.wait_for_timeout(4500)  # [B 类·动画等待] 运行动画展示 4.5s 供归档截图；status 判定在截图后不依赖此刻时序
         page.screenshot(path=str(OUT / "alpha_dyn4j.png"))
         status = page.locator(".status").text_content()
         check("运行中" in status or "已结束" in status, f"仿真状态：{status}")
