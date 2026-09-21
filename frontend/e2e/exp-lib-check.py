@@ -169,14 +169,18 @@ ALPHA_ELEMENTS = ["① α粒子源", "② 准直狭缝", "③ 金箔", "④ 环�
 
 
 def wait_text(page, pattern, sel=".panel", timeout_s=15, interval=0.4):
-    """轮询等待文本出现（E2E 制度：替代裸 wait_for_timeout 长等待——文本出现即断言，超时返回当下文本）"""
+    """轮询等待文本出现且稳定（E2E 制度：替代裸 wait_for_timeout 长等待）。
+    退出条件=pattern 命中后文本再无变化（一个 interval 窗口）——只等首个 pattern 会漏掉
+    稍后到达的其他结果行（第二十八轮迁移首版 8 处失败的教训）；超时返回当下文本。"""
     import time as _t
     deadline = _t.time() + timeout_s
     txt = ""
+    prev = None
     while _t.time() < deadline:
         txt = page.locator(sel).inner_text()
-        if re.search(pattern, txt):
+        if re.search(pattern, txt) and txt == prev:
             return txt
+        prev = txt
         page.wait_for_timeout(int(interval * 1000))
     return txt
 
@@ -199,15 +203,13 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok2:
             failures.append(f"{exp_id}: 轨迹/发射数不足 {emitted}/{total}")
     if exp_id == "gk-board-block":
-        page.wait_for_timeout(2500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, "共速")  # 原 2500ms→轮询（A 类手工）
         ok = "共速" in txt and "相对位移" in txt
         lines.append(f"  {'✓' if ok else '✗'} 板块模型：运行后出现共速事件与理论对照")
         if not ok:
             failures.append(f"{exp_id}: 未出现共速事件")
     if exp_id == "gk-isochrone":
-        page.wait_for_timeout(2500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"到达时刻实测：([\d.]+(?: , [\d.]+)*) s")  # 原 2500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"到达时刻实测：([\d.]+(?: , [\d.]+)*) s", txt)
         ts = [float(x) for x in m.group(1).split(" , ")] if m else []
         t_th = (4 * 0.8 / 9.8) ** 0.5
@@ -234,8 +236,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 总位移断言失败 {x}")
     if exp_id == "gk-impulse-micro":
-        page.wait_for_timeout(4000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"Δp=m·Δv=([\d.]+)")  # 原 4000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"Δp=m·Δv=([\d.]+)", txt)
         dp = float(m.group(1)) if m else -1.0
         i_th = 2 * 20 * 2 / 3.141592653589793
@@ -244,8 +245,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 动量定理断言失败 {dp} vs {i_th:.2f}")
     if exp_id == "gk-accel-deflect-screen":
-        page.wait_for_timeout(6500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"打到荧光屏：Y=(-?[\d.]+) m")  # 原 6500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"打到荧光屏：Y=(-?[\d.]+) m", txt)
         y = float(m.group(1)) if m else -99.0
         u1, u2, L, D, d = 10, 2, 4, 4, 2
@@ -255,8 +255,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 屏上侧移断言失败 {y} vs {y_th:.2f}")
     if exp_id == "gk-b-then-e":
-        page.wait_for_timeout(5500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"打到屏：y=(-?[\d.]+) m")  # 原 5500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"打到屏：y=(-?[\d.]+) m", txt)
         y = float(m.group(1)) if m else -99.0
         v, B, E, W, y0 = 8.0, 0.6, 3.0, 8.0, -3.0
@@ -270,15 +269,13 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 组合场落点断言失败 {y} vs {y_th:.2f}")
     if exp_id == "gk-velocity-selector":
-        page.wait_for_timeout(5500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, "直线通过出口狭缝")  # 原 5500ms→轮询（A 类手工）
         ok = "直线通过出口狭缝 ✓" in txt and "撞上极板" in txt and "撞下极板" in txt
         lines.append(f"  {'✓' if ok else '✗'} 速度选择器：v=E/B 直线通过，0.7v 撞下板（电场力侧）、1.3v 撞上板（洛伦兹力侧）")
         if not ok:
             failures.append(f"{exp_id}: 三粒子结果断言失败")
     if exp_id == "gk-mass-spectrometer":
-        page.wait_for_timeout(8500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"谱线间距 Δx=([\d.]+) m")  # 原 8500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"谱线间距 Δx=([\d.]+) m", txt)
         dx = float(m.group(1)) if m else -1.0
         U, B, q, m1, m2 = 10, 1, 1, 1, 1.3
@@ -288,8 +285,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 谱线间距断言失败 {dx} vs {dx_th:.2f}")
     if exp_id == "gk-e-b-e-multi":
-        page.wait_for_timeout(4500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"回到电场区，y=([\d.]+) m")  # 原 4500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"回到电场区，y=([\d.]+) m", txt)
         y = float(m.group(1)) if m else -1.0
         r_th = (2 * 8) ** 0.5 / 1.5
@@ -298,8 +294,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 半圆上移断言失败 {y} vs {2 * r_th:.2f}")
     if exp_id == "gk-composite-field":
-        page.wait_for_timeout(8000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"完成第 1 周：T=([\d.]+) s")  # 原 8000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"完成第 1 周：T=([\d.]+) s", txt)
         T = float(m.group(1)) if m else -1.0
         T_th = 2 * 3.141592653589793 / (1 * 2)
@@ -308,8 +303,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 圆周周期断言失败 {T} vs {T_th:.3f}")
     if exp_id == "gk-cyclotron":
-        page.wait_for_timeout(7500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"引出：E_k=([\d.]+)")  # 原 7500ms 固定等待→轮询（A 类迁移第二遍）
         m1 = re.search(r"引出：E_k=([\d.]+)", txt)
         m2 = re.search(r"穿越 (\d+) 次", txt)
         ek = float(m1.group(1)) if m1 else -1.0
@@ -320,8 +314,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 引出能量/穿越次数断言失败 {ek}/{n}")
     if exp_id in ("gk-rail-rod", "gk-rod-free"):
-        page.wait_for_timeout(7000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"停止：x=([\d.]+) m")  # 原 7000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"停止：x=([\d.]+) m", txt)
         x = float(m.group(1)) if m else -1.0
         ok = abs(x - 4.0) <= 0.06 and "q=" in txt
@@ -329,8 +322,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 单杆位移断言失败 {x}")
     if exp_id == "gk-rod-force":
-        page.wait_for_timeout(6500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"v_m=\(F−μmg\)R/\(B²L²\)=([\d.]+)")  # 原 6500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"v_m=\(F−μmg\)R/\(B²L²\)=([\d.]+)", txt)
         vm = float(m.group(1)) if m else -1.0
         ok = "达终速 99%" in txt and abs(vm - 2.0) <= 0.01
@@ -338,8 +330,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 终速断言失败 {vm}")
     if exp_id == "gk-double-rod":
-        page.wait_for_timeout(5000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"共速 v=([\d.]+) m/s")  # 原 5000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"共速 v=([\d.]+) m/s", txt)
         v = float(m.group(1)) if m else -1.0
         ok = abs(v - 2.0) <= 0.03 and "动量" in txt
@@ -347,8 +338,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 共速断言失败 {v}")
     if exp_id == "gk-rod-capacitor":
-        page.wait_for_timeout(4000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"t=2 s：v=([\d.]+) m/s")  # 原 4000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"t=2 s：v=([\d.]+) m/s", txt)
         v = float(m.group(1)) if m else -1.0
         a_th = 2 / (1 + 2 * 1)
@@ -357,8 +347,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 含容匀加速断言失败 {v}")
     if exp_id == "gk-prism-refraction":
-        page.wait_for_timeout(4500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"偏向角 δ=[\d.]+°")  # 取最晚就绪行（δ 在 θ₂ 之后渲染——首版 pattern 取 θ₂ 漏 δ）
         import math
         m1 = re.search(r"折射角 θ₂=([\d.]+)°", txt)
         m2 = re.search(r"偏向角 δ=([\d.]+)°", txt)
@@ -373,8 +362,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 折射角/偏向角断言失败 {th2}/{delta}")
     if exp_id == "gk-wave-multi-solution":
-        page.wait_for_timeout(2500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"v=([\d.]+) m/s（n=1")  # 原 2500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"v=([\d.]+) m/s（n=1", txt)
         v = float(m.group(1)) if m else -1.0
         ok = abs(v - 5.0) <= 0.01 and "重合" in txt
@@ -382,8 +370,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 多解波速断言失败 {v}")
     if exp_id == "gk-vibration-wave-graphs":
-        page.wait_for_timeout(3000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"首次到达波峰 t=([\d.]+) s")  # 原 3000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"首次到达波峰 t=([\d.]+) s", txt)
         t = float(m.group(1)) if m else -1.0
         ok = abs(t - 1.0) <= 0.03 and "v=λ/T=2.00" in txt
@@ -391,8 +378,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 波峰时刻断言失败 {t}")
     if exp_id == "gk-photoelectric-ek-nu":
-        page.wait_for_timeout(8500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"截止频率 ν₀=W₀/h=([\d.]+)")  # 原 8500ms 固定等待→轮询（A 类迁移第二遍）
         m1 = re.search(r"截止频率 ν₀=W₀/h=([\d.]+)", txt)
         m2 = re.search(r"拟合直线斜率=([\d.]+)", txt)
         nu0 = float(m1.group(1)) if m1 else -1.0
@@ -402,8 +388,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 光电效应断言失败 {nu0}/{k}")
     if exp_id == "gk-hydrogen-levels":
-        page.wait_for_timeout(3000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"ΔE=([\d.]+) eV，λ=(\d+) nm")  # 原 3000ms 固定等待→轮询（A 类迁移第二遍）
         m1 = re.search(r"ΔE=([\d.]+) eV，λ=(\d+) nm", txt)
         dE = float(m1.group(1)) if m1 else -1.0
         lam = int(m1.group(2)) if m1 else -1
@@ -412,8 +397,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 能级跃迁断言失败 {dE}/{lam}")
     if exp_id == "gk-volt-ammeter-resistance":
-        page.wait_for_timeout(2000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"R_测=([\d.]+) Ω")  # 原 2000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"R_测=([\d.]+) Ω", txt)
         r = float(m.group(1)) if m else -1.0
         r_th = 100 * 3000 / 3100
@@ -422,8 +406,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 外接法读数断言失败 {r}")
     if exp_id == "gk-meter-conversion":
-        page.wait_for_timeout(2000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"R_并=I_gR_g/\(I−I_g\)=([\d.]+) Ω")  # 原 2000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"R_并=I_gR_g/\(I−I_g\)=([\d.]+) Ω", txt)
         r = float(m.group(1)) if m else -1.0
         r_th = 0.001 * 100 / (0.6 - 0.001)
@@ -432,8 +415,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 分流电阻断言失败 {r}")
     if exp_id == "gk-oblique-projectile":
-        page.wait_for_timeout(3000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"θ=30° 落地：x=([\d.]+) m")  # 原 3000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"θ=30° 落地：x=([\d.]+) m", txt)
         x = float(m.group(1)) if m else -1.0
         ok = abs(x - 100 * 0.8660254 / 9.8) <= 0.06
@@ -441,8 +423,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 射程断言失败 {x}")
     if exp_id == "gk-weight-change":
-        page.wait_for_timeout(3500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"N=m\(g\+a\)=([\d.]+) N")  # 原 3500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"N=m\(g\+a\)=([\d.]+) N", txt)
         n = float(m.group(1)) if m else -1.0
         ok = abs(n - 60 * 11.8) <= 0.5 and "N=mg=588.0" in txt
@@ -450,8 +431,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 视重断言失败 {n}")
     if exp_id in ("gk-transformer-transmission", "gk-power-transmission"):
-        page.wait_for_timeout(1500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"线路电流 I=P/\(kU\)=([\d.]+) A")  # 原 1500ms 固定等待→轮询（A 类迁移第二遍）
         m1 = re.search(r"线路电流 I=P/\(kU\)=([\d.]+) A", txt)
         m2 = re.search(r"P_损=I²r=([\d.]+) kW", txt)
         i_line = float(m1.group(1)) if m1 else -1.0
@@ -461,8 +441,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 输电断言失败 {i_line}/{p_loss}")
     if exp_id == "gk-transformer-dynamic":
-        page.wait_for_timeout(1500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"U₂=U₁n₂/n₁=([\d.]+) V")  # 原 1500ms 固定等待→轮询（A 类迁移第二遍）
         m1 = re.search(r"U₂=U₁n₂/n₁=([\d.]+) V", txt)
         m2 = re.search(r"I₁=I₂n₂/n₁=([\d.]+) A", txt)
         u2 = float(m1.group(1)) if m1 else -1.0
@@ -472,8 +451,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 变压器断言失败 {u2}/{i1}")
     if exp_id == "gk-ac-four-values":
-        page.wait_for_timeout(1500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"E_m=NBSω=([\d.]+) V")  # 原 1500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"E_m=NBSω=([\d.]+) V", txt)
         em = float(m.group(1)) if m else -1.0
         ok = abs(em - 31.4) <= 0.1 and "22.2" in txt
@@ -481,8 +459,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 四值断言失败 {em}")
     if exp_id == "gk-b-b-combo":
-        page.wait_for_timeout(3500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"速度方向 (-?[\d.]+)°（都平行")  # 原 3500ms 固定等待→轮询（A 类迁移，第二十八轮）
         angs = [float(a) for a in re.findall(r"速度方向 (-?[\d.]+)°（都平行", txt)]
         ok = len(angs) == 5 and all(abs(a - 90) <= 1.0 for a in angs)
         lines.append(f"  {'✓' if ok else '✗'} 磁聚焦：5 条轨迹出射方向 {angs}（理论全部 90°，平行于 +y）")
@@ -504,8 +481,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 线框进入断言失败 v={v} q={qv}")
     if exp_id == "gk-rod-incline-b":
-        page.wait_for_timeout(6500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"达终速 99%：v_m=([\d.]+) m/s")  # 原 6500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"达终速 99%：v_m=([\d.]+) m/s", txt)
         vm = float(m.group(1)) if m else -1.0
         ok = abs(vm - 4.9) <= 0.01
@@ -513,8 +489,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 斜面终速断言失败 {vm}")
     if exp_id in ("gk-liquid-seal-tube", "gk-cylinder-piston"):
-        page.wait_for_timeout(5000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"T=360 K：L=([\d.]+) cm")  # 原 5000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"T=360 K：L=([\d.]+) cm", txt)
         L = float(m.group(1)) if m else -1.0
         ok = abs(L - 24.0) <= 0.02
@@ -522,8 +497,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 等压断言失败 {L}")
     if exp_id == "gk-variable-mass-gas":
-        page.wait_for_timeout(6000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"p=p₀\(1\+nV₀/V\)=([\d.]+) p₀")  # 原 6000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"p=p₀\(1\+nV₀/V\)=([\d.]+) p₀", txt)
         pr = float(m.group(1)) if m else -1.0
         ok = abs(pr - 1.4) <= 0.005
@@ -531,8 +505,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 打气断言失败 {pr}")
     if exp_id == "gk-u-tube":
-        page.wait_for_timeout(5000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"左液面下降 x=([\d.]+) cm")  # 原 5000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"左液面下降 x=([\d.]+) cm", txt)
         x = float(m.group(1)) if m else -1.0
         p1, L1, T1, T2 = 80.0, 20.0, 300.0, 360.0
@@ -544,8 +517,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: U 形管断言失败 {x} vs {x_th:.3f}")
     if exp_id == "gk-thin-film":
-        page.wait_for_timeout(1500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"条纹间距 Δx=λ/\(2nα\)=([\d.]+) mm")  # 原 1500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"条纹间距 Δx=λ/\(2nα\)=([\d.]+) mm", txt)
         dx = float(m.group(1)) if m else -1.0
         ok = abs(dx - 1.5) <= 0.01
@@ -553,8 +525,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 条纹间距断言失败 {dx}")
     if exp_id == "gk-diffraction-vs-interference":
-        page.wait_for_timeout(2500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"双缝 Δx=Lλ/d=([\d.]+) mm")  # 原 2500ms 固定等待→轮询（A 类迁移第二遍）
         m1 = re.search(r"双缝 Δx=Lλ/d=([\d.]+) mm", txt)
         m2 = re.search(r"2Lλ/a=([\d.]+) mm", txt)
         dx = float(m1.group(1)) if m1 else -1.0
@@ -564,8 +535,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 条纹公式断言失败 {dx}/{wc}")
     if exp_id == "gk-wave-superposition":
-        page.wait_for_timeout(3000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"Δr=([\d.]+) m = ([\d.]+) λ → (\S+)")  # 原 3000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"Δr=([\d.]+) m = ([\d.]+) λ → (\S+)", txt)
         dr = float(m.group(1)) if m else -1.0
         kind = m.group(3) if m else ""
@@ -574,8 +544,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 干涉判据断言失败 {dr}/{kind}")
     if exp_id == "gk-nuclear-reaction":
-        page.wait_for_timeout(1500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"ΔE=([\d.]+) MeV")  # 原 1500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"ΔE=([\d.]+) MeV", txt)
         de = float(m.group(1)) if m else -1.0
         de_th = (2.014102 + 3.016049 - 4.002602 - 1.008665) * 931.494
@@ -584,8 +553,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 质量亏损断言失败 {de}")
     if exp_id == "gk-bohr-collision":
-        page.wait_for_timeout(3000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, "C(3,2)=3")  # 取断言所需最晚行（组合数清单最后渲染）
         m1 = re.search(r"最高激发到 n=(\d)", txt)
         m2 = re.search(r"电子剩余 ([\d.]+) eV", txt)
         n = int(m1.group(1)) if m1 else -1
@@ -595,8 +563,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 激发断言失败 {n}/{rem}")
     if exp_id == "gk-matter-wave":
-        page.wait_for_timeout(1500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"λ=h/√\(2mqU\)=([\d.]+) nm")  # 原 1500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"λ=h/√\(2mqU\)=([\d.]+) nm", txt)
         lam = float(m.group(1)) if m else -1.0
         lam_th = 6.626e-34 / (2 * 9.109e-31 * 1.602e-19 * 100) ** 0.5 * 1e9
@@ -605,8 +572,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 德布罗意波长断言失败 {lam}")
     if exp_id == "gk-variable-force":
-        page.wait_for_timeout(6000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"解析 W=∫F dx=([\d.]+) J")  # 原 6000ms 固定等待→轮询（A 类迁移第二遍）
         m1 = re.search(r"解析 W=∫F dx=([\d.]+) J", txt)
         m2 = re.search(r"ΔE_k=½mv²=([\d.]+) J", txt)
         W = float(m1.group(1)) if m1 else -1.0
@@ -617,8 +583,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 变力功断言失败 {W}/{dEk}")
     if exp_id == "gk-small-quantity":
-        page.wait_for_timeout(5500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"→ T/T₀=([\d.]+)")  # 原 5500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"→ T/T₀=([\d.]+)", txt)
         r = float(m.group(1)) if m else -1.0
         ok = abs(r - 1.0732) <= 0.004
@@ -626,8 +591,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 周期修正断言失败 {r}")
     if exp_id == "gk-noninertial":
-        page.wait_for_timeout(8000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"平衡角 θ=([\d.]+)°")  # 原 8000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"平衡角 θ=([\d.]+)°", txt)
         th = float(m.group(1)) if m else -1.0
         import math
@@ -637,8 +601,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 平衡角断言失败 {th}")
     if exp_id == "gk-mhd-generator":
-        page.wait_for_timeout(1500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"E=Bdv=([\d.]+) V")  # 原 1500ms 固定等待→轮询（A 类迁移第二遍）
         m1 = re.search(r"E=Bdv=([\d.]+) V", txt)
         m2 = re.search(r"I=E/\(R\+r\)=([\d.]+) A", txt)
         E = float(m1.group(1)) if m1 else -1.0
@@ -648,8 +611,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 电动势断言失败 {E}/{I}")
     if exp_id == "gk-em-flowmeter":
-        page.wait_for_timeout(1500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"Q=πD²v/4=([\d.]+) m³/s")  # 原 1500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"Q=πD²v/4=([\d.]+) m³/s", txt)
         Q = float(m.group(1)) if m else -1.0
         Q_th = 3.141592653589793 * 0.2 * 0.2 * 2 / 4
@@ -658,8 +620,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 流量断言失败 {Q}")
     if exp_id == "gk-hall-effect":
-        page.wait_for_timeout(1500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"U_H=BI/\(nqd\)=([\d.]+) μV")  # 原 1500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"U_H=BI/\(nqd\)=([\d.]+) μV", txt)
         U = float(m.group(1)) if m else -1.0
         U_th = 1 * 2 / (1e28 * 1.602e-19 * 1e-3) * 1e6
@@ -668,8 +629,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 霍尔电压断言失败 {U}")
     if exp_id == "gk-rod-spring":
-        page.wait_for_timeout(5500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"γ=B²L²/\(2mR\)=([\d.]+) s⁻¹")  # 原 5500ms 固定等待→轮询（A 类迁移第二遍）
         m1 = re.search(r"γ=B²L²/\(2mR\)=([\d.]+) s⁻¹", txt)
         m2 = re.search(r"T=([\d.]+) s（理论 2π/ω_d=([\d.]+)）", txt)
         gam = float(m1.group(1)) if m1 else -1.0
@@ -679,15 +639,13 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 阻尼振动断言失败 {gam}/{T}/{T_th}")
     if exp_id == "gk-black-box":
-        page.wait_for_timeout(9500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, "结论：A–B 间为电阻")  # 原 9500ms→轮询（A 类手工，最后一处）
         ok = "结论：A–B 间为电阻 R=20 Ω" in txt and "正向 B→C" in txt and "红C 黑B：≈0（导通）" in txt
         lines.append(f"  {'✓' if ok else '✗'} 电学黑箱：6 次探测后结论正确（A–B 电阻 20 Ω，B–C 二极管正向 B→C，红C黑B 导通）")
         if not ok:
             failures.append(f"{exp_id}: 黑箱结论断言失败")
     if exp_id == "gk-rigid-body":
-        page.wait_for_timeout(4800)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"实心球到达 t=([\d.]+) s")  # 原 4800ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"实心球到达 t=([\d.]+) s", txt)
         t = float(m.group(1)) if m else -1.0
         import math
@@ -697,8 +655,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 滚动时间断言失败 {t}")
     if exp_id == "gk-induction-circuit-mech":
-        page.wait_for_timeout(2500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"t=1τ=([\d.]+) s：v=([\d.]+) m/s（([\d.]+)% v_m")  # 原 2500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"t=1τ=([\d.]+) s：v=([\d.]+) m/s（([\d.]+)% v_m", txt)
         tau, v, pct = (float(m.group(1)), float(m.group(2)), float(m.group(3))) if m else (-1.0, -1.0, -1.0)
         ok = abs(tau - 1.0) <= 0.01 and abs(pct - 63.2) <= 0.3 and abs(v - 1.264) <= 0.01
@@ -706,8 +663,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 时间常数断言失败 {tau}/{v}/{pct}")
     if exp_id == "gk-slope-spring":
-        page.wait_for_timeout(3000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"最大压缩 x=([\d.]+) m")  # 原 3000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"最大压缩 x=([\d.]+) m", txt)
         x = float(m.group(1)) if m else -1.0
         import math
@@ -719,8 +675,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 最大压缩断言失败 {x} vs {x_th:.3f}")
     if exp_id == "gk-conveyor-board":
-        page.wait_for_timeout(3000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"共速 v=([\d.]+) m/s")  # 原 3000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"共速 v=([\d.]+) m/s", txt)
         v = float(m.group(1)) if m else -1.0
         ok = abs(v - 3.0) <= 0.01
@@ -728,8 +683,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 共速断言失败 {v}")
     if exp_id == "gk-m30-conveyor-board":
-        page.wait_for_timeout(4500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"停止；滑块共滑 ([\d.]+) m，Q=([\d.]+) J")  # 原 4500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"停止；滑块共滑 ([\d.]+) m，Q=([\d.]+) J", txt)
         Q = float(m.group(2)) if m else -1.0
         Q_th = 0.2 * 1 * 9.8 * (16 / (2 * 0.2 * 9.8))
@@ -738,8 +692,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 板块热量断言失败 {Q}")
     if exp_id in ("gk-connected-bodies", "gk-m21-whole-isolate"):
-        page.wait_for_timeout(2000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"a = ([\d.]+) m/s²　力传感器：绳张力 T = ([\d.]+) N")  # 原 2000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"a = ([\d.]+) m/s²　力传感器：绳张力 T = ([\d.]+) N", txt)
         a, T = (float(m.group(1)), float(m.group(2))) if m else (-1.0, -1.0)
         a_th = (20 - 0.1 * 3 * 9.8) / 3
@@ -749,8 +702,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 整体/隔离断言失败 {a}/{T}")
     if exp_id == "gk-collision-spring":
-        page.wait_for_timeout(3500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"最大压缩 x_m=([\d.]+) m")  # 原 3500ms 固定等待→轮询（A 类迁移第二遍）
         m1 = re.search(r"最大压缩 x_m=([\d.]+) m", txt)
         m2 = re.search(r"v_B′=([\d.]+) m/s", txt)
         xm = float(m1.group(1)) if m1 else -1.0
@@ -761,8 +713,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 弹簧碰撞断言失败 {xm}/{vb}")
     if exp_id == "gk-m29-collision-spring":
-        page.wait_for_timeout(3000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"分离：v_A′=(-?[\d.]+)，v_B′=(-?[\d.]+) m/s")  # 原 3000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"分离：v_A′=(-?[\d.]+)，v_B′=(-?[\d.]+) m/s", txt)
         va, vb = (float(m.group(1)), float(m.group(2))) if m else (0.0, 0.0)
         va_th = -((2 * 8 * 2) / (1 * 3)) ** 0.5
@@ -771,8 +722,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 释放速度断言失败 {va}/{vb}")
     if exp_id == "gk-circular-critical":
-        page.wait_for_timeout(2500)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"θ=([\d.]+)° 处 N<0 脱离")  # 原 2500ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"θ=([\d.]+)° 处 N<0 脱离", txt)
         th = float(m.group(1)) if m else -1.0
         import math
@@ -782,8 +732,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 脱离角断言失败 {th}")
     if exp_id == "gk-m28-circular-five":
-        page.wait_for_timeout(3000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"θ=([\d.]+)° 处 v=0，折返")  # 原 3000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"θ=([\d.]+)° 处 v=0，折返", txt)
         th = float(m.group(1)) if m else -1.0
         import math
@@ -793,16 +742,14 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 折返角断言失败 {th}")
     if exp_id == "gk-collision-chain":
-        page.wait_for_timeout(6000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"总动量 ([\d.]+)（初 ([\d.]+)），动能 ([\d.]+) J（初 ([\d.]+)，损失 ([\d.]+) J）")  # 原 6000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"总动量 ([\d.]+)（初 ([\d.]+)），动能 ([\d.]+) J（初 ([\d.]+)，损失 ([\d.]+) J）", txt)
         ok = bool(m) and abs(float(m.group(1)) - 3.0) <= 0.01 and abs(float(m.group(3)) - 4.5) <= 0.01 and abs(float(m.group(5))) <= 0.01
         lines.append(f"  {'✓' if ok else '✗'} 碰撞链（等质量 e=1）：总动量 3.00 守恒、动能 4.50 J 无损失（速度沿链传递）")
         if not ok:
             failures.append(f"{exp_id}: 碰撞链守恒断言失败")
     if exp_id == "gk-projectile-loop":
-        page.wait_for_timeout(3000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"切入轨道底端 v₁=([\d.]+) m/s")  # 原 3000ms 固定等待→轮询（A 类迁移第二遍）
         m1 = re.search(r"切入轨道底端 v₁=([\d.]+) m/s", txt)
         m2 = re.search(r"最高点 v=([\d.]+) m/s", txt)
         v1 = float(m1.group(1)) if m1 else -1.0
@@ -814,8 +761,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 平抛圆周断言失败 {v1}/{vt}")
     if exp_id == "gk-accel-selector-b":
-        page.wait_for_timeout(1000)
-        txt = page.locator(".panel").inner_text()
+        txt = wait_text(page, r"半圆 r=([\d.]+) m → 打到底片，距入口 2r=([\d.]+) m")  # 原 1000ms 固定等待→轮询（A 类迁移，第二十八轮）
         m = re.search(r"半圆 r=([\d.]+) m → 打到底片，距入口 2r=([\d.]+) m", txt)
         r = float(m.group(1)) if m else -1.0
         ok = abs(r - 4.0) <= 0.01 and "v = 4.00 m/s" in txt

@@ -378,29 +378,19 @@ def main() -> int:
         except OSError as e:
             print(f"    [warn] E3b 截图失败（归档性，不判 FAIL）: {e}")
 
-        # 探针E4（D5 断绳端到端）：晾衣绳低 Tmax → 对称双断 → 自由落体 + keyEvents 断绳事件
-        for _ in range(66):   # 上一探针 run（默认 12s 窗口）结束后才可编辑——等待（20s 上限覆盖 12s+裕量）或停止
-            if pg.evaluate("window.__builder.simStatus()") != "running":
-                break
-            pg.wait_for_timeout(300)
-        if pg.evaluate("window.__builder.simStatus()") == "running":
-            pg.locator("button", has_text="⏹ 停止").first.click()
-        for _ in range(20):   # 停止后轮询至终态（idle/ended）——固定 600ms 在停止竞态下不够（第二十七轮 E4 间歇根因）
-            st0 = pg.evaluate("window.__builder.simStatus()")
-            if st0 in ("idle", "ended"):
-                break
-            pg.wait_for_timeout(300)
-        pg.evaluate("window.__builder.clear()")
-        p1b = place(pg, w, "竖直杆", (-0.8, 0.6))
-        p2b = place(pg, w, "竖直杆", (0.8, 0.6))
-        cloth2 = place(pg, w, "物块", (0, -0.2605))
+        # 探针E4（D5 断绳端到端，第二十八轮自足化）：脱离前序探针终态与 place 拖放两条时序链——
+        # ①整页 reload（干净 DOM/仿真状态）②add+move 直摆（无拖放竞态）③不依赖任何前序 run 结束
+        pg.goto("http://localhost:5173/exp")
+        pg.wait_for_selector(".builder .palette .item", timeout=15000)
+        p1b = pg.evaluate("window.__builder.add('pole', {H: 1.2}, -0.8, 0.6)")
+        p2b = pg.evaluate("window.__builder.add('pole', {H: 1.2}, 0.8, 0.6)")
+        cloth2 = pg.evaluate("window.__builder.add('block', {m: 2}, 0, -0.2605)")  # 绷直位；m=2 → T=12.8 > Tmax=10
         rp3 = pg.evaluate("window.__builder.add('rope', {L: 1.25, Tmax: 10}, 0, 1)")
         rp4 = pg.evaluate("window.__builder.add('rope', {L: 1.25, Tmax: 10}, 0, 1)")
         pg.evaluate(f"window.__builder.link({rp3!r}, '左端', {p1b!r}, 'mount', 'rope')")
         pg.evaluate(f"window.__builder.link({rp3!r}, '右端', {cloth2!r}, '顶', 'rope')")
         pg.evaluate(f"window.__builder.link({rp4!r}, '左端', {p2b!r}, 'mount', 'rope')")
         pg.evaluate(f"window.__builder.link({rp4!r}, '右端', {cloth2!r}, '顶', 'rope')")
-        pg.evaluate(f"window.__builder.setParams({cloth2!r}, {{m: 2}})")  # T=mg/(2cosα)≈12.8 > Tmax=10 双断
         st4, smp4 = run_and_sample(pg, max_s=4)
         kes = pg.evaluate("window.__builder.keyEvents()")
         breaks4 = [k for k in kes if k.get("eventType") == "rope_break"]
@@ -409,7 +399,7 @@ def main() -> int:
         last4 = smp4[-1] if smp4 else None
         n4 = len(smp4)
         v_tail = (smp4[-1][1][0]["vy"] - smp4[max(0, n4 - 19)][1][0]["vy"]) / max(smp4[-1][0] - smp4[max(0, n4 - 19)][0], 1e-6)
-        check("探针E4 断后自由落体 a≈g（|a+9.8|<1.5）", last4 and abs(v_tail + 9.8) < 1.5,
+        check("探针E4 断后自由落体 a≈g（|a+9.8|<1.5）", bool(last4) and abs(v_tail + 9.8) < 1.5,
               f"a_y={v_tail:.2f} 末态y={last4[1][0]['y']:.2f}" if last4 else "无采样")
         try:
             pg.screenshot(path=f"{SHOTS}/redo-probe-ropebreak.png")

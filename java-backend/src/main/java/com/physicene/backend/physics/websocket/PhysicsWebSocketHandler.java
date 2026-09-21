@@ -85,6 +85,9 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
 
         instance.addFrameListener(frame -> sendFrame(session, instance, frame));
         instance.addKeyEventListener(event -> sendKeyEvent(session, event));
+        // 订阅前已发生的历史事件重播（第二十八轮 E4 间歇根因：POST /run 即开跑，WS 订阅窗口前的
+        // 早期事件（如 t=0.03s 断绳）会丢——重播保证事件零丢失；前端按 t+type+label 去重）
+        instance.getKeyEvents().forEach(event -> sendKeyEvent(session, event));
         instance.addEndListener(end -> {
             Map<String, Object> msg = new LinkedHashMap<>();
             msg.put("type", "ended");

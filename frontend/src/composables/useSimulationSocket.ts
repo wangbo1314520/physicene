@@ -131,9 +131,13 @@ export function useSimulationSocket() {
         }
         break
       }
-      case 'keyEvent':
-        state.keyEvents.push({ t: msg.t, label: msg.label, eventType: msg.eventType, payload: msg.payload ?? undefined })
+      case 'keyEvent': {
+        // 服务器订阅重播与 live 推送可能重复同一事件（WS 建立窗口竞态的根治配套）——按 t+type+label 去重
+        if (!state.keyEvents.some((k) => k.t === msg.t && k.eventType === msg.eventType && k.label === msg.label)) {
+          state.keyEvents.push({ t: msg.t, label: msg.label, eventType: msg.eventType, payload: msg.payload ?? undefined })
+        }
         break
+      }
       case 'paused':
         state.status = 'paused'
         break
