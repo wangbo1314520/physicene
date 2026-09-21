@@ -596,7 +596,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         th = float(m.group(1)) if m else -1.0
         import math
         th_th = math.degrees(math.atan(3 / 9.8))
-        ok = abs(th - th_th) <= 0.6
+        ok = abs(th - th_th) <= 0.15   # v2 断言边界审计：解析折射精确，收紧 0.6°→0.15°
         lines.append(f"  {'✓' if ok else '✗'} 非惯性系：摆平衡角 θ={th}°（理论 arctan(a/g)={th_th:.1f}°）")
         if not ok:
             failures.append(f"{exp_id}: 平衡角断言失败 {th}")
