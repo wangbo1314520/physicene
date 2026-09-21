@@ -151,6 +151,10 @@ export const CATALOG: ElementSpec[] = [
   el('trail', '轨迹追踪', '⋯', 'util', ['2.5D'], '#8a8a0', '显示轨迹', [], 'display', ['轨迹']),
   el('energy_meter', '能量条', '▮▮', 'util', ['2.5D'], '#3ecf8e', '显示能量', [], 'display', ['能量条']),
   el('timeline', '时间轴', '⏳', 'util', ['2.5D'], '#4A90D9', '多过程', [], 'display', ['时间轴']),
+  el('vector_arrow', '矢量箭头', '➤', 'util', ['2D', '2.5D'], '#3ecf8e', '速度/加速度/静态矢量可视化：连线绑定主体即实时跟随（速度=帧直读，加速度=帧差分）；不连线为静态箭头', [SEL('mode', '模式', 0, [{ value: 0, label: '静态箭头' }, { value: 1, label: '跟随速度' }, { value: 2, label: '跟随加速度' }]), P('len', '静态长度', 0.2, 3, 0.1, 1, 'm'), P('th', '静态角度', -180, 180, 5, 0, '°'), P('scale', '缩放系数', 0.05, 1, 0.05, 0.3)], 'display', ['矢量', '箭头'], [
+    ATTACH(0, 0, '尾'),
+  ]),
+  el('graph_tag', '图上标签', '🏷', 'util', ['2D', '2.5D'], '#F5C542', '图上文字标注（文本在属性面板「标签文本」编辑）：坐标点/数据/结论标注', [P('size', '字号', 0.5, 2, 0.1, 1), SEL('color', '颜色', 0, [{ value: 0, label: '黄' }, { value: 1, label: '白' }, { value: 2, label: '红' }, { value: 3, label: '绿' }])], 'display', ['标签', '标注']),
 ]
 
 export const byType = new Map(CATALOG.map((e) => [e.type, e]))

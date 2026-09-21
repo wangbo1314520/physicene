@@ -323,7 +323,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
               <span class="nm">{{ t.name }}</span><span class="cd">卡 {{ t.card }}</span>
             </button>
           </div>
-          <BuilderCanvas ref="canvasRef" :elements="elements" :selected-id="selectedId" :link-mode="linkMode" :link-from="linkFrom" :run-states="bridge.runStates.value" :broken-ropes="brokenRopes"
+          <BuilderCanvas ref="canvasRef" :elements="elements" :selected-id="selectedId" :link-mode="linkMode" :link-from="linkFrom" :run-states="bridge.runStates.value" :broken-ropes="brokenRopes" :subjects="sim.subjects"
             @select="selectedId = $event" @dragging="onDragging" @drop="onDrop" @anchor-pick="onAnchorPick" @add-at="(t, x, y) => addElement(t, x, y)" />
           <p v-if="!elements.length" class="empty">从左侧拖入元件（米制世界坐标，滚轮缩放）。例：斜面 + 物块 → 传送带 + 物块 → 竖直圆轨道 + 小球</p>
         </div>
@@ -340,6 +340,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
               <label v-if="p.options">{{ p.label }}<select v-model.number="selected.params[p.key]"><option v-for="o in p.options" :key="o.value" :value="o.value">{{ o.label }}</option></select></label>
               <label v-else>{{ p.label }} = {{ selected.params[p.key] }}{{ p.unit ? ' ' + p.unit : '' }}<input type="range" :min="p.min" :max="p.max" :step="p.step" v-model.number="selected.params[p.key]"></label>
             </template>
+            <label v-if="selected.type === 'graph_tag'">标签文本<input type="text" :value="selected.display?.label ?? '标签'" @change="selected.display = { ...selected.display, label: ($event.target as HTMLInputElement).value }"></label>
             <label class="chk"><input type="checkbox" :checked="selected.isFixed" @change="selected.isFixed = ($event.target as HTMLInputElement).checked"> 固定（不随运动）</label>
             <p v-if="!selectedSpec.params.length" class="desc">该元件无可调参数（显示/记录类）</p>
           </template>

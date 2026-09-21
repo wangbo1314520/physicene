@@ -23,6 +23,8 @@ const props = defineProps<{
   runStates?: Map<string, { x: number; y: number; angle?: number }> | null
   /** D5 断绳集合（rope 元件 id）：断后连线改两段垂挂贝塞尔（纯渲染） */
   brokenRopes?: Set<string>
+  /** 运行态主体读数（vector_arrow 跟随的速度/加速度数据源） */
+  subjects?: { id: string; x: number; y: number; vx: number; vy: number; angle?: number }[] | null
 }>()
 const emit = defineEmits<{
   (e: 'select', id: string | null): void
@@ -40,6 +42,8 @@ let rafId = 0
 let disposed = false
 
 const meshMap = new Map<string, { obj: THREE.Object3D; baseAngle: number; tick?: (dt: number) => void; sig: string }>()
+/** vector_arrow 加速度差分的上一帧主体速度缓存 */
+const lastSubjects = new Map<string, { vx: number; vy: number }>()  // 上一 rAF 帧速度（rAF 等距≈16.7ms，差分用作显示级加速度）
 const lineMap = new Map<string, THREE.Line>()
 let anchorGroup: THREE.Group
 let overlayGroup: THREE.Group   // 吸附预览（黄线 + 锚点圈）
@@ -174,6 +178,31 @@ function syncMeshes() {
     const pose = poseOf(e)
     entry.obj.position.set(pose.x, pose.y, 0)
     entry.obj.rotation.z = pose.angle + entry.baseAngle
+    // vector_arrow 运行态跟随（第三十轮）：绑主体 → 速度=subjects 直读；加速度=相邻 rAF 帧差分（显示级）
+    if (e.type === 'vector_arrow' && e.links.length && props.runStates) {
+      const target = props.runStates.get(e.links[0].toId)
+      const sub = props.subjects?.find((s) => s.id === e.links[0].toId)
+      if (target && sub) {
+        entry.obj.position.set(target.x, target.y, 0)
+        const mode = e.params.mode ?? 0
+        let vx = 0, vy = 0
+        if (mode === 1) { vx = sub.vx; vy = sub.vy }
+        else if (mode === 2) {
+          const prev = lastSubjects.get(sub.id)
+          const dt = 1 / 60   // rAF 帧距（syncMeshes 每 rAF 一次）；差分仅作显示级加速度
+          vx = prev ? (sub.vx - prev.vx) / dt : 0
+          vy = prev ? (sub.vy - prev.vy) / dt : 0
+        }
+        const sp = Math.hypot(vx, vy)
+        if (sp > 1e-3) {
+          entry.obj.rotation.z = Math.atan2(vy, vx)
+          entry.obj.scale.set(Math.max(0.15, sp * (e.params.scale ?? 0.3)), 1, 1)
+        } else {
+          entry.obj.scale.set(0.001, 0.001, 0.001)   // 矢量为零隐藏（避免零长箭头闪现）
+        }
+        lastSubjects.set(sub.id, { vx: sub.vx, vy: sub.vy })
+      }
+    }
   }
   for (const [id, entry] of meshMap) {
     if (!seen.has(id)) {

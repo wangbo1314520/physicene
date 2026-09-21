@@ -334,6 +334,24 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       }
       return { mesh: g, baseAngle: 0 }
     }
+    case 'vector_arrow': {
+      // 显示·矢量箭头（第三十轮）：静态模式画 params 方向长度；跟随模式（1 速度/2 加速度）
+      // 初始按静态画、运行态由 Canvas tick 按 subjects(vx,vy / 帧差分) 重算朝向长度（updateVectorArrow）
+      const g = new THREE.Group()
+      g.add(buildArrowShaft(0, 0, 0, 1, modeColor(p.mode)))
+      g.userData.kind = 'vector-arrow'
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'graph_tag': {
+      // 显示·图上标签：文本取 display.label（属性面板编辑），颜色按 params.color 四选一
+      const colors = ['#F5C542', '#ffffff', '#E05555', '#3ecf8e']
+      const txt = (e.display?.label as string | undefined) ?? '标签'
+      const g = new THREE.Group()
+      const sp = textSprite(txt, colors[Math.min(3, Math.max(0, p.color ?? 0))] ?? '#F5C542', 0, 0, 0.5 * (p.size ?? 1))
+      g.add(sp)
+      g.userData.kind = 'graph-tag'
+      return { mesh: g, baseAngle: 0 }
+    }
     default: {
       return { mesh: new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.5), mat(color, { opacity: 0.9 })), baseAngle: 0 }
     }
@@ -368,14 +386,37 @@ function seg2(x0: number, y0: number, x1: number, y1: number, color: number): TH
     new THREE.LineBasicMaterial({ color }))
 }
 /** 文字标签 Sprite（θ 标注/轨道类型标注） */
-function textSprite(text: string, color = '#b0b0cc', x = 0, y = 0): THREE.Sprite {
+function textSprite(text: string, color = '#b0b0cc', x = 0, y = 0, size = 1): THREE.Sprite {
   if (typeof document === 'undefined') return new THREE.Sprite()  // node 单测环境无 canvas
   const cv = document.createElement('canvas'); cv.width = 96; cv.height = 28
   const c2 = cv.getContext('2d')!
   c2.fillStyle = color; c2.font = '15px sans-serif'; c2.fillText(text, 4, 20)
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }))
-  sp.position.set(x, y, 0.12); sp.scale.set(1.5, 0.44, 1)
+  sp.position.set(x, y, 0.12); sp.scale.set(1.5 * size, 0.44 * size, 1)
   return sp
+}
+
+/** 矢量箭头（第三十轮 vector_arrow）： shaft 线段 + 三角头（沿 +x，长度 1 归一——外层按缩放/旋转摆） */
+function buildArrowShaft(x0: number, y0: number, x1: number, y1: number, color: string): THREE.Group {
+  const g = new THREE.Group()
+  const mat = new THREE.LineBasicMaterial({ color: new THREE.Color(color) })
+  const pts = [new THREE.Vector3(x0, y0, 0.1), new THREE.Vector3(x1, y1, 0.1)]
+  g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat))
+  // 箭头头：以 (x1,y1) 为顶点的两短线（张开 ±25°）
+  const dx = x1 - x0, dy = y1 - y0
+  const len = Math.max(1e-6, Math.hypot(dx, dy))
+  const ux = dx / len, uy = dy / len
+  const hl = Math.min(0.18, len * 0.3)
+  const wing = (sign: number) => new THREE.Vector3(x1 - hl * (ux * Math.cos(sign * 0.44) - uy * Math.sin(sign * 0.44)),
+      y1 - hl * (uy * Math.cos(sign * 0.44) + ux * Math.sin(sign * 0.44)), 0.1)
+  g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x1, y1, 0.1), wing(1)]), mat))
+  g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x1, y1, 0.1), wing(-1)]), mat))
+  return g
+}
+
+/** vector_arrow 模式配色惯例：静态黄 / 速度绿 / 加速度红（渲染规范） */
+function modeColor(mode: number | undefined): string {
+  return mode === 1 ? '#3ecf8e' : mode === 2 ? '#E05555' : '#F5C542'
 }
 
 /** 虚线矩形边框（居中 w×h） */

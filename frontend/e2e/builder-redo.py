@@ -406,6 +406,25 @@ def main() -> int:
         except OSError as e:
             print(f"    [warn] E4 截图失败（归档性，不判 FAIL）: {e}")
 
+        # 探针F（第三十轮·显示两件端到端）：graph_tag 文本编辑 + vector_arrow 绑主体跟随速度
+        pg.evaluate("window.__builder.clear()")
+        ball_f = pg.evaluate("window.__builder.add('sphere', {m: 1, v0: 3}, 0, 3)")
+        pg.evaluate("window.__builder.add('ground', {mu: 0}, 0, -0.5)")
+        tag_f = pg.evaluate("window.__builder.add('graph_tag', {size: 1, color: 2}, -2, 2)")
+        arr_f = pg.evaluate("window.__builder.add('vector_arrow', {mode: 1, scale: 0.3}, 2, 1)")
+        els_f = pg.evaluate("window.__builder.elements()")
+        tag_el = next(e for e in els_f if e["id"] == tag_f)
+        check("探针F graph_tag 落画布（display 默认）", tag_el["type"] == "graph_tag", f"id={tag_f}")
+        pg.evaluate(f"window.__builder.link({arr_f!r}, '尾', {ball_f!r}, '顶', 'wire')")
+        pg.locator(".tools .primary").click()
+        st_f, smp_f = run_and_sample(pg, max_s=2)
+        last_f = smp_f[-1] if smp_f else None
+        check("探针F 矢量箭头场景可运行（显示件不阻塞仿真）", st_f in ("ended", "running"), f"st={st_f}")
+        try:
+            pg.screenshot(path=f"{SHOTS}/redo-probe-displays.png")
+        except OSError as e:
+            print(f"    [warn] F 截图失败（归档性）: {e}")
+
         v2 = pg.video
         pg.close()
         v2.save_as(f"{ARCHIVE}\\批次1回炉-手操探针.webm")

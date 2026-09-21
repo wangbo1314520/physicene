@@ -50,6 +50,17 @@ describe('buildUnifiedMesh', () => {
     expect(THREE.MathUtils.degToRad(th)).toBeCloseTo(Math.PI / 6, 6)
   })
 
+  it('vector_arrow：箭头主干+双翼（3 条 Line）', () => {
+    const r = buildUnifiedMesh(mk('vector_arrow', { mode: 0, len: 1, th: 0 }))
+    const lines: THREE.Line[] = []
+    r.mesh.traverse((o) => { if ((o as THREE.Line).isLine) lines.push(o as THREE.Line) })
+    expect(lines.length).toBe(3)   // 主干 + 两翼
+  })
+  it('graph_tag：kind 标记 + node 环境 sprite 退化不抛错', () => {
+    const g: GeoElement = { ...mk('graph_tag', { size: 1, color: 0 }), display: { label: 'A 点' } }
+    const r = buildUnifiedMesh(g)
+    expect((r.mesh.userData as { kind?: string }).kind).toBe('graph-tag')
+  })
   it('未知类型回退为 Box', () => {
     const { mesh } = buildUnifiedMesh(mk('gas_cell', { p0: 101325 }))
     expect((mesh as THREE.Mesh).geometry).toBeInstanceOf(THREE.BoxGeometry)

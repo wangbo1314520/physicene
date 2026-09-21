@@ -99,7 +99,11 @@ def main() -> int:
         badge = page.locator(".dim-badge").text_content()
         check(badge == "3D", f"维度徽标 = {badge}")
         page.click("button:has-text('▶ 运行')")
-        page.wait_for_timeout(4500)  # [B 类·动画等待] 运行动画展示 4.5s 供归档截图；status 判定在截图后不依赖此刻时序
+        for _ in range(20):   # 先轮询确认运行已开始（status 文本，替代盲等开头）
+            if "运行中" in (page.locator(".status").text_content() or ""):
+                break
+            page.wait_for_timeout(300)
+        page.wait_for_timeout(4500)  # [B 类·动画等待] 展示 4.5s 供归档截图；依据=动画展示时长，动画重设计需同步（豁免清单在档）
         page.screenshot(path=str(OUT / "alpha_dyn4j.png"))
         status = page.locator(".status").text_content()
         check("运行中" in status or "已结束" in status, f"仿真状态：{status}")

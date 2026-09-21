@@ -607,6 +607,15 @@ public class SimulationInstance {
         }
     }
 
+    /** 全部缓存帧（WS 订阅重播用：与 keyEvents 重播对称——连接窗口前的早期帧不丢） */
+    public synchronized java.util.List<Frame> allCachedFrames() {
+        java.util.List<Frame> out = new java.util.ArrayList<>(frameCache.size());
+        for (int i = 0; i < frameCache.size(); i++) {
+            out.add(frameCache.frameAt(i));
+        }
+        return out;
+    }
+
     public synchronized Frame seek(double t) {
         return frameCache.seekNearest(t);
     }
