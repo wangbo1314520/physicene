@@ -458,7 +458,9 @@ function toggleGroup(name: string) {
   collapsed[name] = !collapsed[name]
 }
 function isGroupOpen(name: string): boolean {
-  return filterText.value.trim() !== '' ? true : !collapsed[name]
+  // 第四十轮修：异步加载新增的组无 collapsed 记录——!undefined 曾使其默认展开（实测 2 组的根因）；
+  // 显式 false 才展开（新组默认收起，与 openPicker 的「只展开当前组」一致）
+  return filterText.value.trim() !== '' ? true : collapsed[name] === false
 }
 function pickExperiment(key: string) {
   selected.value = key

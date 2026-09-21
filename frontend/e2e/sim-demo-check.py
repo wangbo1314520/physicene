@@ -47,9 +47,9 @@ def main() -> int:
         check(len(headers) == 10, f"分组数 = {len(headers)}（期望 10）: {headers[-1] if headers else ''}")
         visible_lists = page.evaluate(
             "() => [...document.querySelectorAll('.picker-items')].filter(d => d.offsetParent !== null).length")
-        # 第三十九轮闸门记录：4s 轮询仍稳定 2 组展开=UI 现状（历史期望 1 已不符，疑 demo 数据/分组状态变化）——
-        # 不硬凑期望也不硬恢复：待查 app 侧分组默认展开逻辑（列任务 F 前小查）
-        check(visible_lists in (1, 2), f"分组可见列表 {visible_lists}（1=历史默认/2=当前现状，待查）")
+        # 第四十轮闸门闭环：根因=isGroupOpen 对异步新增组 !undefined=true 默认展开（UI bug）——
+        # SimView 已修（collapsed===false 显式展开），历史期望 1 恢复
+        check(visible_lists == 1, f"默认仅展开当前分组（可见列表 {visible_lists}）")
         page.fill(".picker-search", "楞次")
         for _ in range(15):   # 第三十九轮：改轮询（原固定 200ms+断言跟随）
             if page.locator(".picker-item").count() > 0: break
