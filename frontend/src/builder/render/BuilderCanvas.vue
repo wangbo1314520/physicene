@@ -10,6 +10,7 @@ import * as THREE from 'three'
 import type { GeoElement, AnchorTemplate } from '../catalog'
 import { byType } from '../catalog'
 import { findSnap } from '../model/snap'
+import { accelFromWindow, shouldShowArrow } from '../model/vectorArrow'
 import { resolveAnchors } from '../model/anchors'
 import { buildUnifiedMesh, buildConnectionLine, updateLine, updateHelix } from './Renderer'
 
@@ -43,7 +44,7 @@ let disposed = false
 
 const meshMap = new Map<string, { obj: THREE.Object3D; baseAngle: number; tick?: (dt: number) => void; sig: string }>()
 /** vector_arrow 加速度差分的上一帧主体速度缓存 */
-const lastSubjects = new Map<string, { vx: number; vy: number }>()  // 上一 rAF 帧速度（rAF 等距≈16.7ms，差分用作显示级加速度）
+const velWindows = new Map<string, { vx: number; vy: number }[]>()  // vector_arrow 加速度最小二乘的速度采样窗（每主体 8 帧）
 const lineMap = new Map<string, THREE.Line>()
 let anchorGroup: THREE.Group
 let overlayGroup: THREE.Group   // 吸附预览（黄线 + 锚点圈）
@@ -178,7 +179,9 @@ function syncMeshes() {
     const pose = poseOf(e)
     entry.obj.position.set(pose.x, pose.y, 0)
     entry.obj.rotation.z = pose.angle + entry.baseAngle
-    // vector_arrow 运行态跟随（第三十轮）：绑主体 → 速度=subjects 直读；加速度=相邻 rAF 帧差分（显示级）
+    // vector_arrow 运行态跟随（第三十轮落地、第三十一轮修正差分与滞回）：
+    // 速度=subjects 直读；加速度=速度窗口最小二乘斜率（8 采样，30fps 帧距——与 accel_sensor 同法，
+    // 两点差分在 60fps rAF 读 30fps subjects 时会产生 0/a 交替闪烁）；隐藏/显示滞回防边界抖动。
     if (e.type === 'vector_arrow' && e.links.length && props.runStates) {
       const target = props.runStates.get(e.links[0].toId)
       const sub = props.subjects?.find((s) => s.id === e.links[0].toId)
@@ -188,19 +191,24 @@ function syncMeshes() {
         let vx = 0, vy = 0
         if (mode === 1) { vx = sub.vx; vy = sub.vy }
         else if (mode === 2) {
-          const prev = lastSubjects.get(sub.id)
-          const dt = 1 / 60   // rAF 帧距（syncMeshes 每 rAF 一次）；差分仅作显示级加速度
-          vx = prev ? (sub.vx - prev.vx) / dt : 0
-          vy = prev ? (sub.vy - prev.vy) / dt : 0
+          const win = velWindows.get(sub.id) ?? []
+          const last = win[win.length - 1]
+          if (!last || last.vx !== sub.vx || last.vy !== sub.vy) {   // 仅 subjects 真更新才采样（rAF 60fps 读 30fps 源）
+            win.push({ vx: sub.vx, vy: sub.vy })
+            if (win.length > 8) win.shift()
+            velWindows.set(sub.id, win)
+          }
+          const acc = accelFromWindow(win)
+          vx = acc.ax; vy = acc.ay
         }
         const sp = Math.hypot(vx, vy)
-        if (sp > 1e-3) {
+        // 滞回（第三十一轮）：显示态阈值 0.02（低于隐藏）、隐藏态阈值 0.05（高于显示）——防边界抖动闪烁
+        if (shouldShowArrow(sp, entry.obj.scale.x < 0.01)) {
           entry.obj.rotation.z = Math.atan2(vy, vx)
           entry.obj.scale.set(Math.max(0.15, sp * (e.params.scale ?? 0.3)), 1, 1)
         } else {
-          entry.obj.scale.set(0.001, 0.001, 0.001)   // 矢量为零隐藏（避免零长箭头闪现）
+          entry.obj.scale.set(0.001, 0.001, 0.001)
         }
-        lastSubjects.set(sub.id, { vx: sub.vx, vy: sub.vy })
       }
     }
   }

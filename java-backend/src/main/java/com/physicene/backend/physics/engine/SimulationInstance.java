@@ -607,10 +607,12 @@ public class SimulationInstance {
         }
     }
 
-    /** 全部缓存帧（WS 订阅重播用：与 keyEvents 重播对称——连接窗口前的早期帧不丢） */
-    public synchronized java.util.List<Frame> allCachedFrames() {
-        java.util.List<Frame> out = new java.util.ArrayList<>(frameCache.size());
-        for (int i = 0; i < frameCache.size(); i++) {
+    /** 最近 N 帧（WS 订阅重播窗口=150 帧≈5s：覆盖快速过程视觉；全量 1800 帧在多订阅者下消息量过大
+     *  ——第三十一轮并发审查修正。>60s 长场景的更早视觉不重播（keyEvents 仍完整），帧策略升级列重审计） */
+    public synchronized java.util.List<Frame> lastFrames(int n) {
+        int size = frameCache.size();
+        java.util.List<Frame> out = new java.util.ArrayList<>(Math.min(n, size));
+        for (int i = Math.max(0, size - n); i < size; i++) {
             out.add(frameCache.frameAt(i));
         }
         return out;

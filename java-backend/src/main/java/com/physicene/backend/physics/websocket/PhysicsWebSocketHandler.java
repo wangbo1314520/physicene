@@ -88,9 +88,9 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
         // 订阅前已发生的历史事件重播（第二十八轮 E4 间歇根因：POST /run 即开跑，WS 订阅窗口前的
         // 早期事件（如 t=0.03s 断绳）会丢——重播保证事件零丢失；前端按 t+type+label 去重）
         instance.getKeyEvents().forEach(event -> sendKeyEvent(session, event));
-        // 帧通道同样重播（第三十轮）：连接窗口前的早期帧不丢——快速起步场景（如断绳 t=0.03s）
-        // 的视觉过程学生才能看到；帧缓存上限 1800 帧一次性重发（localhost ~百 ms 级，无实时压力）
-        instance.allCachedFrames().forEach(frame -> sendFrame(session, instance, frame));
+        // 帧通道重播窗口=最近 150 帧≈5s（第三十一轮并发修正：全量 1800 帧×N 订阅者消息量过大）；
+        // 覆盖快速过程（断绳/碰撞）视觉衔接，keyEvents 仍全量重播
+        instance.lastFrames(150).forEach(frame -> sendFrame(session, instance, frame));
         instance.addEndListener(end -> {
             Map<String, Object> msg = new LinkedHashMap<>();
             msg.put("type", "ended");
