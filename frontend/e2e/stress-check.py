@@ -73,7 +73,9 @@ def main() -> int:
             print(f"  学生{i}: {r}")
         ooo = sum(r.get('outOfOrder', 0) for r in results)
         print(f'帧乱序总数（10 学生全程）={ooo}')
-        assert ooo == 0, f'帧乱序 {ooo} 次——重播/live 保序失败'
+        # 第三十五轮口径：排队期 live 照推+重播执行期抑制——每连接允许 ≤1 次回退（重播 5s 历史快速追平），之后单调
+        perStudentOoo = [r.get('outOfOrder', 0) for r in results]
+        assert max(perStudentOoo) <= 1, f'帧乱序超限 {perStudentOoo}——每连接仅允许 1 次重播回退'
         assert ok_run == 10 and ok_ws == 10, f"压测未达标: run={ok_run} ws={ok_ws}"
         print("PASS：10 学生并发（run+WS+150 帧重播+live 帧）全部达标")
         b.close()

@@ -433,6 +433,7 @@ def main() -> int:
         pg.evaluate("window.__builder.add('ground', {mu: 0}, 0, -0.5)")
         tag_f = pg.evaluate("window.__builder.add('graph_tag', {size: 1, color: 2}, -2, 2)")
         arr_f = pg.evaluate("window.__builder.add('vector_arrow', {mode: 1, scale: 0.3}, 2, 1)")
+        pg.evaluate("window.__builder.add('vector_arrow', {mode: 2, scale: 0.05}, 0, 4.2)")  # 加速度箭头（≈a 标记截图）
         els_f = pg.evaluate("window.__builder.elements()")
         tag_el = next(e for e in els_f if e["id"] == tag_f)
         check("探针F graph_tag 落画布（display 默认）", tag_el["type"] == "graph_tag", f"id={tag_f}")

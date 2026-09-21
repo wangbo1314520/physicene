@@ -40,6 +40,8 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
     /** 重播中连接集合（第三十三轮保序）：重播期间抑制 live 直发——否则 live 帧（t=now）与重播帧（t=旧）
      *  交替到达客户端造成回放位姿来回跳（send 的 synchronized 只保证线程安全不保证顺序） */
     private final java.util.Set<String> replayingSessions = ConcurrentHashMap.newKeySet();
+    /** 抑制期 live 事件缓存（第三十五轮）：重播发送期间产生的 live 事件不丢——缓存并在重播完成后按序 flush */
+    private final Map<String, java.util.List<KeyEvent>> pendingEvents = new ConcurrentHashMap<>();
     /** 重播线程池（第三十二轮）：订阅重播异步化——同步重播占容器 IO 线程在慢客户端下阻塞全部并发 */
     private static final java.util.concurrent.ExecutorService replayExecutor =
             java.util.concurrent.Executors.newFixedThreadPool(4, r -> {
@@ -98,21 +100,30 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
             sendFrame(session, instance, frame);                        // 第三十四轮修正：抑制放 send 方法里会挡掉重播自身）
         });
         instance.addKeyEventListener(event -> {
-            if (replayingSessions.contains(session.getId())) return;
+            if (replayingSessions.contains(session.getId())) {
+                pendingEvents.computeIfAbsent(session.getId(), k -> java.util.Collections.synchronizedList(new java.util.ArrayList<>()))
+                        .add(event);   // 抑制期缓存（不丢）——断绳等关键时刻在重播后 flush
+                return;
+            }
             sendKeyEvent(session, event);
         });
         // 订阅前已发生的历史重播（事件全量 + 帧窗口 150≈5s）——第三十二轮压测抓到架构缺陷：
         // 同步 forEach 在容器 IO 线程（nio-exec）执行，150 帧突发在慢客户端下阻塞 IO 线程，
         // 连 live 帧推送都被拖死（10 并发实测 Connection reset）。改为独立线程池异步重播（保序单线程）。
-        replayingSessions.add(session.getId());
         replayExecutor.execute(() -> {
-            try {
+            replayingSessions.add(session.getId());   // 抑制=任务执行期（第三十五轮修正：提交期不抑制——
+            try {                                      // 100 并发排队 47s 期间学生能看到 live，不会黑屏等待）
                 // 早期事件（如 t=0.03s 断绳）零丢失重播（第二十八轮 E4 间歇根因）；前端按 t+type+label 去重
                 instance.getKeyEvents().forEach(event -> sendKeyEvent(session, event));
                 // 帧窗口：覆盖快速过程（断绳/碰撞）视觉衔接（第三十一轮并发修正）——串行发送保序
                 instance.lastFrames(150).forEach(frame -> sendFrame(session, instance, frame));
             } finally {
-                replayingSessions.remove(session.getId());   // 结束后恢复 live 直发
+                replayingSessions.remove(session.getId());
+                // 抑制期缓存的 live 事件按序补发（不丢断绳等关键时刻）
+                java.util.List<KeyEvent> pending = pendingEvents.remove(session.getId());
+                if (pending != null) {
+                    pending.forEach(event -> sendKeyEvent(session, event));
+                }
             }
         });
         instance.addEndListener(end -> {
