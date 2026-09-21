@@ -7,6 +7,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { CATALOG, DOMAINS, byType, defaultsOf, type Dim, type Domain, type GeoElement } from './catalog'
 import { findSnap, applySnap } from './model/snap'
+import { resolveAnchorById } from './model/anchors'
 import BuilderCanvas from './render/BuilderCanvas.vue'
 import DataPanel from './components/DataPanel.vue'
 import BuilderAi from './components/BuilderAi.vue'
@@ -147,7 +148,7 @@ function onDragging(id: string, x: number, y: number) {
   const e = elements.find((el) => el.id === id)
   if (e) { e.position.x = +x.toFixed(3); e.position.y = +y.toFixed(3) }
 }
-function onDrop() {
+function onDrop(shiftSkip = false) {
   // 松手提交吸附（§4.2：一次只做一处；吸附后可继续拖走）
   const id = selectedId.value
   const e = id ? elements.find((el) => el.id === id) : null
@@ -157,13 +158,38 @@ function onDrop() {
     snapshot()
     applySnap(e, snap)
     // 整改2：吸附到水平表面（带/地面/墙/导入段）后抬 0.012m——消除贴面重叠被接触求解放大弹飞
-    const targetType = elements.find((x) => x.id === snap.targetId)?.type ?? ''
+    const target = elements.find((x) => x.id === snap.targetId)
+    const targetType = target?.type ?? ''
     if (['belt', 'ground', 'vwall', 'lead_in'].includes(targetType) && e.role === 'body') {
       e.position.y += 0.03
     }
+    // 渲染尾项③：面自动对齐——吸附到斜面端点锚的 body 自动转平行斜边（斜边绝对角=元件角+θ）；
+    // 绕吸附锚点旋转（旋转后平移补偿，保持锚点贴合不被破坏）；按住 Shift 跳过。
+    if (targetType === 'slope' && e.role === 'body' && target) {
+      if (shiftSkip) {
+        say(`已吸附（Shift：跳过自动对齐，保持 ${+(e.angle * 180 / Math.PI).toFixed(0)}°）`)
+      } else {
+        const slopeAng = target.angle + Math.atan(Math.tan((target.params.th ?? 30) * Math.PI / 180))
+        // 吸附锚（块上 snap.anchorA）在旋转前后保持世界位不动：新心 = 旧心 + a − R(Δ)·a（注意符号：
+        // 锚世界位 = 心 + a（旋转前）；旋转后 = 心' + R(Δ)·a。令相等 → 心' = 心 + a − R(Δ)·a）
+        const anchorT = resolveAnchorById(e, snap.anchorA)
+        const dAng = slopeAng - e.angle
+        const c = Math.cos(dAng), s2 = Math.sin(dAng)
+        const ax = anchorT.local.x, ay = anchorT.local.y
+        e.position.x += ax - (c * ax - s2 * ay)
+        e.position.y += ay - (s2 * ax + c * ay)
+        e.angle = slopeAng
+        say(`已吸附并自动平行斜面（${+(e.angle * 180 / Math.PI).toFixed(0)}°；按住 Shift 可跳过）`)
+        e.position.x = +e.position.x.toFixed(3)
+        e.position.y = +e.position.y.toFixed(3)
+        return
+      }
+    }
     e.position.x = +e.position.x.toFixed(3)
     e.position.y = +e.position.y.toFixed(3)
-    say(`已吸附：${byType.get(e.type)?.label}·${snap.anchorA} ↔ ${byType.get(elements.find((x) => x.id === snap.targetId)?.type ?? '')?.label}·${snap.anchorB}`)
+    if (!shiftSkip || targetType !== 'slope') {
+      say(`已吸附：${byType.get(e.type)?.label}·${snap.anchorA} ↔ ${byType.get(targetType)?.label}·${snap.anchorB}`)
+    }
   }
 }
 function onAnchorPick(p: { id: string; anchorId: string }) {

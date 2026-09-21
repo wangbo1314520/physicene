@@ -93,8 +93,14 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
             old.close(CloseStatus.NORMAL);
         }
 
-        instance.addFrameListener(frame -> sendFrame(session, instance, frame));
-        instance.addKeyEventListener(event -> sendKeyEvent(session, event));
+        instance.addFrameListener(frame -> {
+            if (replayingSessions.contains(session.getId())) return;   // live 抑制在监听器处（重播路径直发不受限——
+            sendFrame(session, instance, frame);                        // 第三十四轮修正：抑制放 send 方法里会挡掉重播自身）
+        });
+        instance.addKeyEventListener(event -> {
+            if (replayingSessions.contains(session.getId())) return;
+            sendKeyEvent(session, event);
+        });
         // 订阅前已发生的历史重播（事件全量 + 帧窗口 150≈5s）——第三十二轮压测抓到架构缺陷：
         // 同步 forEach 在容器 IO 线程（nio-exec）执行，150 帧突发在慢客户端下阻塞 IO 线程，
         // 连 live 帧推送都被拖死（10 并发实测 Connection reset）。改为独立线程池异步重播（保序单线程）。
@@ -193,9 +199,6 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void sendFrame(WebSocketSession session, SimulationInstance instance, Frame frame) {
-        if (replayingSessions.contains(session.getId())) {
-            return;   // 重播期间丢 live 帧（30fps 下一帧 33ms 即来）：防止 t=now 与重播 t=旧交替乱序
-        }
         Map<String, Object> msg = new LinkedHashMap<>();
         msg.put("type", "frame");
         msg.put("t", frame.getT());
@@ -209,9 +212,6 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void sendKeyEvent(WebSocketSession session, KeyEvent event) {
-        if (replayingSessions.contains(session.getId())) {
-            return;   // 重播含全量事件（前端另有去重），live 重复事件丢弃无害
-        }
         Map<String, Object> msg = new LinkedHashMap<>();
         msg.put("type", "keyEvent");
         msg.put("t", event.getT());

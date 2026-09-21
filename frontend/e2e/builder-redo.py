@@ -267,7 +267,11 @@ def main() -> int:
             check(f"探针B {label} 不冻结", not frozen)
         pg.screenshot(path=f"{SHOTS}\\redo-probe-loop.png")
 
-        # 探针C（追问2：Shift 跳过自动对齐基线测试——第二次被推，本轮必加）
+        # 探针C（渲染尾项③：面自动对齐 + Shift 跳过——两分支）
+        for _ in range(50):   # B 探针 run 残留运行态会禁编辑（第三十四轮实测：拖放整体失效的根因）
+            if pg.evaluate("window.__builder.simStatus()") != "running":
+                break
+            pg.wait_for_timeout(300)
         pg.evaluate("window.__builder.clear()")
         pg.locator(".palette .item", has_text="斜面").first.click()
         pg.wait_for_timeout(150)
@@ -279,10 +283,27 @@ def main() -> int:
         pg.wait_for_timeout(150)
         els2 = pg.evaluate("window.__builder.elements()")
         blkel = els2[-1]
-        drag(pg, w, blkel["position"]["x"], blkel["position"]["y"], -2.0, 0.2)
+        # C1：无 Shift → 自动平行斜面（30°）
+        drag(pg, w, blkel["position"]["x"], blkel["position"]["y"], -4.5, 0.96)  # 顶端锚(-4,0.96)+块右锚(0.5,0)贴合位
         final_el = next(e for e in pg.evaluate("window.__builder.elements()") if e["id"] == blkel["id"])
-        check("探针C 水平块放斜面 angle 保持 0（Shift 跳过基线）", abs(final_el["angle"]) < 0.01,
-              f"angle={final_el['angle']:.4f}")
+        ang_deg = final_el["angle"] * 180 / 3.14159265
+        check("探针C1 块贴斜面自动平行（angle≈30°）", abs(ang_deg - 30) < 2, f"angle={ang_deg:.1f}°")
+        # C2：块重置水平后按 Shift 拖回斜面 → 跳过对齐保持 0°
+        pg.evaluate(f"window.__builder.setAngle({blkel['id']!r}, 0)")
+        pg.evaluate(f"window.__builder.move({blkel['id']!r}, -5.5, 0.96)")   # 顶锚左侧水平位
+        pg.wait_for_timeout(150)
+        sx0, sy0 = w.to_screen(-5.5, 0.96)
+        sx1, sy1 = w.to_screen(-4.5, 0.96)   # 拖到 C1 同一贴合位（若对齐生效会转 30°）
+        pg.keyboard.down("Shift")
+        pg.mouse.move(sx0, sy0); pg.mouse.down()
+        for i in range(1, 13):
+            pg.mouse.move(sx0 + (sx1 - sx0) * i / 12, sy0 + (sy1 - sy0) * i / 12)
+        pg.mouse.up()
+        pg.keyboard.up("Shift")
+        pg.wait_for_timeout(150)
+        final_el2 = next(e for e in pg.evaluate("window.__builder.elements()") if e["id"] == blkel["id"])
+        ang2 = final_el2["angle"] * 180 / 3.14159265
+        check("探针C2 Shift 跳过自动对齐（angle 保持 0）", abs(ang2) < 0.5, f"angle={ang2:.1f}°（吸附 translate 仍生效）")
 
         # 探针D（bracket/pole 批：旋转斜面 + 真实拖放吸附——resolveAnchors E2E 级验证）
         pg.evaluate("window.__builder.clear()")

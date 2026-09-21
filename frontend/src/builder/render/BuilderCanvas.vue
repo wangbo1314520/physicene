@@ -11,6 +11,7 @@ import type { GeoElement, AnchorTemplate } from '../catalog'
 import { byType } from '../catalog'
 import { findSnap } from '../model/snap'
 import { accelFromWindow, shouldShowArrow } from '../model/vectorArrow'
+import { springTensionState, isRopeSlack } from '../model/renderStates'
 import { resolveAnchors } from '../model/anchors'
 import { buildUnifiedMesh, buildConnectionLine, updateLine, updateHelix } from './Renderer'
 
@@ -30,7 +31,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'select', id: string | null): void
   (e: 'dragging', id: string, x: number, y: number): void
-  (e: 'drop'): void
+  (e: 'drop', shiftSkip: boolean): void
   (e: 'anchor-pick', pick: { id: string; anchorId: string }): void
   (e: 'add-at', type: string, x: number, y: number): void
 }>()
@@ -265,9 +266,30 @@ function syncLinks() {
       const tb = target ? resolveAnchors(target).find((a) => a.id === l.anchorB) : undefined
       if (target && ta && tb) {
         const pa = anchorWorldPos(e, l.anchorA), pb = anchorWorldPos(target, l.anchorB)
-        if (l.kind === 'spring') updateHelix(line, pa.x, pa.y, pb.x, pb.y)
-        else if (l.kind === 'rope' && props.brokenRopes?.has(e.id)) {
+        const dist = Math.hypot(pb.x - pa.x, pb.y - pa.y)
+        if (l.kind === 'spring') {
+          updateHelix(line, pa.x, pa.y, pb.x, pb.y)
+          // 渲染尾项①：拉压着色（实时跟随形变）——压缩红/拉伸蓝/自然长中性黄（判定纯函数 renderStates）
+          const st = springTensionState(dist, e.params.L0 ?? 1)
+          const m = line.material as THREE.LineBasicMaterial
+          m.color.set(st === 'compressed' ? 0xE05555 : st === 'stretched' ? 0x4A90D9 : 0xF5C542)
+        } else if (l.kind === 'rope' && props.brokenRopes?.has(e.id)) {
           updateBrokenRope(line, pa, pb, e.params.L ?? 2)
+        } else if (l.kind === 'rope') {
+          // 渲染尾项②：松弛虚线/绷紧实线（实时切换）——锚距 < 绳长即松弛
+          updateLine(line, pa.x, pa.y, pb.x, pb.y)
+          const L = e.params.L ?? 2
+          const slack = isRopeSlack(dist, L)
+          if (slack !== ((line.material as THREE.LineDashedMaterial).isLineDashedMaterial ?? false)) {
+            const mat = slack
+              ? new THREE.LineDashedMaterial({ color: 0xd9a05a, dashSize: 0.12, gapSize: 0.08, transparent: true, opacity: 0.85 })
+              : new THREE.LineBasicMaterial({ color: 0xd9a05a })
+            ;(line.material as THREE.Material).dispose()
+            line.material = mat
+            if (slack) line.computeLineDistances()
+          } else if (slack) {
+            line.computeLineDistances()   // 端点变化后虚线间距重算
+          }
         } else updateLine(line, pa.x, pa.y, pb.x, pb.y)
       }
     }
@@ -373,8 +395,8 @@ function onPointerMove(ev: PointerEvent) {
   const w = toWorld(ev.clientX, ev.clientY)
   emit('dragging', dragState.id, w.x + dragState.grabX, w.y + dragState.grabY)
 }
-function onPointerUp() {
-  if (dragState.id) { dragState.id = null; emit('drop') }
+function onPointerUp(ev: PointerEvent) {
+  if (dragState.id) { dragState.id = null; emit('drop', ev.shiftKey) }   // 渲染尾项③：shiftKey 传出供跳过面自动对齐
 }
 function onWheel(ev: WheelEvent) {
   ev.preventDefault()
