@@ -33,6 +33,8 @@ export interface GeoTemplate {
   criticalChecks: CriticalCheck[]
   solutionId?: string
   maxDuration?: number
+  /** 子步数（磁场旋转色散敏感场景设 8——E-B-E 残速 substeps 扫描定案，第三十九轮） */
+  substeps?: number
   /** 重力 y（默认 −9.8；电磁模板置 0） */
   gravityY?: number
 }
@@ -439,13 +441,14 @@ const gkEBEMulti = (): GeoTemplate => {
       mk('point_charge', -6, 0, { qm: EBE_QM, v0: EBE_V0 }),
     ],
     criticalChecks: [
-      // 零目标速度断言【例外·文档化】：三段区域边界穿越角误差（~1°）+ 帧量化在 7 m/s 上累积，
-      // 实测波动 0.055~0.363——tolAbs=0.4（|v₀|的 5.7%）为物理限制底线（0.15 收紧实测红，非静默放宽）
-      { label: '多过程减速到停 final vx≈0', theory: 0, tol: 0.02, tolAbs: 0.4, from: { kind: 'final', subject: 0, pick: 'vx' } },
-      { label: 'final vy≈0', theory: 0, tol: 0.02, tolAbs: 0.4, from: { kind: 'final', subject: 0, pick: 'vy' } },
+      // 零目标速度断言【第三十九轮归因定案+改善】：残速=磁场段子步洛伦兹旋转色散
+      // （substeps 扫描：4→8 残速 0.202→0.112 减半=色散主导可改善；8→16 平台=几何常数项）。
+      // 模板 substeps=8 后 tolAbs 0.4→0.25（前两次归因"帧边界/帧级检测"均未验证被推翻——教训在案）
+      { label: '多过程减速到停 final vx≈0', theory: 0, tol: 0.02, tolAbs: 0.25, from: { kind: 'final', subject: 0, pick: 'vx' } },
+      { label: 'final vy≈0', theory: 0, tol: 0.02, tolAbs: 0.25, from: { kind: 'final', subject: 0, pick: 'vy' } },
     ],
     solutionId: 'inductionOde',
-    gravityY: 0, maxDuration: +tTotal.toFixed(3),
+    gravityY: 0, maxDuration: +tTotal.toFixed(3), substeps: 8,
   }
 }
 
