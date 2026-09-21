@@ -56,6 +56,7 @@ export const BELT_RADIUS = 0.15      // 传送带端部滚轮半径 = 带面局�
 export const BRACKET_POST = 0.4      // bracket 竖杆高（桌夹支架：杆矮臂长，卡 5/21）
 export const BRACKET_ARM = 0.8       // bracket 横臂长（mount 锚点在臂末端）
 export const POLE_WIDTH = 0.08       // pole 竖直杆视觉宽度
+export const BODY_HALF = 0.5          // 体半宽基准（block/sphere 锚点与渲染一致；Java Cube/SphereElement 同值 0.5——双栈对账表）
 
 // 锚点局部坐标约定：y 向上（世界/物理系），取元件默认参数下的端点位置（参数化锚点由阶段四模板层提供）
 // 通用锚点模板

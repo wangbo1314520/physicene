@@ -11,6 +11,9 @@ import org.dyn4j.geometry.Vector2;
  */
 public class SlopeElement extends AbstractMechanicalElement {
 
+    /** 底端钝化 v2 参数（渲染侧 Renderer.ts 同值 0.25/0.04——双栈对账表） */
+    private static final double BLUNT_CAP = 0.25, BLUNT_RATIO = 0.04;
+
     public SlopeElement(PhysicsElement data) {
         super(forceFixed(data));
     }
@@ -34,7 +37,7 @@ public class SlopeElement extends AbstractMechanicalElement {
         // 锚点/吸附几何位移 ≤0.15m（δ=0.35 吸附阈值内，兼容既有场景）。
         // v2（第6模式修正）：斜边角度严格不变——斜边终止于 (w/2−e, 线上)，末端竖直小面落到 (w/2−e, −h/2)。
         // v1 竖直切角使斜边角度 30°→29°，锁转滑块与面恒 1° 楔角→单角接触悬浮（实测中心偏 0.105m）
-        double e = Math.min(0.25, w * 0.04);
+        double e = Math.min(BLUNT_CAP, w * BLUNT_RATIO);
         double sx = w / 2 - e;                       // 斜边终点 x（线上）
         double sy = -h / 2 + (e * h / w);            // 斜边线上 y（斜率不变）
         return new org.dyn4j.geometry.Polygon(
