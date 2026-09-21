@@ -13,8 +13,9 @@ import java.util.List;
  */
 public class FrameCache {
 
-    /** 契约：最多 1800 帧 */
-    private static final int MAX_FRAMES = 1800;
+    /** 契约：最多 9000 帧（=300s @30fps，覆盖 maxDuration 上限——第三十一轮 1800→9000 升级；
+     *  内存=300 full（RECENT_FULL）+8700 key 轻帧，量级 MB 级） */
+    private static final int MAX_FRAMES = 9000;
 
     /** 契约：最近 300 帧保留完整快照 */
     private static final int RECENT_FULL = 300;

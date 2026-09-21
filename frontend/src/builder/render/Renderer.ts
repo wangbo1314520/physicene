@@ -339,6 +339,7 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       // 初始按静态画、运行态由 Canvas tick 按 subjects(vx,vy / 帧差分) 重算朝向长度（updateVectorArrow）
       const g = new THREE.Group()
       g.add(buildArrowShaft(0, 0, 0, 1, modeColor(p.mode)))
+      if (p.mode === 2) g.add(textSprite('≈a', '#E05555', 0.55, 0.18, 0.8))  // 差分近似标记（UI 明示显示级，第三十一轮）
       g.userData.kind = 'vector-arrow'
       return { mesh: g, baseAngle: 0 }
     }
@@ -386,12 +387,22 @@ function seg2(x0: number, y0: number, x1: number, y1: number, color: number): TH
     new THREE.LineBasicMaterial({ color }))
 }
 /** 文字标签 Sprite（θ 标注/轨道类型标注） */
+/** 文本纹理缓存（第三十一轮）：key=text|color——同文本同色的 tag 共享一张 CanvasTexture
+ *  （100 个相同文本 tag=1 张纹理；SpriteMaterial 每 sprite 独立但纹理共享）。node 单测环境跳过。 */
+const spriteTexCache = new Map<string, THREE.CanvasTexture>()
+
 function textSprite(text: string, color = '#b0b0cc', x = 0, y = 0, size = 1): THREE.Sprite {
-  if (typeof document === 'undefined') return new THREE.Sprite()  // node 单测环境无 canvas
-  const cv = document.createElement('canvas'); cv.width = 96; cv.height = 28
-  const c2 = cv.getContext('2d')!
-  c2.fillStyle = color; c2.font = '15px sans-serif'; c2.fillText(text, 4, 20)
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }))
+  if (typeof document === 'undefined') return new THREE.Sprite()  // node 单测环境无 canvas：空对象不抛错
+  const key = `${text}|${color}`
+  let tex = spriteTexCache.get(key)
+  if (!tex) {
+    const cv = document.createElement('canvas'); cv.width = 96; cv.height = 28
+    const c2 = cv.getContext('2d')!
+    c2.fillStyle = color; c2.font = '15px sans-serif'; c2.fillText(text, 4, 20)
+    tex = new THREE.CanvasTexture(cv)
+    spriteTexCache.set(key, tex)
+  }
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }))
   sp.position.set(x, y, 0.12); sp.scale.set(1.5 * size, 0.44 * size, 1)
   return sp
 }

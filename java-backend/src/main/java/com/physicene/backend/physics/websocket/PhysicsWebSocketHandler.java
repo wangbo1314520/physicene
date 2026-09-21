@@ -37,6 +37,13 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
 
     /** 同 simId 单连接：新连接挤掉旧连接（契约 kicked 语义） */
     private final Map<String, WebSocketSession> sessionsBySim = new ConcurrentHashMap<>();
+    /** 重播线程池（第三十二轮）：订阅重播异步化——同步重播占容器 IO 线程在慢客户端下阻塞全部并发 */
+    private static final java.util.concurrent.ExecutorService replayExecutor =
+            java.util.concurrent.Executors.newFixedThreadPool(4, r -> {
+                Thread t = new Thread(r, "ws-replay");
+                t.setDaemon(true);
+                return t;
+            });   // 4 线程（第三十二轮压测：单线程串行 10 连接×150 帧=1500 帧需 7.5s，浏览器实测 6s 仅收 ~127 帧/连接）
 
     public PhysicsWebSocketHandler(PhysicsWorld physicsWorld, JwtUtil jwtUtil) {
         this.physicsWorld = physicsWorld;
@@ -85,12 +92,15 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
 
         instance.addFrameListener(frame -> sendFrame(session, instance, frame));
         instance.addKeyEventListener(event -> sendKeyEvent(session, event));
-        // 订阅前已发生的历史事件重播（第二十八轮 E4 间歇根因：POST /run 即开跑，WS 订阅窗口前的
-        // 早期事件（如 t=0.03s 断绳）会丢——重播保证事件零丢失；前端按 t+type+label 去重）
-        instance.getKeyEvents().forEach(event -> sendKeyEvent(session, event));
-        // 帧通道重播窗口=最近 150 帧≈5s（第三十一轮并发修正：全量 1800 帧×N 订阅者消息量过大）；
-        // 覆盖快速过程（断绳/碰撞）视觉衔接，keyEvents 仍全量重播
-        instance.lastFrames(150).forEach(frame -> sendFrame(session, instance, frame));
+        // 订阅前已发生的历史重播（事件全量 + 帧窗口 150≈5s）——第三十二轮压测抓到架构缺陷：
+        // 同步 forEach 在容器 IO 线程（nio-exec）执行，150 帧突发在慢客户端下阻塞 IO 线程，
+        // 连 live 帧推送都被拖死（10 并发实测 Connection reset）。改为独立线程池异步重播（保序单线程）。
+        replayExecutor.execute(() -> {
+            // 早期事件（如 t=0.03s 断绳）零丢失重播（第二十八轮 E4 间歇根因）；前端按 t+type+label 去重
+            instance.getKeyEvents().forEach(event -> sendKeyEvent(session, event));
+            // 帧窗口：覆盖快速过程（断绳/碰撞）视觉衔接（第三十一轮并发修正）
+            instance.lastFrames(150).forEach(frame -> sendFrame(session, instance, frame));
+        });
         instance.addEndListener(end -> {
             Map<String, Object> msg = new LinkedHashMap<>();
             msg.put("type", "ended");
