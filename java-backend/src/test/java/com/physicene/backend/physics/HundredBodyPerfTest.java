@@ -45,7 +45,7 @@ class HundredBodyPerfTest {
         sc.setElements(els);
         SimulationConfig cfg = new SimulationConfig();
         cfg.setMaxDuration(3.0);
-        cfg.setSubsteps(4);
+        cfg.setSubsteps(Integer.getInteger("perfSub", 4));   // 第三十九轮：可 -DperfSub=8 扫性能
         sc.setConfig(cfg);
         long t0 = System.currentTimeMillis();
         SimulationInstance in = new SimulationInstance("t-perf100", sc, registry());
@@ -54,5 +54,7 @@ class HundredBodyPerfTest {
         System.out.println("[perf100] 100 体 3s at-rest=OFF: " + ms + "ms");
         // 预算：50 体 175ms 的线性外推 ≈350ms；堆叠接触更重取 4 倍裕量 = 1400ms（教学上限 30s 的 4.6%）
         assertTrue(ms < 1400, "100 体 3s 应 <1400ms（实测 " + ms + "ms）");
+        // substeps=8 预算：计算量翻倍 → 2800ms 上限（性能随 substeps 线性——第三十九轮 E-B-E 8 饱和后的全平台上限参考）
+        if (Integer.getInteger("perfSub", 4) >= 8) assertTrue(ms < 2800, "100 体 3s @substeps8 应 <2800ms（实测 " + ms + "ms）");
     }
 }
