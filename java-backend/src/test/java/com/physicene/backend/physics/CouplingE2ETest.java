@@ -125,7 +125,7 @@ class CouplingE2ETest {
         }
         cell.setVolume(area * x);
         double balance = cell.gaugePressure() * area;
-        assertTrue(Math.abs(balance - m * 9.8) / (m * 9.8) < 0.05,
+        assertTrue(Math.abs(balance - m * 9.8) / (m * 9.8) < 0.02,   // 第三十六轮 ±2% 收紧
                 "活塞平衡 p·A=" + balance + " vs Mg=" + m * 9.8 + "（±5%，收敛至平衡±1%由 SceneValidator 校验静态参数域）");
     }
 

@@ -210,7 +210,7 @@ const gkCircularCritical = (): GeoTemplate => ({
     mk('sphere', 2, -(CIRC_R - BALL_R), { m: 0.5, v0: 8, e: 1, mus: 0 }),
   ],
   criticalChecks: [
-    { label: '球心过顶高度 = R−r', theory: CIRC_R - BALL_R, tol: 0.15, tolAbs: 0.05, from: { kind: 'max-y', subject: 0 } },
+    { label: '球心过顶高度 = R−r', theory: CIRC_R - BALL_R, tol: 0.02, tolAbs: 0.05, from: { kind: 'max-y', subject: 0 } },
     { label: 'v₀=8 > √(5gR′) 全程无脱离', theory: 1, tol: 0.01, from: { kind: 'no-event', eventType: 'detach' } },
   ],
   solutionId: 'circularCritical',
@@ -302,7 +302,7 @@ const gkMassSpectrometer = (): GeoTemplate => ({
     mk('point_charge', 0, 0, { qm: MS_QM, v0: MS_V0 }),
   ],
   criticalChecks: [
-    { label: '圆轨道直径 2r = 2v/(qm·B)', theory: 2 * MS_V0 / (MS_QM * MS_B), tol: 0.15, tolAbs: 0.05, from: { kind: 'max-y', subject: 0 } },
+    { label: '圆轨道直径 2r = 2v/(qm·B)', theory: 2 * MS_V0 / (MS_QM * MS_B), tol: 0.02, tolAbs: 0.05, from: { kind: 'max-y', subject: 0 } },
   ],
   solutionId: 'massSpectrometer',
   gravityY: 0, maxDuration: 3,
@@ -349,8 +349,8 @@ const gkBBCombo = (): GeoTemplate => ({
     mk('point_charge', -6, 0, { qm: 1, v0: BB_V }),
   ],
   criticalChecks: [
-    { label: '上弧顶点 maxY = 2r', theory: 2 * BB_R, tol: 0.15, tolAbs: 0.05, from: { kind: 'max-y', subject: 0 } },
-    { label: '右缘 maxX = 入口+r', theory: -6 + BB_R, tol: 0.15, tolAbs: 0.05, from: { kind: 'max-x', subject: 0 } },
+    { label: '上弧顶点 maxY = 2r', theory: 2 * BB_R, tol: 0.02, tolAbs: 0.05, from: { kind: 'max-y', subject: 0 } },
+    { label: '右缘 maxX = 入口+r', theory: -6 + BB_R, tol: 0.02, tolAbs: 0.05, from: { kind: 'max-x', subject: 0 } },
   ],
   solutionId: 'bbCombo',
   gravityY: 0, maxDuration: 8,
@@ -439,9 +439,10 @@ const gkEBEMulti = (): GeoTemplate => {
       mk('point_charge', -6, 0, { qm: EBE_QM, v0: EBE_V0 }),
     ],
     criticalChecks: [
-      // 零目标速度断言：三段区域边界穿越角误差（~1°）+ 帧量化在 7 m/s 上累积 ≈ 0.36，取 tolAbs=0.45（|v₀|的 6.4%）
-      { label: '多过程减速到停 final vx≈0', theory: 0, tol: 0.02, tolAbs: 0.45, from: { kind: 'final', subject: 0, pick: 'vx' } },
-      { label: 'final vy≈0', theory: 0, tol: 0.02, tolAbs: 0.45, from: { kind: 'final', subject: 0, pick: 'vy' } },
+      // 零目标速度断言【例外·文档化】：三段区域边界穿越角误差（~1°）+ 帧量化在 7 m/s 上累积，
+      // 实测波动 0.055~0.363——tolAbs=0.4（|v₀|的 5.7%）为物理限制底线（0.15 收紧实测红，非静默放宽）
+      { label: '多过程减速到停 final vx≈0', theory: 0, tol: 0.02, tolAbs: 0.4, from: { kind: 'final', subject: 0, pick: 'vx' } },
+      { label: 'final vy≈0', theory: 0, tol: 0.02, tolAbs: 0.4, from: { kind: 'final', subject: 0, pick: 'vy' } },
     ],
     solutionId: 'inductionOde',
     gravityY: 0, maxDuration: +tTotal.toFixed(3),

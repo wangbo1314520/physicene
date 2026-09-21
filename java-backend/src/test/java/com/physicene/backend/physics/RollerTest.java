@@ -68,7 +68,7 @@ class RollerTest {
         double speed = Math.hypot(v[0], v[1]);
         double t = 0.9;
         double theory = 9.8 * Math.sin(Math.toRadians(30)) / (1 + 1.0) * t;  // v = a·t
-        assertTrue(Math.abs(speed - theory) / theory < 0.08,
+        assertTrue(Math.abs(speed - theory) / theory < 0.02,   // 第三十六轮 ±2% 收紧
                 "hoop 末速应 ≈ " + theory + " 实测 " + speed + " pos=(" + String.format("%.2f,%.2f", v[3], v[4]) + ")");
     }
 
@@ -77,7 +77,7 @@ class RollerTest {
         double speed = Math.hypot(v[0], v[1]);
         double t = 0.9;
         double theory = 9.8 * Math.sin(Math.toRadians(30)) / 1.5 * t;
-        assertTrue(Math.abs(speed - theory) / theory < 0.08,
+        assertTrue(Math.abs(speed - theory) / theory < 0.02,   // 第三十六轮 ±2% 收紧
                 "disc 末速应 ≈ " + theory + " 实测 " + speed);
     }
 
@@ -86,7 +86,7 @@ class RollerTest {
         double speed = Math.hypot(v[0], v[1]);
         double t = 0.9;
         double theory = 9.8 * Math.sin(Math.toRadians(30)) / 1.4 * t;
-        assertTrue(Math.abs(speed - theory) / theory < 0.08,
+        assertTrue(Math.abs(speed - theory) / theory < 0.02,   // 第三十六轮 ±2% 收紧
                 "ball 末速应 ≈ " + theory + " 实测 " + speed);
     }
 

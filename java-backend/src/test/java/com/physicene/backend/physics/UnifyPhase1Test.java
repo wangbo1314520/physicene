@@ -136,7 +136,8 @@ class UnifyPhase1Test {
         KeyEvent event = instance.getKeyEvents().stream()
                 .filter(e -> "belt_common_speed".equals(e.getType())).findFirst().orElse(null);
         assertNotNull(event, "应产生 belt_common_speed 事件");
-        assertTrue(Math.abs((Double) event.getPayload().get("v") - 3.0) < 0.05, "共速值≈带速 3.0，实际 " + event.getPayload().get("v"));
+        assertTrue(Math.abs((Double) event.getPayload().get("v") - 3.0) < 0.02,
+                "共速值≈带速 3.0 ±0.02（第三十六轮收紧），实际 " + event.getPayload().get("v"));
         assertTrue(event.getT() > 0.5 && event.getT() < 2.2, "共速时刻 t≈v/(μg)=1.53s，实际 " + event.getT());
         double vx = last(instance, 0).vx();
         assertTrue(Math.abs(vx - 3.0) < 0.1, "块末速≈3.0 m/s，实际 " + vx);

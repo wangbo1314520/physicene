@@ -101,8 +101,12 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
         });
         instance.addKeyEventListener(event -> {
             if (replayingSessions.contains(session.getId())) {
-                pendingEvents.computeIfAbsent(session.getId(), k -> java.util.Collections.synchronizedList(new java.util.ArrayList<>()))
-                        .add(event);   // 抑制期缓存（不丢）——断绳等关键时刻在重播后 flush
+                var list = pendingEvents.computeIfAbsent(session.getId(), k -> java.util.Collections.synchronizedList(new java.util.ArrayList<>()));
+                if (list.size() < 200) {   // 上限 200（抑制期 <1s × 事件率 <20/s 实际 <<；防御性 cap：超限丢弃并记日志——帧通道仍在传上下文）
+                    list.add(event);   // 抑制期缓存（不丢）——断绳等关键时刻在重播后 flush
+                } else {
+                    log.warn("pendingEvents 超 200 上限，丢弃 session={} type={}", session.getId(), event.getType());
+                }
                 return;
             }
             sendKeyEvent(session, event);

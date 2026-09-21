@@ -572,7 +572,7 @@ def extra_checks(exp_id: str, page, failures: list[str]) -> list[str]:
         if not ok:
             failures.append(f"{exp_id}: 德布罗意波长断言失败 {lam}")
     if exp_id == "gk-variable-force":
-        txt = wait_text(page, r"解析 W=∫F dx=([\d.]+) J")  # 原 6000ms 固定等待→轮询（A 类迁移第二遍）
+        txt = wait_text(page, r"ΔE_k=½mv²=([\d.]+) J")  # 取最晚就绪行（ΔE_k 在解析式后渲染——取首个 pattern 会漏，第三十轮制度）
         m1 = re.search(r"解析 W=∫F dx=([\d.]+) J", txt)
         m2 = re.search(r"ΔE_k=½mv²=([\d.]+) J", txt)
         W = float(m1.group(1)) if m1 else -1.0

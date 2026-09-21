@@ -607,7 +607,7 @@ class UnifyPhase35Test {
             double theoryA = 0.2 * 9.8;
             double measA = Math.abs(last[1]);
             System.out.println("[x-scene] 板块 a=" + String.format("%.2f", measA) + " theory=" + String.format("%.2f", theoryA) + " dev=" + String.format("%.1f%%", Math.abs(measA-theoryA)/theoryA*100));
-            assertTrue(Math.abs(measA - theoryA) / theoryA < 0.08,
+            assertTrue(Math.abs(measA - theoryA) / theoryA < 0.02,
                 "板块 a 应 ≈ μg=1.96 ±8%（实测 " + String.format("%.2f", measA) + "）");
         }
         // B: 传送带共速（窗口1.0s > 共速0.77s，含共速后a=0段→读数偏低是窗口跨段，非物理错误；精确窗口断言见 accelLeastSquaresPhased 的信息输出）
@@ -707,7 +707,7 @@ class UnifyPhase35Test {
             double theoryA = 0.2 * 9.8;  // 共速前 a = μg = 1.96
             double measA = Math.abs(last[1]);
             System.out.println("[phase] 板块共速前 a=" + String.format("%.2f", measA) + " theory=" + String.format("%.2f", theoryA) + " dev=" + String.format("%.1f%%", Math.abs(measA-theoryA)/theoryA*100));
-            assertTrue(Math.abs(measA - theoryA) / theoryA < 0.08,
+            assertTrue(Math.abs(measA - theoryA) / theoryA < 0.02,
                 "板块共速前 a 应 ≈ μg=1.96 ±8%（实测 " + String.format("%.2f", measA) + "）");
         }
         // 传送带：vb=3 μ=0.4 → 共速 t*=3/3.92=0.77s；信息项：+11% 属求解器冲量热启动累积（同类底板见斜面接触 7.5%），板块平摩擦减速段 0.0% 证明 μ 合成本身正确
