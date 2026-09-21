@@ -37,6 +37,9 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
 
     /** 同 simId 单连接：新连接挤掉旧连接（契约 kicked 语义） */
     private final Map<String, WebSocketSession> sessionsBySim = new ConcurrentHashMap<>();
+    /** 重播中连接集合（第三十三轮保序）：重播期间抑制 live 直发——否则 live 帧（t=now）与重播帧（t=旧）
+     *  交替到达客户端造成回放位姿来回跳（send 的 synchronized 只保证线程安全不保证顺序） */
+    private final java.util.Set<String> replayingSessions = ConcurrentHashMap.newKeySet();
     /** 重播线程池（第三十二轮）：订阅重播异步化——同步重播占容器 IO 线程在慢客户端下阻塞全部并发 */
     private static final java.util.concurrent.ExecutorService replayExecutor =
             java.util.concurrent.Executors.newFixedThreadPool(4, r -> {
@@ -95,11 +98,16 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
         // 订阅前已发生的历史重播（事件全量 + 帧窗口 150≈5s）——第三十二轮压测抓到架构缺陷：
         // 同步 forEach 在容器 IO 线程（nio-exec）执行，150 帧突发在慢客户端下阻塞 IO 线程，
         // 连 live 帧推送都被拖死（10 并发实测 Connection reset）。改为独立线程池异步重播（保序单线程）。
+        replayingSessions.add(session.getId());
         replayExecutor.execute(() -> {
-            // 早期事件（如 t=0.03s 断绳）零丢失重播（第二十八轮 E4 间歇根因）；前端按 t+type+label 去重
-            instance.getKeyEvents().forEach(event -> sendKeyEvent(session, event));
-            // 帧窗口：覆盖快速过程（断绳/碰撞）视觉衔接（第三十一轮并发修正）
-            instance.lastFrames(150).forEach(frame -> sendFrame(session, instance, frame));
+            try {
+                // 早期事件（如 t=0.03s 断绳）零丢失重播（第二十八轮 E4 间歇根因）；前端按 t+type+label 去重
+                instance.getKeyEvents().forEach(event -> sendKeyEvent(session, event));
+                // 帧窗口：覆盖快速过程（断绳/碰撞）视觉衔接（第三十一轮并发修正）——串行发送保序
+                instance.lastFrames(150).forEach(frame -> sendFrame(session, instance, frame));
+            } finally {
+                replayingSessions.remove(session.getId());   // 结束后恢复 live 直发
+            }
         });
         instance.addEndListener(end -> {
             Map<String, Object> msg = new LinkedHashMap<>();
@@ -185,6 +193,9 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void sendFrame(WebSocketSession session, SimulationInstance instance, Frame frame) {
+        if (replayingSessions.contains(session.getId())) {
+            return;   // 重播期间丢 live 帧（30fps 下一帧 33ms 即来）：防止 t=now 与重播 t=旧交替乱序
+        }
         Map<String, Object> msg = new LinkedHashMap<>();
         msg.put("type", "frame");
         msg.put("t", frame.getT());
@@ -198,6 +209,9 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void sendKeyEvent(WebSocketSession session, KeyEvent event) {
+        if (replayingSessions.contains(session.getId())) {
+            return;   // 重播含全量事件（前端另有去重），live 重复事件丢弃无害
+        }
         Map<String, Object> msg = new LinkedHashMap<>();
         msg.put("type", "keyEvent");
         msg.put("t", event.getT());

@@ -26,12 +26,18 @@ async (n) => {
       return await new Promise((resolve) => {
         let frames = 0, events = 0, firstT = null;
         const ws = new WebSocket('ws://localhost:8080/ws/simulation/' + simId + '?token=' + token);
-        const timer = setTimeout(() => { resolve({ run: true, ws: true, frames, events, timeout: true }); ws.close(); }, 6000);
+        const timer = setTimeout(() => { resolve({ run: true, ws: true, frames, events, outOfOrder, timeout: true }); ws.close(); }, 6000);
+        let lastT = -1, outOfOrder = 0;
         ws.onmessage = (m) => {
           const d = m.data;
-          if (d.includes('"frame"')) { frames++; if (firstT === null) firstT = d.slice(0, 60); }
+          if (d.includes('"frame"')) {
+            frames++;
+            const tm = d.match(/"t":([\d.]+)_/);   // 占位（t 在 "t":N, 处）
+            const tv = parseFloat((d.match(/"t":([0-9.e-]+),/) || [])[1]);
+            if (tv !== undefined && !isNaN(tv)) { if (lastT >= 0 && tv < lastT - 1e-9) outOfOrder++; lastT = tv; }
+          }
           if (d.includes('keyEvent')) events++;
-          if (frames >= 100) { clearTimeout(timer); resolve({ run: true, ws: true, frames, events, timeout: false }); ws.close(); }
+          if (frames >= 100) { clearTimeout(timer); resolve({ run: true, ws: true, frames, events, outOfOrder, timeout: false }); ws.close(); }
         };
         ws.onerror = () => { clearTimeout(timer); resolve({ run: true, ws: false, frames, events, timeout: false }); };
       });
@@ -65,6 +71,9 @@ def main() -> int:
         print(f"[stress-browser] n=10 run成功={ok_run} ws可用={ok_ws} 帧数分布 min={min(frames)} max={max(frames)}（10并发CPU分摊≈21fps/人，单连接30fps）")
         for i, r in enumerate(results[:3]):
             print(f"  学生{i}: {r}")
+        ooo = sum(r.get('outOfOrder', 0) for r in results)
+        print(f'帧乱序总数（10 学生全程）={ooo}')
+        assert ooo == 0, f'帧乱序 {ooo} 次——重播/live 保序失败'
         assert ok_run == 10 and ok_ws == 10, f"压测未达标: run={ok_run} ws={ok_ws}"
         print("PASS：10 学生并发（run+WS+150 帧重播+live 帧）全部达标")
         b.close()
