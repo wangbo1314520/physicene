@@ -35,8 +35,11 @@ def main() -> int:
         page = ctx.new_page()
         errs = []
         page.on("pageerror", lambda e: errs.append(str(e)))
-        page.goto(f"{BASE}/exp")
-        page.wait_for_selector(".builder .palette .item", timeout=8000)
+        # P0 后 builder 迁入 /lab「自由搭建」Tab（/exp→/lab 重定向）；选择器作用域化
+        page.goto(f"{BASE}/lab")
+        page.wait_for_selector(".canvas-wrap canvas", timeout=12000)
+        page.locator(".tabbar .tab", has_text="自由搭建").click()
+        page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
         tpls = page.evaluate("window.__builder.templates()")
         want = [t for t in tpls if not args.ids or t["id"] in args.ids.split(",")]
         print(f"模板 {len(want)}/{len(tpls)} 个待验证")
