@@ -1,6 +1,7 @@
 """实验台（/lab）三维度 E2E：维度切换 → 元件托盘按维度过滤 → 实验模板载入 → 画布存在 → 2D 模板真实运行（Java dyn4j）→ 各维度截图归档。
   python -u frontend/e2e/lab-check.py [--url http://localhost:5173] [--no-run]
 """
+import _env; _env.banner()  # 测点1前置：每轮回归头行打印环境指纹
 import argparse
 import json
 import sys

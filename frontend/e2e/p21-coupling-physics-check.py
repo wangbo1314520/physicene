@@ -2,6 +2,7 @@
 数值从 probes 通道读（Java orchestrator → couplingReadings → Frame.probes → WS frame → __builder.probes）。
 理论：导轨棒 v_m = F·R/(B²L²)（F=2,R=1,B=1,L=1 → 2.00；EMF→电流→安培力减速收敛）；
      活塞气室平衡 (p−p_atm)·A = Mg（M=10,A=0.01 → p·A=98N，气弹簧+阻尼衰减到平衡）。"""
+import _env; _env.banner()  # 测点1前置：每轮回归头行打印环境指纹
 import json, sys, urllib.request
 from pathlib import Path
 from playwright.sync_api import sync_playwright

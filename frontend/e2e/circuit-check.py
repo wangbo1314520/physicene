@@ -2,6 +2,7 @@
 断言：正确接法读数与理论一致 / 判分通过 / 典型错接被故障检测抓住 / 暂态回放画布两帧不同。
   python -u frontend/e2e/circuit-check.py [--url http://localhost:5173] [--ids a,b]
 """
+import _env; _env.banner()  # 测点1前置：每轮回归头行打印环境指纹
 import argparse
 import json
 import math

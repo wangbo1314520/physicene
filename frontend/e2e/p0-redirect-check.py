@@ -1,4 +1,5 @@
 """P0 redirect 后单入口矩阵：原三入口断言映射到 /lab 单入口——/exp 301、/sandbox 301 链、/lab 双 Tab 全功能。"""
+import _env; _env.banner()  # 测点1前置：每轮回归头行打印环境指纹
 import json, sys, urllib.request
 from playwright.sync_api import sync_playwright
 

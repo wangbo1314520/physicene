@@ -304,6 +304,8 @@ onMounted(() => {
     keyEvents: () => JSON.parse(JSON.stringify(sim.keyEvents)),
     subjects: () => JSON.parse(JSON.stringify(sim.subjects)),
     probes: () => JSON.parse(JSON.stringify(sim.probes)),
+    tsRays: () => JSON.parse(JSON.stringify(bridge.tsRun.value.rays)),
+    tsReadings: () => JSON.parse(JSON.stringify(bridge.tsRun.value.readings)),
     clear: clearAll,
     elements: () => JSON.parse(JSON.stringify(elements)),
     count: () => elements.length,

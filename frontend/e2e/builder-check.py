@@ -5,6 +5,7 @@ check.from 五类：event(payloadKey)/final(subject,pick)/max-y(subject)/max-x(s
 容差：|got−theory| ≤ |theory|·tol + tolAbs（交付标准 §0.1）。
 用法：python e2e/builder-check.py [--ids gk-slope-spring,...] [--shot-dir ...]
 """
+import _env; _env.banner()  # 测点1前置：每轮回归头行打印环境指纹
 import argparse, json, sys, urllib.request
 from playwright.sync_api import sync_playwright
 

@@ -1,5 +1,6 @@
 """P2 E2E：耦合接入——rail-rod（导轨棒）+ piston-gas（活塞气室）画布可见+数值断言。
 画布内容验证（不只验状态）：导轨棒场景验 B 场立方体渲染+棒运动；活塞验刚体渲染+平衡。"""
+import _env; _env.banner()  # 测点1前置：每轮回归头行打印环境指纹
 import json, sys, urllib.request
 from pathlib import Path
 from playwright.sync_api import sync_playwright

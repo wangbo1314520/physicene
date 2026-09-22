@@ -4,6 +4,7 @@
   python frontend/e2e/exp-lib-check.py [--ids a,b,c] [--url http://localhost:5173]
 截图输出到 frontend/e2e/out/exp-<id>.png
 """
+import _env; _env.banner()  # 测点1前置：每轮回归头行打印环境指纹
 import argparse
 import re
 import json

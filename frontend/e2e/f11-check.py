@@ -1,4 +1,5 @@
 """F1.1 验证：/lab 页签切换 + 自由搭建页可用（BuilderView 嵌入）+ 截图 2 张"""
+import _env; _env.banner()  # 测点1前置：每轮回归头行打印环境指纹
 import json, sys, urllib.request
 from pathlib import Path
 from playwright.sync_api import sync_playwright

@@ -4,6 +4,7 @@
   python frontend/e2e/sim-demo-check.py [--url http://localhost:5173/sim]
 截图输出到 frontend/e2e/out/。
 """
+import _env; _env.banner()  # 测点1前置：每轮回归头行打印环境指纹
 import argparse
 import os
 import sys
