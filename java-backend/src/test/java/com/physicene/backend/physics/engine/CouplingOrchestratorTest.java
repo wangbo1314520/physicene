@@ -6,6 +6,12 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * 【降级标记（清偿令·测试真实性审计）】
+ * test1 只验 CircuitEngine.solveDC 定值解（产品类=真测，但名称宣称的"终速"是手推评注，
+ * 未调 orchestrator 力路径）；test2 空电路 notNull——恰是活塞-only 早退 bug 的免疫盲区
+ * （P2.1 修复前它同样通过）。产品路径真测见 CouplingProductPathTest。
+ */
 class CouplingOrchestratorTest {
 
     @Test

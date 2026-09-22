@@ -14,7 +14,7 @@
 
 export interface OpticalBody {
   id: string
-  type: 'light_source' | 'prism' | 'optic_screen' | 'glass_slab' | 'wedge_film' | 'slit_pair' | 'double_slit'
+  type: 'light_source' | 'prism' | 'optic_screen' | 'glass_slab' | 'wedge_film' | 'slit_pair' | 'wedge' | 'double_slit'
   x: number; y: number; angle: number
   params: Record<string, number>
 }
@@ -125,6 +125,11 @@ export function runOptics(elements: OpticalBody[], maxDuration = 3): OpticsFrame
   const source = elements.find(e => e.type === 'light_source')
   const prism = elements.find(e => e.type === 'prism')
   const screen = elements.find(e => e.type === 'optic_screen')
+  // 清偿5·卡 56/57：单元件模式（劈尖等厚干涉 / 双缝干涉）——公式已有，接 builder 面
+  const wedge = elements.find(e => e.type === 'wedge')
+  if (wedge) return wedgeFrames(wedge)
+  const slit = elements.find(e => e.type === 'double_slit')
+  if (slit) return doubleSlitFrames(slit)
   if (!source || !prism) return []
 
   const { rays, readings } = traceRay(source, prism, screen ?? prism)
@@ -133,5 +138,46 @@ export function runOptics(elements: OpticalBody[], maxDuration = 3): OpticsFrame
   for (let i = 0; i <= steps; i++) {
     frames.push({ t: i / 30, rays, readings })
   }
+  return frames
+}
+
+/** 卡 56 劈尖：等厚干涉 ΔL=λ/(2n·tanα)；画布=劈尖轮廓 + 三条明纹位置光线段 */
+function wedgeFrames(w: OpticalBody): OpticsFrame[] {
+  const lamNm = w.params.lam ?? 600
+  const n = w.params.n ?? 1.5
+  const alphaRad = (w.params.alpha ?? 0.1) * Math.PI / 180
+  const dl = wedgeFringeSpacing(lamNm * 1e-9, n, alphaRad)  // m
+  const rays: RaySegment[] = [
+    { x0: -4, y0: 1.5, x1: -1, y1: 0.15, kind: 'incident', medium: 'air' },
+    { x0: -4, y0: 1.0, x1: -1, y1: 0.10, kind: 'incident', medium: 'air' },
+    { x0: -4, y0: 0.5, x1: -1, y1: 0.05, kind: 'incident', medium: 'air' },
+    { x0: -1, y0: 0.15, x1: -1 + 3 * dl, y1: 0.15 + 3 * dl * Math.tan(alphaRad), kind: 'refracted', medium: 'glass' },
+    { x0: -1, y0: 0.10, x1: -1 + 2 * dl, y1: 0.10 + 2 * dl * Math.tan(alphaRad), kind: 'refracted', medium: 'glass' },
+    { x0: -1, y0: 0.05, x1: -1 + dl, y1: 0.05 + dl * Math.tan(alphaRad), kind: 'refracted', medium: 'glass' },
+  ]
+  const readings = { lambda_nm: lamNm, n, alpha_deg: w.params.alpha ?? 0.1, fringe_mm: dl * 1000 }
+  const frames: OpticsFrame[] = []
+  for (let i = 0; i <= 60; i++) frames.push({ t: i / 30, rays, readings })
+  return frames
+}
+
+/** 卡 57 双缝：Δx=Lλ/d；画布=入射平行光 + 两缝出射 + 屏上 ±1 级亮纹射线 */
+function doubleSlitFrames(s: OpticalBody): OpticsFrame[] {
+  const lamNm = s.params.lam ?? 600
+  const dMm = s.params.d ?? 0.2
+  const L = s.params.L ?? 1
+  const dx = doubleSlitSpacing(lamNm * 1e-9, dMm * 1e-3, L)  // m
+  const dHalf = dMm * 1e-3 / 2
+  const rays: RaySegment[] = [
+    { x0: -4, y0: dHalf, x1: -0.05, y1: dHalf, kind: 'incident', medium: 'air' },
+    { x0: -4, y0: -dHalf, x1: -0.05, y1: -dHalf, kind: 'incident', medium: 'air' },
+    { x0: -0.05, y0: dHalf, x1: L, y1: 0, kind: 'refracted', medium: 'air' },
+    { x0: -0.05, y0: -dHalf, x1: L, y1: 0, kind: 'refracted', medium: 'air' },
+    { x0: -0.05, y0: dHalf, x1: L, y1: dx, kind: 'refracted', medium: 'air' },
+    { x0: -0.05, y0: -dHalf, x1: L, y1: -dx, kind: 'refracted', medium: 'air' },
+  ]
+  const readings = { lambda_nm: lamNm, d_mm: dMm, L_m: L, dx_mm: dx * 1000 }
+  const frames: OpticsFrame[] = []
+  for (let i = 0; i <= 60; i++) frames.push({ t: i / 30, rays, readings })
   return frames
 }

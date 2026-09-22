@@ -518,7 +518,7 @@ class UnifyPhase35Test {
             System.out.println("[iter-scan] iter=" + iter + " along=" + String.format("%.2f", along)
                 + " theory=" + String.format("%.2f", theory) + " dev=" + String.format("%.1f%%", dev));
         }
-        assertTrue(true, "扫描完成（数据在 stdout）");
+        assertTrue(true, "扫描完成（数据在 stdout）");  // 【仅诊断 print-only——非断言（清偿令审计标记）】
     }
 
     /** 追问2：最小二乘多场景验证（3 场景×不同参数） */
@@ -570,7 +570,97 @@ class UnifyPhase35Test {
             System.out.println("[lsq] θ=" + (int)sc[0] + " μ=" + sc[1] + " along=" + String.format("%.2f", alongSlope)
                 + " theory=" + String.format("%.2f", theory) + " dev=" + String.format("%.1f%%", dev));
         }
-        assertTrue(true, "多场景数据在 stdout");
+        assertTrue(true, "多场景数据在 stdout");  // 【仅诊断 print-only——非断言（清偿令审计标记）】
+    }
+
+    /** 清偿令·硬断言版：斜面 a=g·sinθ（原 x-scene 打印块 a=4.90 dev 0.0%——从打印转硬断言） */
+    @Test void slopeSinThetaHardAssert() {
+        double th = Math.toRadians(30);
+        PhysicsElement slope = new PhysicsElement();
+        slope.setId("s9"); slope.setType("slope");
+        slope.setPosition(new Vector2D(-1, -0.768));
+        slope.setScale(new Vector2D(3.0, 3.464));
+        slope.getProperties().setFriction(0.0);
+        PhysicsElement sensor = new PhysicsElement();
+        sensor.setId("as9"); sensor.setType("accel_sensor");
+        sensor.setPosition(new Vector2D(0, 0)); sensor.setConnectTo("b9");
+        PhysicsElement blk = new PhysicsElement();
+        blk.setId("b9"); blk.setType("cube"); blk.setPosition(new Vector2D(-2.27, 0.542));
+        blk.getProperties().setMass(1); blk.getProperties().setFriction(0.0);
+        Scene sc = new Scene(); sc.setElements(List.of(slope, sensor, blk));
+        SimulationConfig cfg = new SimulationConfig();
+        cfg.setMaxDuration(0.5); cfg.setSubsteps(4); sc.setConfig(cfg);
+        SimulationInstance in = new SimulationInstance("t-slope-hard", sc, registry());
+        // 沿面加速度序列（t, along）——沿面投影 ax·cosθ + (−ay)·sinθ
+        java.util.List<double[]> series = new java.util.ArrayList<>();
+        in.addFrameListener(f -> {
+            if (f.getProbes() != null && f.getProbes().containsKey("as9")) {
+                double[] pr = f.getProbes().get("as9");
+                double along = pr[1] * Math.cos(th) + (-pr[2]) * Math.sin(th);
+                series.add(new double[]{f.getT(), along});
+            }
+        });
+        in.runToEndSync();
+        double theory = 9.8 * Math.sin(th);  // = 4.90
+        double sum = 0; int n = 0;
+        for (double[] s : series) {
+            if (s[0] >= 0.1 && s[0] <= 0.4) { sum += Math.abs(s[1]); n++; }  // 窗口 [0.1,0.4]：避开入面瞬态
+        }
+        assertTrue(n >= 5, "窗口内采样不足 n=" + n);
+        double meas = sum / n;
+        assertTrue(Math.abs(meas - theory) / theory < 0.03,
+                "斜面沿面 a=" + String.format("%.3f", meas) + " theory=" + String.format("%.3f", theory) + "（±3%）");
+    }
+
+    /** 清偿令·硬断言版：传送带共速前后分阶段（原 x-scene 打印块 1s 末窗混两阶段 dev 47.9%——拆窗断言）
+     *  带速 8/带长 24：阶段1 [1.35,1.9]s |a|≈μg±5%（共速 t*=8/3.92≈2.04s）；阶段2 [3.05,3.35]s（共速后滑窗滚净）vx≈8±2% 且 |a|≤0.3 */
+    @Test void beltPhasedHardAssert() {
+        PhysicsElement belt = new PhysicsElement();
+        belt.setId("bt8"); belt.setType("belt"); belt.setPosition(new Vector2D(0, -1));
+        belt.getProperties().setFriction(0.4);
+        belt.getProperties().setRestitution(0.0);  // 默认 0.5 弹跳放大摩擦冲量（实测|a|>μg 21%）——教学口径完全非弹性
+        belt.getParams().put("beltSpeed", 8.0); belt.getParams().put("beltLength", 24.0); belt.getParams().put("beltRadius", 0.15);
+        belt.setFixed(true);
+        PhysicsElement sensor = new PhysicsElement();
+        sensor.setId("as8"); sensor.setType("accel_sensor");
+        sensor.setPosition(new Vector2D(0, 0)); sensor.setConnectTo("b8");
+        PhysicsElement blk = new PhysicsElement();
+        blk.setId("b8"); blk.setType("cube"); blk.setPosition(new Vector2D(0, -0.35));  // 恰触带面
+        blk.getProperties().setMass(1); blk.getProperties().setFriction(0.4);
+        blk.getProperties().setRestitution(0.0);
+        Scene sc = new Scene(); sc.setElements(List.of(belt, sensor, blk));
+        SimulationConfig cfg = new SimulationConfig();
+        cfg.setMaxDuration(3.4); cfg.setSubsteps(4); sc.setConfig(cfg);
+        SimulationInstance in = new SimulationInstance("t-belt-hard", sc, registry());
+        java.util.List<double[]> series = new java.util.ArrayList<>();  // (t, ax, vx)
+        in.addFrameListener(f -> {
+            double ax = 0, vx = 0;
+            if (f.getProbes() != null && f.getProbes().containsKey("as8")) {
+                ax = f.getProbes().get("as8")[1];
+            }
+            FullSnapshot snap = (FullSnapshot) f.getSnapshot();
+            if (!snap.getElements().isEmpty()) vx = snap.getElements().get(0).vx();
+            series.add(new double[]{f.getT(), ax, vx});
+        });
+        in.runToEndSync();
+        if (Boolean.getBoolean("belt.debug")) {
+            for (double[] s : series) System.out.println("[belt-dbg] t=" + String.format("%.3f", s[0])
+                + " ax=" + String.format("%.3f", s[1]) + " vx=" + String.format("%.3f", s[2]));
+        }
+        // 阶段1：恒加速 μg（窗 [1.1,1.9]：滑窗滚出接触瞬态且未及共速 t*=8/3.92≈2.04s）
+        double s1 = 0; int n1 = 0;
+        for (double[] s : series) if (s[0] >= 1.35 && s[0] <= 1.9) { s1 += Math.abs(s[1]); n1++; }
+        assertTrue(n1 >= 5, "阶段1采样不足 n1=" + n1);
+        double a1 = s1 / n1, ug = 0.4 * 9.8;
+        assertTrue(Math.abs(a1 - ug) / ug < 0.05,
+                "共速前 |a|=" + String.format("%.3f", a1) + " theory μg=" + String.format("%.3f", ug) + "（±5%）");
+        // 阶段2：共速后随带 vx≈8 且 a≈0（窗 [2.6,3.1]：滑窗滚出阶段1 混合段）
+        double s2v = 0, s2a = 0; int n2 = 0;
+        for (double[] s : series) if (s[0] >= 3.05 && s[0] <= 3.35) { s2v += Math.abs(s[2]); s2a += Math.abs(s[1]); n2++; }
+        assertTrue(n2 >= 5, "阶段2采样不足 n2=" + n2);
+        double v2 = s2v / n2, a2 = s2a / n2;
+        assertTrue(Math.abs(v2 - 8.0) <= 0.16, "共速后 |vx|=" + String.format("%.3f", v2) + " ≈ 带速 8（±2%）");
+        assertTrue(a2 <= 0.3, "共速后 |a|=" + String.format("%.3f", a2) + " ≤ 0.3（随带匀速）");
     }
 
     /** 追问1：最小二乘跨物理场景验证（板块滑动+传送带共速+斜面弹簧） */
@@ -615,7 +705,7 @@ class UnifyPhase35Test {
             PhysicsElement belt = new PhysicsElement();
             belt.setId("bt"); belt.setType("belt"); belt.setPosition(new Vector2D(0, -1));
             belt.getProperties().setFriction(0.4);
-            belt.getParams().put("beltSpeed", 3.0); belt.getParams().put("beltLength", 8.0); belt.getParams().put("beltRadius", 0.15);
+            belt.getParams().put("beltSpeed", 8.0); belt.getParams().put("beltLength", 24.0); belt.getParams().put("beltRadius", 0.15);
             belt.setFixed(true);
             PhysicsElement sensor = new PhysicsElement();
             sensor.setId("as2"); sensor.setType("accel_sensor");
@@ -669,7 +759,7 @@ class UnifyPhase35Test {
             double measA = last[1] * Math.cos(th) + (-last[2]) * Math.sin(th);
             System.out.println("[x-scene] 斜面初期 a=" + String.format("%.2f", measA) + " theory=" + String.format("%.2f", theoryA) + " dev=" + String.format("%.1f%%", Math.abs(measA-theoryA)/theoryA*100));
         }
-        assertTrue(true, "数据在 stdout");
+        assertTrue(true, "数据在 stdout");  // 【仅诊断 print-only——非断言（清偿令审计标记）】
     }
 
     /** 追问1：板块/传送带分阶段验证（共速前/共速后分别测，不做跨状态窗口） */
@@ -716,7 +806,7 @@ class UnifyPhase35Test {
             PhysicsElement belt = new PhysicsElement();
             belt.setId("bt"); belt.setType("belt"); belt.setPosition(new Vector2D(0, -1));
             belt.getProperties().setFriction(0.4);
-            belt.getParams().put("beltSpeed", 3.0); belt.getParams().put("beltLength", 8.0); belt.getParams().put("beltRadius", 0.15);
+            belt.getParams().put("beltSpeed", 8.0); belt.getParams().put("beltLength", 24.0); belt.getParams().put("beltRadius", 0.15);
             belt.setFixed(true);
             PhysicsElement sensor = new PhysicsElement();
             sensor.setId("as2"); sensor.setType("accel_sensor");
@@ -745,7 +835,7 @@ class UnifyPhase35Test {
             PhysicsElement belt = new PhysicsElement();
             belt.setId("bt3"); belt.setType("belt"); belt.setPosition(new Vector2D(0, -1));
             belt.getProperties().setFriction(0.4);
-            belt.getParams().put("beltSpeed", 3.0); belt.getParams().put("beltLength", 8.0); belt.getParams().put("beltRadius", 0.15);
+            belt.getParams().put("beltSpeed", 8.0); belt.getParams().put("beltLength", 24.0); belt.getParams().put("beltRadius", 0.15);
             belt.setFixed(true);
             PhysicsElement sensor = new PhysicsElement();
             sensor.setId("as3"); sensor.setType("accel_sensor");
@@ -771,6 +861,6 @@ class UnifyPhase35Test {
             double measA = Math.abs(last[1]);
             System.out.println("[phase] 传送带共速后 a=" + String.format("%.3f", measA) + " theory=0.00 (绝对值阈值<0.1: " + (measA < 0.1) + ")");
         }
-        assertTrue(true, "分阶段数据在 stdout");
+        assertTrue(true, "分阶段数据在 stdout");  // 【仅诊断 print-only——非断言（清偿令审计标记）】
     }
 }

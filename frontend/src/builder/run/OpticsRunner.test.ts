@@ -56,4 +56,25 @@ describe('OpticsRunner 物理核心（P1·批次 5）', () => {
     expect(frames[0].readings.theta_2).toBeGreaterThan(0)
     expect(frames[0].rays.length).toBeGreaterThanOrEqual(2)  // 入射+折射
   })
+
+  // ── 清偿5·卡 56/57 主入口模式 ──
+  it('runOptics：wedge 单元件 → 劈尖条纹间距读数+画布光线', () => {
+    const frames = runOptics([
+      { id: 'w', type: 'wedge', x: 0, y: 0, angle: 0, params: { lam: 600, n: 1.5, alpha: 0.0573 } },
+    ])
+    expect(frames.length).toBeGreaterThan(0)
+    // ΔL = 600e-9/(2×1.5×tan(0.0573°)) ≈ 0.200mm
+    expect(frames[0].readings.fringe_mm).toBeCloseTo(0.200, 2)
+    expect(frames[0].rays.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('runOptics：double_slit 单元件 → Δx=Lλ/d 读数', () => {
+    const frames = runOptics([
+      { id: 'd', type: 'double_slit', x: 0, y: 0, angle: 0, params: { lam: 600, d: 0.2, L: 1 } },
+    ])
+    expect(frames.length).toBeGreaterThan(0)
+    // Δx = 1×600e-9/0.2e-3 = 3mm
+    expect(frames[0].readings.dx_mm).toBeCloseTo(3.0, 3)
+    expect(frames[0].rays.length).toBeGreaterThanOrEqual(4)
+  })
 })

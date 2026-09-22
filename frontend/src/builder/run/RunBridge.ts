@@ -17,7 +17,9 @@ import type { Analysis } from '../analysis/EngineAnalyzer'
 /** P2·耦合接入完成：rail-rod/热学已接入 Java 联合运行——PHASE4 拒绝集合清空 */
 const PHASE4 = new Set<string>()
 /** TS 本地引擎域（P1·批次 5）：不 POST Java，本地计算后返回帧 */
-const TS_ENGINE_TYPES = new Set(['light_source', 'prism', 'optic_screen', 'photo_tube', 'h_atom'])
+const TS_ENGINE_TYPES = new Set(['light_source', 'prism', 'optic_screen', 'photo_tube', 'h_atom',
+  // 清偿5·P1 11 卡补面：劈尖(56)/双缝(57)/物质波(65)/玻尔碰撞(64)——Runner 公式已有，接 builder 元件
+  'wedge', 'double_slit', 'electron_gun', 'bohr_collision'])
 /** 不建刚体的显示/检测类（静默跳过）；bracket/pole = 理想固定端（无碰撞体，绳/弹簧连接端折算固定悬点） */
 const NO_BODY = new Set(['photogate', 'force_sensor', 'trail', 'energy_meter', 'timeline', 'anchor_point', 'vector_arrow', 'graph_tag',
   'accel_sensor', 'speed_sensor', 'range_finder', 'bracket', 'pole'])
@@ -272,7 +274,7 @@ export function useRunBridge() {
     if (analysis.path === 'none') return '没有可运行的元件（只有显示类元件）'
     // P1·TS 本地引擎：光学/近代元件走 OpticsRunner/ModernRunner，不 POST Java
     if (els.every((e) => TS_ENGINE_TYPES.has(e.type) || NO_BODY.has(e.type))) {
-      const isOptics = els.some((e) => ['light_source', 'prism', 'optic_screen'].includes(e.type))
+      const isOptics = els.some((e) => ['light_source', 'prism', 'optic_screen', 'wedge', 'double_slit'].includes(e.type))
       const { runOptics } = await import('./OpticsRunner')
       const { runModern } = await import('./ModernRunner')
       const bodies = els.filter((e) => TS_ENGINE_TYPES.has(e.type)).map((e) => ({

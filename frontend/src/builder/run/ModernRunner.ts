@@ -13,7 +13,7 @@
 
 export interface ModernBody {
   id: string
-  type: 'photo_tube' | 'h_atom' | 'point_charge' | 'light_source'
+  type: 'photo_tube' | 'h_atom' | 'point_charge' | 'light_source' | 'electron_gun' | 'bohr_collision'
   x: number; y: number; angle: number
   params: Record<string, number>
 }
@@ -128,6 +128,43 @@ export function runModern(elements: ModernBody[], maxDuration = 3): ModernFrame[
           wavelength_nm: lambda,
         },
         transitions: [{ from: m, to: n, energy: dE, wavelength: lambda }],
+      })
+    }
+    return frames
+  }
+
+  // 清偿5·卡 65：电子枪物质波 λ=h/√(2meU)（deBroglieWavelength 产品函数）
+  if (elements.some(e => e.type === 'electron_gun')) {
+    const gun = elements.find(e => e.type === 'electron_gun')!
+    const U = gun.params.U ?? 100
+    const lambda = deBroglieWavelength(U)
+    for (let i = 0; i <= steps; i++) {
+      frames.push({
+        t: i / 30,
+        readings: { U, lambda_nm: lambda * 1e9, lambda_pm: lambda * 1e12 },
+        transitions: [],
+      })
+    }
+    return frames
+  }
+
+  // 清偿5·卡 64：玻尔碰撞——电子能量匹配能级差则共振激发（bohrResonance 产品函数）
+  if (elements.some(e => e.type === 'bohr_collision')) {
+    const bo = elements.find(e => e.type === 'bohr_collision')!
+    const E = bo.params.E ?? 12.75
+    const maxN = Math.round(bo.params.maxN ?? 4)
+    const res = bohrResonance(E, maxN)
+    const dE = res ? Math.abs(transitionEnergy(res.m, res.n)) : 0
+    const lambda = res ? transitionWavelength(res.m, res.n) : 0
+    for (let i = 0; i <= steps; i++) {
+      frames.push({
+        t: i / 30,
+        readings: {
+          E, max_n: maxN, resonant: res ? 1 : 0,
+          res_n: res?.n ?? 0, res_m: res?.m ?? 0,
+          delta_E: dE, wavelength_nm: lambda,
+        },
+        transitions: res ? [{ from: res.m, to: res.n, energy: dE, wavelength: lambda }] : [],
       })
     }
     return frames

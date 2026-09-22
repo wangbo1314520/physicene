@@ -60,4 +60,26 @@ describe('ModernRunner 物理核心（P1·批次 5）', () => {
     expect(frames[0].readings.work_function).toBeCloseTo(2.28, 2)
     expect(frames[0].readings.cutoff_freq).toBeCloseTo(5.51, 1)
   })
+
+  // ── 清偿5·卡 64/65 主入口模式 ──
+  it('runModern：electron_gun U=100V → 物质波 λ≈12.3pm', () => {
+    const frames = runModern([
+      { id: 'g', type: 'electron_gun', x: 0, y: 0, angle: 0, params: { U: 100 } },
+    ])
+    expect(frames.length).toBeGreaterThan(0)
+    // λ = h/√(2meU) = 6.626e-34/√(2×9.11e-31×1.602e-19×100) ≈ 1.227e-10 m = 0.1227nm = 122.7pm
+    expect(frames[0].readings.lambda_pm).toBeCloseTo(122.7, 0)
+  })
+
+  it('runModern：bohr_collision E=12.75eV → 1→∞ 共振（电离阈值）', () => {
+    const frames = runModern([
+      { id: 'b', type: 'bohr_collision', x: 0, y: 0, angle: 0, params: { E: 12.75, maxN: 4 } },
+    ])
+    expect(frames.length).toBeGreaterThan(0)
+    // 12.75eV=|E₁|：n=1 激发到… bohrResonance 在 maxN 内找 ΔE=E：1↔n 需 ΔE=13.6(1−1/n²)；
+    // 12.75=13.6×(1−1/16) → n=4（ΔE(1,4)=12.75）→ resonant=1, res_n=4, res_m=1
+    expect(frames[0].readings.resonant).toBe(1)
+    expect(frames[0].readings.res_n).toBe(4)
+    expect(frames[0].readings.delta_E).toBeCloseTo(12.75, 1)
+  })
 })

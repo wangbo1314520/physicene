@@ -26,8 +26,11 @@ with sync_playwright() as p:
     page = ctx.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
-    page.goto(f"{BASE}/exp")
-    page.wait_for_selector(".builder .palette .item", timeout=8000)
+    # P0 后 builder 迁入 /lab「自由搭建」Tab（/exp→/lab 重定向）；选择器作用域化
+    page.goto(f"{BASE}/lab")
+    page.wait_for_selector(".canvas-wrap canvas", timeout=12000)
+    page.locator(".tabbar .tab", has_text="自由搭建").click()
+    page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
     r = page.evaluate("""() => {
       const B = window.__builder;
       // 斜面 position=直角角点：底端锚点局部(6,0)，默认 L=6 θ=30°

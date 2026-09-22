@@ -70,6 +70,7 @@ def banner() -> None:
     print(f"GIT  : {head} ({branch}, dirty:{dirty})")
     print(f"JAVA : {java_desc}")
     print(f"VITE : {'up' if vite_ok() else 'DOWN!'} :5173")
-    print(f"PY   : {py}{' [WindowsApps别名-勿用!]' if bad_py else ''}")
+    ver = sys.version.split()[0]
+    print(f"PY   : {py} (py{ver}){' [WindowsApps别名-勿用!]' if bad_py else ''}")
     print(f"WPBW : {pw}")
     print("═════════════════════")

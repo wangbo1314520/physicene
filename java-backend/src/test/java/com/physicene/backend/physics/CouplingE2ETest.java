@@ -35,10 +35,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 阶段二 DoD 耦合端到端（方案 §7 #8 抽样 + §3.5 DoD）：
- * ① 导轨棒耦合（dyn4j rod_bar + CircuitEngine EMF/I 循环）终速 v = FR/(B²L²)
- * ② 活塞—气室（dyn4j piston + GasCell）平衡 p·A = Mg
- * ③ 滑轮长窗口基线（技术债务 D1 的数据基线：5s 窗口振荡量化）
+ * 【参考实现测试——降级标记（清偿令·测试真实性审计）】
+ * ①② 在测试体内手写 Euler 循环/自带阻尼，不走 CouplingOrchestrator/SimulationInstance——
+ * 验证的是物理公式与 CircuitEngine/GasCell 单元，不覆盖产品接线（GS 力累积/阻尼链/probes
+ * 三 bug 均在此盲区，见 P2.1 d1be6a3）。产品路径真测见 CouplingProductPathTest。
+ * ③ 滑轮长窗口基线（技术债务 D1 的数据基线：5s 窗口振荡量化）——真测（SimulationInstance）。
+ * 阶段二 DoD 耦合端到端（方案 §7 #8 抽样 + §3.5 DoD）。
  */
 class CouplingE2ETest {
 

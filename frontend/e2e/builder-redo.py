@@ -94,8 +94,11 @@ def main() -> int:
         page = ctx.new_page()
         errs = []
         page.on("pageerror", lambda e: errs.append(str(e)))
-        page.goto(f"{BASE}/exp")
-        page.wait_for_selector(".builder .palette .item", timeout=8000)
+        # P0 后 builder 迁入 /lab「自由搭建」Tab（/exp→/lab 重定向）；选择器作用域化
+        page.goto(f"{BASE}/lab")
+        page.wait_for_selector(".canvas-wrap canvas", timeout=12000)
+        page.locator(".tabbar .tab", has_text="自由搭建").click()
+        page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
         tpls_meta = page.evaluate("window.__builder.templates()")
         want = [t for t in tpls_meta if not args.ids or t["id"] in args.ids.split(",")]
         print(f"回炉模板 {len(want)}/8")
@@ -210,8 +213,11 @@ def main() -> int:
         ctx2.add_init_script(f"localStorage.setItem('ps_token', {json.dumps(auth['token'])});"
                              f"localStorage.setItem('ps_user', {json.dumps(json.dumps(auth['user']))});")
         pg = ctx2.new_page()
-        pg.goto(f"{BASE}/exp")
-        pg.wait_for_selector(".builder .palette .item", timeout=8000)
+        # P0 后 builder 迁入 /lab「自由搭建」Tab（/exp→/lab 重定向）；选择器作用域化
+        pg.goto(f"{BASE}/lab")
+        pg.wait_for_selector(".canvas-wrap canvas", timeout=12000)
+        pg.locator(".tabbar .tab", has_text="自由搭建").click()
+        pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
         w = W(pg)
 
         def drag(pg, w, fx, fy, tx, ty, steps=12):
@@ -401,8 +407,11 @@ def main() -> int:
 
         # 探针E4（D5 断绳端到端，第二十八轮自足化）：脱离前序探针终态与 place 拖放两条时序链——
         # ①整页 reload（干净 DOM/仿真状态）②add+move 直摆（无拖放竞态）③不依赖任何前序 run 结束
-        pg.goto("http://localhost:5173/exp")
-        pg.wait_for_selector(".builder .palette .item", timeout=15000)
+        # P0 后 /exp→/lab 重定向，builder 在自由搭建 Tab
+        pg.goto("http://localhost:5173/lab")
+        pg.wait_for_selector(".canvas-wrap canvas", timeout=15000)
+        pg.locator(".tabbar .tab", has_text="自由搭建").click()
+        pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=15000)
         p1b = pg.evaluate("window.__builder.add('pole', {H: 1.2}, -0.8, 0.6)")
         p2b = pg.evaluate("window.__builder.add('pole', {H: 1.2}, 0.8, 0.6)")
         cloth2 = pg.evaluate("window.__builder.add('block', {m: 2}, 0, -0.2605)")  # 绷直位；m=2 → T=12.8 > Tmax=10

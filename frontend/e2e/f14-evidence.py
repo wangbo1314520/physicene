@@ -107,7 +107,10 @@ def main() -> int:
 
         # ── E3 独立直入（过渡）──
         L("── E3 /exp（过渡入口）")
-        pg.goto(f"{BASE}/exp"); pg.wait_for_selector(".builder .palette .item", timeout=12000)
+        # P0 后 /exp→/lab 重定向，builder 在自由搭建 Tab（旧"直入"已无独立入口）
+        pg.goto(f"{BASE}/lab"); pg.wait_for_selector(".canvas-wrap canvas", timeout=12000)
+        pg.locator(".tabbar .tab", has_text="自由搭建").click()
+        pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
         pg.wait_for_timeout(300); shot(pg, "09"); L("09 E3 /exp-direct ✓")
 
         pg.evaluate("window.__builder.clear()")
