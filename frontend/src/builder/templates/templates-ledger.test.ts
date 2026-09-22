@@ -67,7 +67,7 @@ describe('数字口径闸门', () => {
     const { PLAN_COUNT, CATALOG } = await import('../catalog')
     const { TEMPLATES } = await import('./registry')
     expect(PLAN_COUNT).toBe(CATALOG.length)
-    expect(PLAN_COUNT).toBe(42)   // 40+vector_arrow+graph_tag（任务E 显示两件）   // 变更须同步数字口径审计
+    expect(PLAN_COUNT).toBe(46)   // 40+vector_arrow/graph_tag（任务E）+wedge/double_slit/electron_gun/bohr_collision（清偿5·11卡补面）  // 变更须同步数字口径审计
     expect(TEMPLATES.length).toBe(17)
   })
 })
