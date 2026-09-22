@@ -167,11 +167,11 @@ describe('toPhysicsElements 类型映射', () => {
     expect(v.y).toBeCloseTo(10 * Math.sin(Math.PI / 6), 6)
   })
 
-  it('阶段四类型拒绝进 skipped；显示类静默跳过', () => {
+  it('P2 后阶段四拒绝集已清空：耦合类型不再 skip；显示类静默跳过', () => {
     const { list, skipped } = toPhysicsElements([
       mk('gas_cell', 'g1'), mk('rail_pair', 'rr1'), mk('photogate', 'pg1'), mk('trail', 't1'), mk('block', 'b1'),
     ])
-    expect(skipped).toEqual(['gas_cell', 'rail_pair'])
-    expect(list.map((e) => e.id)).toEqual(['b1'])
+    expect(skipped).toEqual([])  // P2·耦合接入后 PHASE4 为空
+    expect(list.map((e) => e.id)).toEqual(['g1', 'rr1', 'b1'])  // gas_cell/rail_pair 映射为 wall
   })
 })

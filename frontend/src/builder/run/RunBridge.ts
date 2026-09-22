@@ -14,8 +14,8 @@ import { byType, BELT_RADIUS, type GeoElement } from '../catalog'
 import { resolveAnchorById, anchorWorldOf } from '../model/anchors'
 import type { Analysis } from '../analysis/EngineAnalyzer'
 
-/** 阶段四才接入联合运行的类型（画布可搭、运行桥暂拒绝）——光学/近代已由 TS 引擎接管（P1） */
-const PHASE4 = new Set(['cylinder', 'piston', 'gas_cell', 'heater', 'rail_pair', 'rod_bar'])
+/** P2·耦合接入完成：rail-rod/热学已接入 Java 联合运行——PHASE4 拒绝集合清空 */
+const PHASE4 = new Set<string>()
 /** TS 本地引擎域（P1·批次 5）：不 POST Java，本地计算后返回帧 */
 const TS_ENGINE_TYPES = new Set(['light_source', 'prism', 'optic_screen', 'photo_tube', 'h_atom'])
 /** 不建刚体的显示/检测类（静默跳过）；bracket/pole = 理想固定端（无碰撞体，绳/弹簧连接端折算固定悬点） */
@@ -84,6 +84,31 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
         const v0 = num(p.v0, 0), ang = deg2rad(num(p.ang, 0))
         asBody({ type: 'sphere', scale: { x: 0.4, y: 0.4 }, properties: { mass: num(p.m, 1) },
           initialState: { velocity: { x: v0 * Math.cos(ang), y: v0 * Math.sin(ang) } } })
+        break
+      }
+      case 'rod_bar': {
+        // P2·耦合接入：导体棒=dyn4j 刚体（cube），耦合电路侧由 CouplingOrchestrator 在 Java 端驱动
+        asBody({ type: 'cube', properties: { mass: num(p.m, 1), friction: 0 }, params: { k: num(p.R, 1) } })
+        break
+      }
+      case 'rail_pair': {
+        // P2·耦合接入：导轨对=固定刚体（wall），B 场由配套 b_region 提供
+        asBody({ type: 'wall', fixed: true, properties: { friction: 0 }, params: { railL: num(p.L, 1) } })
+        break
+      }
+      case 'piston': {
+        // P2·耦合接入：活塞=dyn4j 刚体（cube），热学耦合由 PistonCoupling 在 Java 端驱动
+        asBody({ type: 'cube', properties: { mass: num(p.M, 10), friction: 0 }, params: { dampingRatio: num(p.dampingRatio, 0.5) } })
+        break
+      }
+      case 'cylinder': {
+        // P2·耦合接入：汽缸=固定刚体（wall）
+        asBody({ type: 'wall', fixed: true, properties: { friction: 0 }, params: { area: num(p.S, 0.01) } })
+        break
+      }
+      case 'gas_cell': case 'heater': {
+        // P2·耦合接入：气室/温度源=纯热学数据（无刚体），Java GasCell/Heater 处理
+        asBody({ type: 'wall', fixed: true, properties: {}, params: { p0: num(p.p0, 101325), V0: num(p.V0, 0.01), T0: num(p.T0, 300), gamma: num(p.gamma, 1), T2: num(p.T2, 360) } })
         break
       }
       case 'cart':
@@ -274,8 +299,7 @@ export function useRunBridge() {
     }
     if (els.some((e) => TS_ENGINE_TYPES.has(e.type)) && els.some((e) => !TS_ENGINE_TYPES.has(e.type) && !NO_BODY.has(e.type)))
       return '光学/近代元件不能与力学刚体混合运行（需拆为独立场景）'
-    if (analysis.engines.some((e) => e.key === 'circuit' || e.key === 'thermal'))
-      return '电路/热学联合运行在阶段四接入；当前支持：力学刚体（斜面/传送带/圆轨道/绳弹簧滑轮）+ 电磁场 + 光学(TS) + 近代(TS)'
+    // P2·耦合接入：rail-rod / 热学已解除拒绝（Java 联合运行，CouplingOrchestrator 调度）
     const pkg = toPhysicsElements(els)
     if (pkg.skipped.length) return `暂不支持运行的元件：${[...new Set(pkg.skipped)].join('、')}`
     if (!pkg.list.length) return '没有可映射到求解器的元件'
