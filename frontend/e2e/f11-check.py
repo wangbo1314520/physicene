@@ -30,6 +30,28 @@ def main() -> int:
         pg.wait_for_selector(".builder .palette .item", timeout=15000)
         assert not pg.locator(".lab > .topbar").is_visible(), "自由搭建页不应显示实验台顶栏（v-if 隔离）"
         pg.screenshot(path=str(OUT / "f11-tab-free.png"))
+        # 2.5) 模板下拉分组断言（UI 分类 bug 补强——标题不再写死"力学"，按 group 分组渲染）
+        tpl_btn = pg.locator(".tools button", has_text="模板")
+        if tpl_btn.count():
+            tpl_btn.click()
+            pg.wait_for_selector(".tpl-drawer .tpl-group", timeout=5000)
+            grp_texts = pg.locator(".tpl-drawer .tpl-group").all_inner_texts()
+            import re as _re
+            groups = [{"title": t, "count": int(m.group(1))} for t in grp_texts
+                      if (m := _re.search(r"[（(](\d+)[)）]", t))]
+            assert len(groups) >= 2, f"分组标题应 ≥2（力学+电磁），实际 {len(groups)}: {grp_texts}"
+            total = sum(g["count"] for g in groups)
+            all_tpls = pg.evaluate("window.__builder.templates()")
+            assert total == len(all_tpls), f"分组计数之和 {total} ≠ 总数 {len(all_tpls)}"
+            for g in groups:
+                assert g["count"] > 0, f"空组不应显示: {g}"
+            li_names = [t["name"] for t in all_tpls if t["group"] == "力学"]
+            assert "板块模型（动量守恒共速）" in li_names, f"力学组应含板块模型: {li_names[:3]}"
+            em_names = [t["name"] for t in all_tpls if t["group"] == "电磁"]
+            assert any("速度选择器" in n for n in em_names), f"电磁组应含速度选择器: {em_names[:3]}"
+            print(f"  ✓ 分组断言：{len(groups)} 组 {groups}，计数和={total}={len(all_tpls)}，力学含板块 ✓ 电磁含选择器 ✓")
+            pg.screenshot(path=str(OUT / "f11-tpl-grouped.png"))
+            tpl_btn.click()  # 关闭抽屉
         # 3) 1 模板可搭可跑（板块模型）
         pg.evaluate("window.__builder.clear()")
         tpls = pg.evaluate("window.__builder.templates()")

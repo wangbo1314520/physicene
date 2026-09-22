@@ -15,6 +15,12 @@ import { analyze } from './analysis/EngineAnalyzer'
 import CriticalPanel from './analysis/CriticalPanel.vue'
 import { useRunBridge } from './run/RunBridge'
 import { TEMPLATES, instantiate, templateById } from './templates/registry'
+
+/** 模板按 group 分组（力学/电磁/热学，固定顺序；空组不显示）*/
+const templateGroups = computed(() =>
+  ['力学', '电磁', '热学']
+    .map(name => ({ name, items: TEMPLATES.filter(t => t.group === name) }))
+    .filter(g => g.items.length > 0))
 import type { RunRecord } from '../sandbox/SandboxData.vue'
 
 const sceneName = ref('未命名场景')
@@ -277,7 +283,7 @@ onMounted(() => {
     unlinkAll: (id: string) => { const e = elements.find((x) => x.id === id); if (e) e.links.splice(0) },
     snapOf: (id: string) => canvasRef.value?.snapOf(id) ?? null,
     loadTemplate: (id: string) => loadTemplate(id),
-    templates: () => JSON.parse(JSON.stringify(TEMPLATES.map((t) => ({ id: t.id, name: t.name, card: t.card, checks: t.criticalChecks })))),
+    templates: () => JSON.parse(JSON.stringify(TEMPLATES.map((t) => ({ id: t.id, name: t.name, card: t.card, group: t.group, checks: t.criticalChecks })))),
     run: () => doRun(),
     simStatus: () => sim.status,
     simT: () => sim.currentT,
@@ -344,10 +350,13 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
         </div>
         <div class="canvas-holder">
           <div v-if="showTemplates" class="tpl-drawer">
-            <h4>几何模板（阶段四批次 1：力学 {{ TEMPLATES.length }} 个）</h4>
-            <button v-for="t in TEMPLATES" :key="t.id" class="tpl" @click="loadTemplate(t.id)">
-              <span class="nm">{{ t.name }}</span><span class="cd">卡 {{ t.card }}</span>
-            </button>
+            <h4>几何模板（共 {{ TEMPLATES.length }} 个）</h4>
+            <template v-for="g in templateGroups" :key="g.name">
+              <h5 class="tpl-group">{{ g.name }}（{{ g.items.length }}）</h5>
+              <button v-for="t in g.items" :key="t.id" class="tpl" @click="loadTemplate(t.id)">
+                <span class="nm">{{ t.name }}</span><span class="cd">卡 {{ t.card }}</span>
+              </button>
+            </template>
           </div>
           <BuilderCanvas ref="canvasRef" :elements="elements" :selected-id="selectedId" :link-mode="linkMode" :link-from="linkFrom" :run-states="bridge.runStates.value" :broken-ropes="brokenRopes" :subjects="sim.subjects"
             @select="selectedId = $event" @dragging="onDragging" @drop="onDrop" @anchor-pick="onAnchorPick" @add-at="(t, x, y) => addElement(t, x, y)" />
@@ -427,6 +436,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
 .empty { position: absolute; left: 20px; right: 20px; top: 45%; text-align: center; color: #565675; font-size: 12px; line-height: 1.8; pointer-events: none; }
 .tpl-drawer { position: absolute; top: 8px; left: 8px; z-index: 5; width: 280px; max-height: 90%; overflow-y: auto; background: #1d1d33ee; border: 1px solid #4a90d9; border-radius: 10px; padding: 10px; }
 .tpl-drawer h4 { font-size: 12px; color: #4a90d9; margin-bottom: 6px; }
+.tpl-drawer .tpl-group { font-size: 11px; color: #7fc3ff; margin: 8px 0 4px; border-bottom: 1px solid #2f2f4a; padding-bottom: 2px; }
 .tpl { display: flex; justify-content: space-between; width: 100%; background: #23233a; color: #b0b0cc; border: 1px solid #2f2f4a; border-radius: 6px; padding: 6px 8px; font-size: 12px; cursor: pointer; margin-bottom: 4px; }
 .tpl:hover { border-color: #4a90d9; color: #e8e8f0; }
 .tpl .cd { color: #565675; font-size: 10px; }
