@@ -8,15 +8,16 @@
  *  - 单端连接：绳/弹簧自身 position 作为固定悬点（取未连接端的锚点世界坐标）
  * 电路/热学/光学/近代引擎在阶段四接入（EngineAnalyzer.path 判定 + 此处拒绝）。
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useSimulationSocket, type PhysicsElementInput } from '../../composables/useSimulationSocket'
 import { byType, BELT_RADIUS, type GeoElement } from '../catalog'
 import { resolveAnchorById, anchorWorldOf } from '../model/anchors'
 import type { Analysis } from '../analysis/EngineAnalyzer'
 
-/** 阶段四才接入联合运行的类型（画布可搭、运行桥暂拒绝） */
-const PHASE4 = new Set(['cylinder', 'piston', 'gas_cell', 'heater', 'rail_pair', 'rod_bar',
-  'light_source', 'prism', 'optic_screen', 'photo_tube', 'h_atom'])
+/** 阶段四才接入联合运行的类型（画布可搭、运行桥暂拒绝）——光学/近代已由 TS 引擎接管（P1） */
+const PHASE4 = new Set(['cylinder', 'piston', 'gas_cell', 'heater', 'rail_pair', 'rod_bar'])
+/** TS 本地引擎域（P1·批次 5）：不 POST Java，本地计算后返回帧 */
+const TS_ENGINE_TYPES = new Set(['light_source', 'prism', 'optic_screen', 'photo_tube', 'h_atom'])
 /** 不建刚体的显示/检测类（静默跳过）；bracket/pole = 理想固定端（无碰撞体，绳/弹簧连接端折算固定悬点） */
 const NO_BODY = new Set(['photogate', 'force_sensor', 'trail', 'energy_meter', 'timeline', 'anchor_point', 'vector_arrow', 'graph_tag',
   'accel_sensor', 'speed_sensor', 'range_finder', 'bracket', 'pole'])
@@ -221,13 +222,33 @@ function v0State(p: Record<string, number>): { velocity: { x: number; y: number 
  */
 export function useRunBridge() {
   const socket = useSimulationSocket()
+  /** P1·TS 本地引擎帧（光学/近代）——BuilderView 读取用于数据面板 */
+  const tsFrames = ref<unknown[]>([])
 
   async function run(els: GeoElement[], analysis: Analysis, maxDuration = 12, gravityY = -9.8, substepsOverride?: number): Promise<string | null> {
     if (els.length === 0) return '画布为空'
     if (analysis.path === 'none') return '没有可运行的元件（只有显示类元件）'
-    if (analysis.path === 'ts') return '光学/近代为前端本地引擎，阶段四接入'
+    // P1·TS 本地引擎：光学/近代元件走 OpticsRunner/ModernRunner，不 POST Java
+    if (els.every((e) => TS_ENGINE_TYPES.has(e.type) || NO_BODY.has(e.type))) {
+      const isOptics = els.some((e) => ['light_source', 'prism', 'optic_screen'].includes(e.type))
+      const { runOptics } = await import('./OpticsRunner')
+      const { runModern } = await import('./ModernRunner')
+      const bodies = els.filter((e) => TS_ENGINE_TYPES.has(e.type)).map((e) => ({
+        id: e.id, type: e.type, x: e.position.x, y: e.position.y, angle: e.angle, params: e.params,
+      }))
+      const frames = isOptics
+        ? runOptics(bodies as Parameters<typeof runOptics>[0], maxDuration)
+        : runModern(bodies as Parameters<typeof runModern>[0], maxDuration)
+      if (frames.length) {
+        tsFrames.value = frames
+        return null  // 无错误
+      }
+      return 'TS 引擎未识别到可运行的光学/近代元件组合'
+    }
+    if (els.some((e) => TS_ENGINE_TYPES.has(e.type)) && els.some((e) => !TS_ENGINE_TYPES.has(e.type) && !NO_BODY.has(e.type)))
+      return '光学/近代元件不能与力学刚体混合运行（需拆为独立场景）'
     if (analysis.engines.some((e) => e.key === 'circuit' || e.key === 'thermal'))
-      return '电路/热学联合运行在阶段四接入；当前支持：力学刚体（斜面/传送带/圆轨道/绳弹簧滑轮）+ 电磁场'
+      return '电路/热学联合运行在阶段四接入；当前支持：力学刚体（斜面/传送带/圆轨道/绳弹簧滑轮）+ 电磁场 + 光学(TS) + 近代(TS)'
     const pkg = toPhysicsElements(els)
     if (pkg.skipped.length) return `暂不支持运行的元件：${[...new Set(pkg.skipped)].join('、')}`
     if (!pkg.list.length) return '没有可映射到求解器的元件'

@@ -22,10 +22,9 @@ const router = createRouter({
     { path: '/sim', name: 'sim', component: () => import('../views/SimView.vue') },
     { path: '/gaokao', name: 'gaokao-catalog', component: () => import('../views/GaokaoCatalogView.vue'), meta: { requiresAuth: true } },
     {
+      // P0 redirect（阶段六·任务 F 第二步）：搭建台已并入 /lab 自由搭建 Tab
       path: '/exp',
-      name: 'builder',
-      component: () => import('../builder/BuilderView.vue'),
-      meta: { requiresAuth: true },
+      redirect: '/lab',
     },
     {
       // 实验库目录（原 /exp，阶段三⑧ 路由合并迁出）
@@ -41,7 +40,7 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      // B13 沙盒已被统一搭建台取代（阶段三⑧）
+      // B13 沙盒已被统一搭建台取代（阶段三⑧）；P0 redirect 链 /sandbox→/exp→/lab
       path: '/sandbox',
       redirect: '/exp',
     },
