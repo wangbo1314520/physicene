@@ -71,6 +71,20 @@ async function doRun() {
   const err = await bridge.run(elements, analysis.value, t?.maxDuration ?? 12, t?.gravityY ?? -9.8, t?.substeps)
   if (err) say(err)
 }
+/** P1.1·TS 引擎 ended → 数据面板记录（与 Java ended 同入口，读数从 tsRun 取） */
+watch(() => bridge.tsRun.value.status, (st) => {
+  if (st !== 'ended') return
+  const r = bridge.tsRun.value.readings
+  const entries = Object.entries(r).map(([k, v]) => `${k}=${typeof v === 'number' ? v.toFixed(3) : v}`).join('；')
+  records.value.push({
+    at: new Date().toLocaleTimeString(),
+    family: 'TS 引擎（光学/近代）',
+    t: bridge.tsRun.value.t,
+    params: {},
+    readout: entries || '（无读数）',
+    events: [],
+  })
+})
 /** ended → 数据面板记录（readout=末帧各主体位姿/速度 + 能量尾部；events=keyEvents） */
 /** D5 断绳集合：keyEvents 的 rope_break 事件（payload.ropeId 标识哪条绳，type 保持纯净枚举）→ 画布垂挂贝塞尔 */
 const brokenRopes = ref(new Set<string>())
@@ -341,12 +355,16 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
           <span v-if="sim.status !== 'idle'" class="runstate">
             {{ sim.status === 'running' ? `▶ 运行中 t=${sim.currentT.toFixed(2)}s` : sim.status === 'paused' ? `⏸ 已暂停 t=${sim.currentT.toFixed(2)}s` : `⏹ 已结束 t=${sim.currentT.toFixed(2)}s（${sim.keyEvents.length} 事件）` }}
           </span>
+          <!-- P1.1·TS 引擎运行态（光学/近代） -->
+          <span v-if="bridge.tsRun.value.status !== 'idle'" class="runstate">
+            {{ bridge.tsRun.value.status === 'running' ? `▶ TS 引擎运行中 t=${bridge.tsRun.value.t.toFixed(2)}s` : `⏹ TS 引擎已结束 t=${bridge.tsRun.value.t.toFixed(2)}s` }}
+          </span>
           <template v-if="sim.status === 'running' || sim.status === 'paused'">
             <button @click="sim.status === 'paused' ? bridge.socket.play() : bridge.socket.pause()">{{ sim.status === 'paused' ? '▶ 继续' : '⏸ 暂停' }}</button>
             <button @click="bridge.socket.step()">⏭ 单步</button>
             <button @click="bridge.socket.end()">⏹ 停止</button>
           </template>
-          <button class="primary" :disabled="analysis.path !== 'java'" :title="analysis.path === 'java' ? '联合运行（Java 耦合调度）' : analysis.path === 'ts' ? '光学/近代本地引擎阶段四接入' : '无可运行引擎'" @click="doRun">▶ 运行</button>
+          <button class="primary" :disabled="analysis.path === 'none'" :title="analysis.path === 'java' ? '联合运行（Java 耦合调度）' : analysis.path === 'ts' ? 'TS 本地引擎（光学/近代）' : '无可运行引擎'" @click="doRun">▶ 运行</button>
         </div>
         <div class="canvas-holder">
           <div v-if="showTemplates" class="tpl-drawer">
@@ -358,7 +376,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
               </button>
             </template>
           </div>
-          <BuilderCanvas ref="canvasRef" :elements="elements" :selected-id="selectedId" :link-mode="linkMode" :link-from="linkFrom" :run-states="bridge.runStates.value" :broken-ropes="brokenRopes" :subjects="sim.subjects"
+          <BuilderCanvas ref="canvasRef" :elements="elements" :selected-id="selectedId" :link-mode="linkMode" :link-from="linkFrom" :run-states="bridge.runStates.value" :broken-ropes="brokenRopes" :subjects="sim.subjects" :ts-rays="bridge.tsRun.value.rays"
             @select="selectedId = $event" @dragging="onDragging" @drop="onDrop" @anchor-pick="onAnchorPick" @add-at="(t, x, y) => addElement(t, x, y)" />
           <p v-if="!elements.length" class="empty">从左侧拖入元件（米制世界坐标，滚轮缩放）。例：斜面 + 物块 → 传送带 + 物块 → 竖直圆轨道 + 小球</p>
         </div>

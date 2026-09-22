@@ -222,8 +222,20 @@ function v0State(p: Record<string, number>): { velocity: { x: number; y: number 
  */
 export function useRunBridge() {
   const socket = useSimulationSocket()
-  /** P1·TS 本地引擎帧（光学/近代）——BuilderView 读取用于数据面板 */
-  const tsFrames = ref<unknown[]>([])
+  /** P1·TS 本地引擎播放状态（BuilderView 消费：status/readings/rays/frameIdx） */
+  const tsRun = ref<{
+    status: 'idle' | 'running' | 'ended'
+    t: number
+    readings: Record<string, number>
+    rays: { x0: number; y0: number; x1: number; y1: number; kind: string }[]
+    frames: unknown[]
+  }>({ status: 'idle', t: 0, readings: {}, rays: [], frames: [] })
+  let tsTimer: ReturnType<typeof setInterval> | null = null
+
+  function stopTs() {
+    if (tsTimer) { clearInterval(tsTimer); tsTimer = null }
+    tsRun.value = { ...tsRun.value, status: 'ended' }
+  }
 
   async function run(els: GeoElement[], analysis: Analysis, maxDuration = 12, gravityY = -9.8, substepsOverride?: number): Promise<string | null> {
     if (els.length === 0) return '画布为空'
@@ -240,7 +252,22 @@ export function useRunBridge() {
         ? runOptics(bodies as Parameters<typeof runOptics>[0], maxDuration)
         : runModern(bodies as Parameters<typeof runModern>[0], maxDuration)
       if (frames.length) {
-        tsFrames.value = frames
+        // P1.1·TS 引擎播放：30fps 逐帧推进（与 Java WS 同节奏），BuilderView 消费 tsRun
+        tsRun.value = { status: 'running', t: 0, readings: {}, rays: [], frames }
+        const stepMs = 1000 / 30
+        let idx = 0
+        if (tsTimer) clearInterval(tsTimer)
+        tsTimer = setInterval(() => {
+          const f = frames[idx] as { t: number; readings?: Record<string, number>; rays?: typeof tsRun.value.rays; transitions?: unknown[] }
+          tsRun.value = {
+            ...tsRun.value,
+            t: f.t,
+            readings: f.readings ?? {},
+            rays: (f as { rays?: typeof tsRun.value.rays }).rays ?? [],
+          }
+          idx++
+          if (idx >= frames.length) stopTs()
+        }, stepMs)
         return null  // 无错误
       }
       return 'TS 引擎未识别到可运行的光学/近代元件组合'
@@ -270,5 +297,5 @@ export function useRunBridge() {
     return m
   })
 
-  return { socket, run, runStates }
+  return { socket, run, runStates, tsRun }
 }

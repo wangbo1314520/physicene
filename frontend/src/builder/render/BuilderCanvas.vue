@@ -25,6 +25,8 @@ const props = defineProps<{
   runStates?: Map<string, { x: number; y: number; angle?: number }> | null
   /** D5 断绳集合（rope 元件 id）：断后连线改两段垂挂贝塞尔（纯渲染） */
   brokenRopes?: Set<string>
+  /** P1.1·TS 引擎光线叠加（光学：折射/反射光线段；近代：不渲染光线只有读数） */
+  tsRays?: { x0: number; y0: number; x1: number; y1: number; kind: string; medium?: string }[]
   /** 运行态主体读数（vector_arrow 跟随的速度/加速度数据源） */
   subjects?: { id: string; x: number; y: number; vx: number; vy: number; angle?: number }[] | null
 }>()
@@ -448,6 +450,25 @@ function updateTrail() {
 
 // ── 渲染循环 ──
 let lastT = 0
+/** P1.1·TS 引擎光线叠加组 */
+let tsRayGroup: THREE.Group | null = null
+function syncTsRays() {
+  if (!tsRayGroup) { tsRayGroup = new THREE.Group(); scene.add(tsRayGroup) }
+  while (tsRayGroup.children.length) {
+    const c = tsRayGroup.children[0] as THREE.Line
+    tsRayGroup.remove(c); c.geometry?.dispose(); (c.material as THREE.Material)?.dispose()
+  }
+  if (!props.tsRays?.length) return
+  for (const ray of props.tsRays) {
+    const color = ray.kind === 'tir' ? 0xE05555 : ray.kind === 'reflected' ? 0xF5C542 : ray.medium === 'glass' ? 0x4A90D9 : 0x3ecf8e
+    const geo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(ray.x0, ray.y0, 0.15),
+      new THREE.Vector3(ray.x1, ray.y1, 0.15),
+    ])
+    tsRayGroup.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color })))
+  }
+}
+
 function loop(t: number) {
   if (disposed) return
   rafId = requestAnimationFrame(loop)
@@ -460,6 +481,7 @@ function loop(t: number) {
   syncAnchors()
   syncSelection()
   drawSnapPreview()
+  syncTsRays()
   if (selectionBox) selectionBox.update()
   renderer!.render(scene, camera)
 }
