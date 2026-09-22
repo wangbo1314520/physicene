@@ -21,6 +21,10 @@ cd frontend && PLAYWRIGHT_BROWSERS_PATH="E:/Program/playwright-browsers" python 
 - 全包 viewport=1500x950（与 lab-check/f13-check 一致）
 - 每张对应 F1.3 矩阵已通过断言（manifest.tsv assertion_ref 列）
 
+## 补正 2 声明：等待语义澄清
+
+F1.4 抓取脚本中的  等（#03/#07/#10 后的等待）**不是通过依据**——每项断言的通过判定在先前的  状态轮询循环中已完成（条件等待，命中即 break）。 后的固定等待仅为录屏视觉停留（让画面停留足够长供人眼阅读），不参与任何断言判定。此区分已在脚本注释与 manifest note 中标注。
+
 ## E3 过渡入口声明
 
 E3（/exp 直入）= **过渡入口**——redirect 上线后从准入矩阵移除，由 E2 承接其覆盖。E3 切回 = **路由级降级断言**（非真实切回状态复位验证）。

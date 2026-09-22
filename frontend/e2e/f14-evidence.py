@@ -71,7 +71,7 @@ def main() -> int:
             pg.wait_for_timeout(400)
             if "ended" in (pg.locator(".lab .status").inner_text() or ""): break
             if "实验完成" in pg.evaluate("() => document.body.innerText"): break
-        pg.wait_for_timeout(14000)   # 数据面板/时间轴填满（录屏证据）
+        pg.wait_for_timeout(14000)   # ended 后视觉停留（录屏证据非断言依据——补正2澄清）/时间轴填满（录屏证据）
         shot(pg, "03"); L("03 E1 run-ended ✓")
 
         pg.locator(".tabbar .tab", has_text="自由搭建").click()
@@ -98,7 +98,7 @@ def main() -> int:
         for _ in range(60):
             pg.wait_for_timeout(300)
             if pg.evaluate("window.__builder.simStatus()") == "ended": break
-        pg.wait_for_timeout(12000)   # keyEvents 面板填满（录屏证据）
+        pg.wait_for_timeout(12000)   # ended 后视觉停留（录屏证据非断言依据——补正2澄清） 面板填满（录屏证据）
         shot(pg, "07"); L(f"07 E2 run-ended ✓ x={pg.evaluate('window.__builder.subjects()[0]?.x ?? -1'):.3f}")
 
         pg.locator(".tabbar .tab", has_text="实验台").click()
@@ -117,7 +117,7 @@ def main() -> int:
         for _ in range(60):
             pg.wait_for_timeout(300)
             if pg.evaluate("window.__builder.simStatus()") == "ended": break
-        pg.wait_for_timeout(6000)
+        pg.wait_for_timeout(6000)   # ended 后视觉停留（非断言依据）
         shot(pg, "10"); L(f"10 E3 run-ended ✓ kes={len(pg.evaluate('window.__builder.keyEvents()'))}")
 
         pg.goto(f"{BASE}/lab"); pg.wait_for_selector(".lab > .topbar", timeout=8000)
