@@ -14,7 +14,7 @@ cd frontend && PLAYWRIGHT_BROWSERS_PATH="E:/Program/playwright-browsers" python 
 - 时长：85.6s（85-95s 合规区间）
 - 分辨率/帧率：1500x950 @ Playwright 默认录制帧率
 - **连续录制不分段**
-- 内容：E1 载入→模板→运行→数据面板 → 切 E2 → 矢量箭头+传感器演示→域切换→运行→keyEvents 面板 → 切回 E1 → E3 /exp→连接体运行→路由切回 E1 → 零错误终态
+- 内容（画面描述非断言依据）：E1 载入→模板→运行→数据面板 → 切 E2 → 矢量箭头+传感器演示→域切换→运行→keyEvents 面板 → 切回 E1 → E3 /exp→连接体运行→路由切回 E1 → 零错误终态
 
 ## 截图规格
 
