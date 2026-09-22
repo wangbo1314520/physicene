@@ -16,9 +16,9 @@ import CriticalPanel from './analysis/CriticalPanel.vue'
 import { useRunBridge } from './run/RunBridge'
 import { TEMPLATES, instantiate, templateById } from './templates/registry'
 
-/** 模板按 group 分组（力学/电磁/热学，固定顺序；空组不显示）*/
+/** 模板按 group 分组（固定顺序；空组不显示。P3 批1 增光学/近代装置组）*/
 const templateGroups = computed(() =>
-  ['力学', '电磁', '热学']
+  ['力学', '电磁', '热学', '光学', '近代']
     .map(name => ({ name, items: TEMPLATES.filter(t => t.group === name) }))
     .filter(g => g.items.length > 0))
 import type { RunRecord } from '../sandbox/SandboxData.vue'
@@ -306,6 +306,7 @@ onMounted(() => {
     probes: () => JSON.parse(JSON.stringify(sim.probes)),
     tsRays: () => JSON.parse(JSON.stringify(bridge.tsRun.value.rays)),
     tsReadings: () => JSON.parse(JSON.stringify(bridge.tsRun.value.readings)),
+    tsStatus: () => bridge.tsRun.value.status,
     clear: clearAll,
     elements: () => JSON.parse(JSON.stringify(elements)),
     count: () => elements.length,

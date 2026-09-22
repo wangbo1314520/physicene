@@ -53,20 +53,35 @@ def main() -> int:
               B.clear(); B.loadTemplate(tid); B.run();
               const wait = (ms) => new Promise(r => setTimeout(r, ms));
               const maxY = [], maxX = [];
+              let tsDone = false;
+              // 状态残留防污染：上一模板的 ended/runstate 会残留——Java 须先见 running/connecting
+              // 再等 ended；TS 须 runstate 相对初始值发生变化且含"已结束"
+              let started = false, tsStarted = false;
               for (let i = 0; i < 90; i++) {
                 await wait(200);
                 const st = B.simStatus();
+                const rs = document.querySelector('.free-build-tab .runstate')?.textContent || '';
+                if (st === 'running' || st === 'connecting' || st === 'paused') started = true;
+                const tst = B.tsStatus ? B.tsStatus() : 'idle';
+                if (tst === 'running') tsStarted = true;
+                tsDone = tsStarted && tst === 'ended';
                 B.subjects().forEach((s, k) => {
                   maxY[k] = Math.max(maxY[k] ?? -99, s.y);
                   maxX[k] = Math.max(maxX[k] ?? -99, s.x);
                 });
-                if (st === 'ended') break;
+                if ((started && st === 'ended') || tsDone) break;
               }
               return { status: B.simStatus(), t: B.simT(), events: B.keyEvents(),
-                       subjects: B.subjects(), maxY, maxX };
+                       subjects: B.subjects(), maxY, maxX,
+                       tsDone, tsReadings: B.tsReadings ? B.tsReadings() : null,
+                       probes: B.probes ? B.probes() : {} };
             }""", tid)
             page.screenshot(path=f"{args.shot_dir}\\{tid}.png")
-            if r["status"] != "ended":
+            is_ts = any(c["from"]["kind"] == "tsreading" for c in t["checks"])
+            if is_ts and not r.get("tsDone"):
+                ok_all = False
+                details.append("TS 引擎未结束")
+            if not is_ts and r["status"] != "ended":
                 ok_all = False
                 details.append(f"未结束 status={r['status']} t={r['t']:.1f}")
 
@@ -96,10 +111,19 @@ def main() -> int:
                     got = r["maxY"][frm["subject"]] if frm["subject"] < len(r["maxY"]) else None
                     ok, lim = within(got, c)
                     d = f"maxY[{frm['subject']}]={None if got is None else round(got,3)} theory={round(c['theory'],3)}±{lim:.3f}"
-                else:  # max-x
+                elif frm["kind"] == "max-x":
                     got = r["maxX"][frm["subject"]] if frm["subject"] < len(r["maxX"]) else None
                     ok, lim = within(got, c)
                     d = f"maxX[{frm['subject']}]={None if got is None else round(got,3)} theory={round(c['theory'],3)}±{lim:.3f}"
+                elif frm["kind"] == "tsreading":  # P3·装置：TS 引擎读数
+                    got = (r.get("tsReadings") or {}).get(frm["key"])
+                    ok, lim = within(got, c)
+                    d = f"ts.{frm['key']}={got} theory={round(c['theory'],4)}±{lim:.4f}"
+                else:  # probe：Java probes 通道（[t, v] 取 v）
+                    pv = (r.get("probes") or {}).get(frm["key"])
+                    got = pv[1] if isinstance(pv, list) and len(pv) > 1 else None
+                    ok, lim = within(got, c)
+                    d = f"probe.{frm['key']}={got} theory={round(c['theory'],4)}±{lim:.4f}"
                 if not ok:
                     ok_all = False
                 details.append(("✓" if ok else "✗") + " " + c["label"] + " [" + d + "]")

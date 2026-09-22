@@ -20,7 +20,9 @@ describe('几何模板对账', () => {
   })
 
   it.each(TEMPLATES.map((t) => [t.id, t] as const))('%s：元件类型/参数/连线合法', (_id, t) => {
-    expect(t.elements.length).toBeGreaterThanOrEqual(2)
+    // 装置模板（dv-*）：方案 §6.2 单一元件承载整套参数化装置——允许 1 元件；几何模板仍 ≥2
+    const isDevice = t.id.startsWith('dv-')
+    expect(t.elements.length).toBeGreaterThanOrEqual(isDevice ? 1 : 2)
     for (const e of t.elements) {
       const spec = byType.get(e.type)
       expect(spec, `未知类型 ${e.type}`).toBeDefined()
@@ -38,7 +40,7 @@ describe('几何模板对账', () => {
     expect(t.criticalChecks.length).toBeGreaterThanOrEqual(1)
     for (const c of t.criticalChecks) {
       expect(c.tol).toBeGreaterThan(0)
-      expect(['event', 'final', 'max-y', 'max-x', 'no-event']).toContain(c.from.kind)
+      expect(['event', 'final', 'max-y', 'max-x', 'no-event', 'tsreading', 'probe']).toContain(c.from.kind)
     }
     // 讲解模板挂接字段存在（批次 labeler 接入后强校验 solutionId 可解析）
     expect(t.solutionId).toBeTruthy()
@@ -68,6 +70,6 @@ describe('数字口径闸门', () => {
     const { TEMPLATES } = await import('./registry')
     expect(PLAN_COUNT).toBe(CATALOG.length)
     expect(PLAN_COUNT).toBe(46)   // 40+vector_arrow/graph_tag（任务E）+wedge/double_slit/electron_gun/bohr_collision（清偿5·11卡补面）  // 变更须同步数字口径审计
-    expect(TEMPLATES.length).toBe(17)
+    expect(TEMPLATES.length).toBe(25)   // 17 几何（力学9+电磁8）+ P3 批1 装置 8（光学3+近代4+热学1）
   })
 })

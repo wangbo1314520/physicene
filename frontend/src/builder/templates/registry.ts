@@ -21,13 +21,17 @@ export interface CriticalCheck {
     | { kind: 'max-y'; subject: number }
     | { kind: 'max-x'; subject: number }
     | { kind: 'no-event'; eventType: string }
+    /** P3·装置模板：TS 引擎读数断言（key=tsReadings 键） */
+    | { kind: 'tsreading'; key: string }
+    /** P3·装置模板：Java probes 通道断言（key 如 pA_<id>，值取 [t, v][1]） */
+    | { kind: 'probe'; key: string }
 }
 
 export interface GeoTemplate {
   id: string
   card: string
   name: string
-  group: '力学' | '电磁' | '热学'
+  group: '力学' | '电磁' | '热学' | '光学' | '近代'
   tags: string[]
   elements: GeoElement[]
   criticalChecks: CriticalCheck[]
@@ -452,11 +456,143 @@ const gkEBEMulti = (): GeoTemplate => {
   }
 }
 
+// ════ P3·装置模板批 1（8 个）：7 TS 引擎装置 + 1 Java 耦合热学装置 ════
+// 口径（清偿5+P3 令）：每卡注明引擎归属；断言走 tsreading（TS）/probe+final（Java）。
+// theory 永久规则：由本文件参数常量推导（常数表值以命名常量入档）。
+
+const D2R = Math.PI / 180
+// —— 卡 55 棱镜折射（TS·OpticsRunner）：θ₂=arcsin(sinθ₁/n)，δ=θ₁+arcsin(n·sin(A−θ₂))−A ——
+const P55_TH1 = 40, P55_N = 1.5, P55_A = 60
+const p55Th2 = Math.asin(Math.sin(P55_TH1 * D2R) / P55_N) / D2R
+const p55Delta = P55_TH1 + Math.asin(P55_N * Math.sin((P55_A - p55Th2) * D2R)) / D2R - P55_A
+function dvPrism55(): GeoTemplate {
+  return {
+    id: 'dv-prism-55', card: '55', name: '棱镜折射（Snell + 偏向角）', group: '光学',
+    tags: ['装置', '光学', '折射'],
+    elements: [
+      mk('light_source', -5, 2, { th1: P55_TH1, lam: 600 }),
+      mk('prism', 0, 0, { n: P55_N, A: P55_A }),
+      mk('optic_screen', 5, 0, {}),
+    ],
+    criticalChecks: [
+      { label: 'θ₂=arcsin(sinθ₁/n)', theory: p55Th2, tol: 0.01, from: { kind: 'tsreading', key: 'theta_2' } },
+      { label: 'δ=θ₁+θ₄−A', theory: p55Delta, tol: 0.01, from: { kind: 'tsreading', key: 'delta' } },
+      { label: 'δmin=2asin(n·sin(A/2))−A', theory: 2 * Math.asin(P55_N * Math.sin(P55_A * D2R / 2)) / D2R - P55_A, tol: 0.01, from: { kind: 'tsreading', key: 'delta_min' } },
+    ],
+    solutionId: 'gk-prism-refraction',
+  }
+}
+// —— 卡 56 劈尖（TS）：ΔL=λ/(2n·tanα) ——
+const P56_LAM = 600, P56_N = 1.5, P56_ALPHA_DEG = 0.1146  // = 0.002 rad
+const p56FringeMm = P56_LAM * 1e-9 / (2 * P56_N * Math.tan(P56_ALPHA_DEG * D2R)) * 1000
+function dvWedge56(): GeoTemplate {
+  return {
+    id: 'dv-wedge-56', card: '56', name: '劈尖薄膜（等厚干涉）', group: '光学',
+    tags: ['装置', '干涉'],
+    elements: [mk('wedge', 0, 0, { lam: P56_LAM, n: P56_N, alpha: P56_ALPHA_DEG })],
+    criticalChecks: [
+      { label: 'ΔL=λ/(2n·tanα)', theory: p56FringeMm, tol: 0.02, from: { kind: 'tsreading', key: 'fringe_mm' } },
+    ],
+    solutionId: 'gk-thin-film',
+  }
+}
+// —— 卡 57 双缝（TS）：Δx=Lλ/d ——
+const P57_LAM = 600, P57_D = 0.2, P57_L = 1
+function dvDoubleSlit57(): GeoTemplate {
+  return {
+    id: 'dv-double-slit-57', card: '57', name: '双缝干涉（Δx=Lλ/d）', group: '光学',
+    tags: ['装置', '干涉'],
+    elements: [mk('double_slit', 0, 0, { lam: P57_LAM, d: P57_D, L: P57_L })],
+    criticalChecks: [
+      { label: 'Δx=Lλ/d', theory: P57_L * P57_LAM * 1e-9 / (P57_D * 1e-3) * 1000, tol: 0.01, from: { kind: 'tsreading', key: 'dx_mm' } },
+    ],
+    solutionId: 'gk-diffraction-vs-interference',
+  }
+}
+// —— 卡 61 光电效应（TS·ModernRunner）：W₀ 表值钠 2.28eV，ν₀=W₀/h ——
+const H_EV = 4.1357e-15, C_M = 3e8, E1_EV = 13.6  // 与 ModernRunner 同源常数
+const P61_W = 2.28  // 钠逸出功表值（eV）
+function dvPhotoelectric61(): GeoTemplate {
+  return {
+    id: 'dv-photoelectric-61', card: '61', name: '光电效应（Eₖ=hν−W₀）', group: '近代',
+    tags: ['装置', '光电'],
+    elements: [mk('photo_tube', 0, 0, { mat: 0 })],
+    criticalChecks: [
+      { label: 'W₀（钠表值）', theory: P61_W, tol: 0.01, from: { kind: 'tsreading', key: 'work_function' } },
+      { label: 'ν₀=W₀/h（×10¹⁴Hz）', theory: P61_W / H_EV / 1e14, tol: 0.01, from: { kind: 'tsreading', key: 'cutoff_freq' } },
+    ],
+    solutionId: 'gk-photoelectric-ek-nu',
+  }
+}
+// —— 卡 62 氢原子能级（TS）：ΔE=13.6(1/n²−1/m²)，λ=hc/ΔE ——
+const P62_M = 3, P62_N = 2
+const p62DE = E1_EV * (1 / (P62_N * P62_N) - 1 / (P62_M * P62_M))
+function dvHydrogen62(): GeoTemplate {
+  return {
+    id: 'dv-hydrogen-62', card: '62', name: '氢原子能级跃迁（ΔE/λ）', group: '近代',
+    tags: ['装置', '能级'],
+    elements: [mk('h_atom', 0, 0, { m: P62_M, n: P62_N })],
+    criticalChecks: [
+      { label: 'ΔE=13.6(1/n²−1/m²)', theory: p62DE, tol: 0.01, from: { kind: 'tsreading', key: 'delta_E' } },
+      { label: 'λ=hc/ΔE（nm）', theory: H_EV * C_M / p62DE * 1e9, tol: 0.005, from: { kind: 'tsreading', key: 'wavelength_nm' } },
+    ],
+    solutionId: 'gk-hydrogen-levels',
+  }
+}
+// —— 卡 64 玻尔碰撞（TS）：E=12.75eV ↔ ΔE₁ₙ=13.6(1−1/n²) → n=4 ——
+const P64_E = 12.75
+const p64N = Math.sqrt(E1_EV / (E1_EV - P64_E))
+function dvBohr64(): GeoTemplate {
+  return {
+    id: 'dv-bohr-64', card: '64', name: '玻尔碰撞（共振激发阈值）', group: '近代',
+    tags: ['装置', '玻尔'],
+    elements: [mk('bohr_collision', 0, 0, { E: P64_E, maxN: 4 })],
+    criticalChecks: [
+      { label: '共振能级 n=√(E₁/(E₁−E))', theory: p64N, tol: 0.01, from: { kind: 'tsreading', key: 'res_n' } },
+      { label: 'ΔE=E（共振匹配）', theory: E1_EV * (1 - 1 / (p64N * p64N)), tol: 0.01, from: { kind: 'tsreading', key: 'delta_E' } },
+    ],
+    solutionId: 'gk-bohr-collision',
+  }
+}
+// —— 卡 65 物质波（TS）：λ=h/√(2meU) ——
+const H_SI = 6.626e-34, M_E = 9.11e-31, Q_E = 1.602e-19
+const P65_U = 100
+function dvMatterWave65(): GeoTemplate {
+  return {
+    id: 'dv-matter-wave-65', card: '65', name: '物质波（λ=h/√(2meU)）', group: '近代',
+    tags: ['装置', '物质波'],
+    elements: [mk('electron_gun', 0, 0, { U: P65_U })],
+    criticalChecks: [
+      { label: 'λ（pm）=h/√(2meU)', theory: H_SI / Math.sqrt(2 * M_E * Q_E * P65_U) * 1e12, tol: 0.01, from: { kind: 'tsreading', key: 'lambda_pm' } },
+    ],
+    solutionId: 'gk-matter-wave',
+  }
+}
+// —— 卡 52 汽缸活塞（Java 耦合外壳·CouplingOrchestrator）：p·A=Mg 平衡 ——
+const P52_M = 10, P52_S = 0.01
+function dvCylinder52(): GeoTemplate {
+  const cyl = mk('cylinder', 0, 0, { S: P52_S })
+  const pis = mk('piston', 0, 1.2, { M: P52_M, dampingRatio: 0.5 })
+  pis.id = 'piston-dv52'  // 稳定 id：probe 断言键 pA_piston-dv52
+  return {
+    id: 'dv-cylinder-52', card: '52', name: '汽缸活塞（p·A=Mg 平衡）', group: '热学',
+    tags: ['装置', '热学耦合'],
+    elements: [cyl, pis, mk('gas_cell', 0, -1, { p0: 101325, V0: 0.01, T0: 300, gamma: 1 })],
+    criticalChecks: [
+      { label: '平衡静止 |vy|→0', theory: 0, tol: 0.02, tolAbs: 0.1, from: { kind: 'final', subject: 0, pick: 'vy' } },
+      { label: 'p·A=Mg（±1%）', theory: P52_M * 9.8, tol: 0.01, from: { kind: 'probe', key: 'pA_piston-dv52' } },
+    ],
+    solutionId: 'gk-cylinder-piston', maxDuration: 8,
+  }
+}
+
 const FACTORIES: (() => GeoTemplate)[] = [
   gkSlopeSpring, gkSlopeSpringCorrect, gkConveyorBoard, gkBoardBlock, gkCollisionSpring,
   gkCollisionChain, gkCircularCritical, gkProjectileLoop, gkConnectedBodies,
   gkVelocitySelector, gkCompositeField, gkMassSpectrometer, gkBThenE,
   gkBBCombo, gkAccelDeflectScreen, gkAccelSelectorB, gkEBEMulti,
+  dvPrism55, dvWedge56, dvDoubleSlit57, dvPhotoelectric61, dvHydrogen62,
+  dvBohr64, dvMatterWave65, dvCylinder52,
 ]
 
 export const TEMPLATES: GeoTemplate[] = FACTORIES.map((f) => f())
