@@ -769,9 +769,9 @@ onUnmounted(() => {
       <button class="ghost" @click="resetCamera()" title="滚轮缩放 / 右键拖动平移 / 双击复位">⟲ 复位视角</button>
     </section>
 
-    <p v-if="error" class="error">{{ error }}</p>
-    <p v-if="toast" class="toast" @click="toast = ''">{{ toast }}</p>
-    <div v-if="snap" class="snapbar">
+    <p v-if="activeTab === 'lab' && error" class="error">{{ error }}</p>
+    <p v-if="activeTab === 'lab' && toast" class="toast" @click="toast = ''">{{ toast }}</p>
+    <div v-if="activeTab === 'lab' && snap" class="snapbar">
       <span>📐 检测到「{{ snap.label }}」与「{{ snap.otherLabel }}」之间{{ snap.gap > 0 ? `有 ${snap.gap.toFixed(2)} m 空隙` : `重叠 ${(-snap.gap).toFixed(2)} m` }}——是否贴紧放置？</span>
       <button class="ok" @click="applySnap">贴紧</button>
       <button @click="snap = null">保持原位</button>
