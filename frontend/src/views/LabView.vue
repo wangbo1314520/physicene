@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FreeBuildTab from '../builder/FreeBuildTab.vue'
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
@@ -187,6 +188,9 @@ const DIM_INFO: Record<SimDimension, { label: string; hint: string }> = {
 }
 const dim = ref<SimDimension>(
   (localStorage.getItem('ps_dim') as SimDimension) || (localStorage.getItem('ps_view') === 'iso' ? '2.5D' : '2D'))
+
+/** F1.1：顶栏页签（实验台 | 自由搭建）—— v-if 隔离两套面板/时间轴互不共存 */
+const activeTab = ref<"lab" | "free">("lab")
 
 // ===== 元件库：后端 dyn4j 支持的 7 种元件，按维度分档 =====
 interface PaletteItem { type: string; label: string; icon: string; color: string; dims: SimDimension[]; desc: string }
@@ -728,7 +732,15 @@ onUnmounted(() => {
 
 <template>
   <main class="lab">
-    <section class="topbar">
+    <!-- F1.1 页签条：实验台（原 /lab 全部功能不动）| 自由搭建（BuilderView 薄包装） -->
+    <nav class="tabbar">
+      <button class="tab" :class="{ on: activeTab === 'lab' }" @click="activeTab = 'lab'">🧪 实验台</button>
+      <button class="tab" :class="{ on: activeTab === 'free' }" @click="activeTab = 'free'">🧱 自由搭建</button>
+    </nav>
+    <template v-if="activeTab === 'free'">
+      <FreeBuildTab />
+    </template>
+    <section v-if="activeTab === 'lab'" class="topbar">
       <span class="title">{{ scene.name || '未命名场景' }}
         <code v-if="scene.sceneId">#{{ scene.sceneId }}</code></span>
       <select class="tmpl" @change="loadTemplate(($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).selectedIndex = 0"
@@ -895,6 +907,9 @@ onUnmounted(() => {
 
 <style scoped>
 .lab { height: calc(100vh - 55px); display: flex; flex-direction: column; padding: 10px 14px; gap: 8px; }
+.tabbar { display: flex; gap: 6px; }
+.tabbar .tab { padding: 4px 14px; border: 1px solid #3a3a5e; background: #1d1d33; color: #b0b0cc; border-radius: 8px 8px 0 0; cursor: pointer; }
+.tabbar .tab.on { background: #253a52; color: #7fc3ff; border-bottom-color: transparent; font-weight: 600; }
 .topbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .topbar .title { font-size: 14px; color: #b0b0cc; margin-right: 8px; }
 .topbar .title code { color: #4a90d9; }
