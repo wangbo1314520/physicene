@@ -125,7 +125,7 @@ export const CATALOG: ElementSpec[] = [
   el('rail_pair', '导轨对', '═╤═', 'em', ['3D'], '#8a8aa0', '间距 L', [P('L', '间距 L', 0.5, 2, 0.1, 1, 'm')], 'circuit', ['导轨'], [
     TERMINAL(-3, 0, '左端'), TERMINAL(3, 0, '右端'),
   ]),
-  el('rod_bar', '导体棒', '┃', 'em', ['2D', '2.5D', '3D'], '#E05555', '质量、电阻（v₀=0 中性起步）', [MASS, V0, RES], 'circuit', ['导体棒'], [
+  el('rod_bar', '导体棒', '┃', 'em', ['2D', '2.5D', '3D'], '#E05555', '质量、电阻、外力 F（v₀=0 中性起步；配 b_region 实现 EMF→安培力耦合）', [MASS, V0, RES, P('F', '外力 F', 0, 10, 0.5, 0, 'N')], 'circuit', ['导体棒'], [
     TERMINAL(0, -0.5, '下端'), TERMINAL(0, 0.5, '上端'),
   ]),
   // ── 热学 ──

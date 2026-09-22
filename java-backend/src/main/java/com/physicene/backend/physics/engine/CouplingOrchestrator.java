@@ -50,55 +50,60 @@ public class CouplingOrchestrator {
             CircuitEngine.DCSolution sol = CircuitEngine.solveDC(circuit, circuitState);
             return new StepResult(sol, true, 0);
         }
-        double prevI = 0, prevV = 0;
         CircuitEngine.DCSolution sol = null;
-        int iter;
-        boolean converged = false;
-        double finalI = 0, finalV = 0;
-        for (iter = 0; iter < maxIter; iter++) {
-            // 1. 由杆速度刷新 EMF = B·L·v
-            for (var link : rodLinks.values()) {
-                double v = link.rodBody().getLinearVelocity().x;
-                double emf = link.b() * link.l() * v;
-                var comp = circuit.components.stream().filter(c -> c.id.equals("src_" + link.rodId())).findFirst();
-                comp.ifPresent(c -> c.props.put("emf", emf));
-                if (comp.isEmpty()) {
-                    var nc = new CircuitEngine.Comp();
-                    nc.id = "src_" + link.rodId();
-                    nc.kind = "battery";
-                    nc.props.put("emf", emf);
-                    nc.props.put("r", 0.001);
-                    circuit.components.add(nc);
+        int iter = 0;
+        boolean converged = true;
+        // GS 迭代仅在有 rod 链路时进行（活塞-only 场景电路为空，solveDC 失败即早退会跳过施力）
+        if (!rodLinks.isEmpty()) {
+            converged = false;
+            double prevI = 0;
+            for (iter = 0; iter < maxIter; iter++) {
+                // 1. 由杆速度刷新 EMF = B·L·v
+                for (var link : rodLinks.values()) {
+                    double v = link.rodBody().getLinearVelocity().x;
+                    double emf = link.b() * link.l() * v;
+                    var comp = circuit.components.stream().filter(c -> c.id.equals("src_" + link.rodId())).findFirst();
+                    comp.ifPresent(c -> c.props.put("emf", emf));
+                    if (comp.isEmpty()) {
+                        var nc = new CircuitEngine.Comp();
+                        nc.id = "src_" + link.rodId();
+                        nc.kind = "battery";
+                        nc.props.put("emf", emf);
+                        nc.props.put("r", 0.001);
+                        circuit.components.add(nc);
+                    }
+                }
+                // 2. 电路求解（迭代内只解算——速度要到 world.step 才变，循环内施力只会
+                //    在 dyn4j 力累加器里叠 N 份，终速被压成 1/N；力统一移到收敛后施加一次）
+                sol = CircuitEngine.solveDC(circuit, circuitState);
+                if (sol == null || !sol.ok) {
+                    return new StepResult(null, false, iter);
+                }
+                // 3. 收敛判定（电流表读数稳定即收敛）
+                double iSum = 0;
+                for (var link : rodLinks.values()) {
+                    CircuitEngine.ElementResult er = sol.elements.get("R_" + link.rodId());
+                    iSum += er != null ? er.i() : 0;
+                }
+                double deltaI = Math.abs(iSum - prevI) / Math.max(1e-12, Math.abs(iSum));
+                prevI = iSum;
+                if (deltaI < tol && iter > 0) {
+                    converged = true;
+                    break;
                 }
             }
-            // 2. 电路求解
-            sol = CircuitEngine.solveDC(circuit, circuitState);
-            if (sol == null || !sol.ok) {
-                return new StepResult(null, false, iter);
-            }
-            // 3. 安培力 + 气体力 → 施加于刚体
-            double iSum = 0, vSum = 0;
+        }
+        // 安培力 + 气体力 → 施加于刚体（每子步恰一次，用收敛后的终解；活塞-only 无解也算收敛施力）
+        if (sol != null) {
             for (var link : rodLinks.values()) {
                 CircuitEngine.ElementResult er = sol.elements.get("R_" + link.rodId());
                 double i = er != null ? er.i() : 0;
-                iSum += i;
                 double f = -link.b() * link.l() * i;
                 link.rodBody().applyForce(new org.dyn4j.geometry.Vector2(f, 0));
             }
-            for (var pc : pistons.values()) {
-                pc.applyForce();
-            }
-            // 4. 收敛判定
-            double deltaI = Math.abs(iSum - prevI) / Math.max(1e-12, Math.abs(iSum));
-            double deltaV = Math.abs(vSum - prevV) / Math.max(1e-12, Math.abs(vSum));
-            finalI = iSum;
-            finalV = vSum;
-            prevI = iSum;
-            prevV = vSum;
-            if (deltaI < tol && deltaV < tol && iter > 0) {
-                converged = true;
-                break;
-            }
+        }
+        for (var pc : pistons.values()) {
+            pc.applyForce();
         }
         if (!converged) {
             degraded = true;

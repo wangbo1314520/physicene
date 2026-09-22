@@ -87,8 +87,11 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
         break
       }
       case 'rod_bar': {
-        // P2·耦合接入：导体棒=dyn4j 刚体（cube），耦合电路侧由 CouplingOrchestrator 在 Java 端驱动
-        asBody({ type: 'cube', properties: { mass: num(p.m, 1), friction: 0 }, params: { k: num(p.R, 1) } })
+        // P2.1·耦合接入：_srcType 标记供 Java orchestrator 检测（实际类型=cube）
+        const v0r = num(p.v0, 0)
+        asBody({ type: 'cube', properties: { mass: num(p.m, 1), friction: 0 },
+          params: { R: num(p.R, 1), F: num(p.F, 0), _srcType: 1 },
+          initialState: v0r ? { velocity: { x: v0r, y: 0 } } : undefined })
         break
       }
       case 'rail_pair': {
@@ -97,8 +100,9 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
         break
       }
       case 'piston': {
-        // P2·耦合接入：活塞=dyn4j 刚体（cube），热学耦合由 PistonCoupling 在 Java 端驱动
-        asBody({ type: 'cube', properties: { mass: num(p.M, 10), friction: 0 }, params: { dampingRatio: num(p.dampingRatio, 0.5) } })
+        // P2.1·耦合接入：_srcType=2 标记（Java PistonCoupling 检测用）
+        asBody({ type: 'cube', properties: { mass: num(p.M, 10), friction: 0 },
+          params: { dampingRatio: num(p.dampingRatio, 0.5), _srcType: 2 } })
         break
       }
       case 'cylinder': {
@@ -107,8 +111,9 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
         break
       }
       case 'gas_cell': case 'heater': {
-        // P2·耦合接入：气室/温度源=纯热学数据（无刚体），Java GasCell/Heater 处理
-        asBody({ type: 'wall', fixed: true, properties: {}, params: { p0: num(p.p0, 101325), V0: num(p.V0, 0.01), T0: num(p.T0, 300), gamma: num(p.gamma, 1), T2: num(p.T2, 360) } })
+        // P2.1·耦合接入：_srcType=3 标记（gas_cell）/ 4（heater）
+        asBody({ type: 'wall', fixed: true, properties: {},
+          params: { p0: num(p.p0, 101325), V0: num(p.V0, 0.01), T0: num(p.T0, 300), gamma: num(p.gamma, 1), T2: num(p.T2, 360), _srcType: 3 } })
         break
       }
       case 'cart':

@@ -1,5 +1,7 @@
 package com.physicene.backend.physics.engine;
 
+import com.physicene.backend.physics.circuit.CircuitEngine;
+
 import com.physicene.backend.physics.element.ElementBehavior;
 import com.physicene.backend.physics.element.ElementContext;
 import com.physicene.backend.physics.element.ElementRegistry;
@@ -95,6 +97,14 @@ public class SimulationInstance {
     private final java.util.List<com.physicene.backend.physics.element.PulleyElement> pulleys = new java.util.ArrayList<>();
     /** D5 冲量式绳（断裂判定 + rope_break 事件） */
     private final java.util.List<com.physicene.backend.physics.element.RopeElement> ropes = new java.util.ArrayList<>();
+    /** P2.1·耦合编排器（null=无耦合场景零开销） */
+    private CouplingOrchestrator orchestrator = null;
+    /** P2.1·耦合读数（E2E 数值断言用：各 rod 支路电流 / 气室压强 / 活塞位置） */
+    private final java.util.Map<String, Double> couplingReadings = new LinkedHashMap<>();
+    /** P2.1·活塞耦合参数：阻尼系数 c=2ζ√(kM)（气弹簧 k=γpA²/V₀ 线性化）/ 活塞面积 / 气室元胞 */
+    private final java.util.Map<String, Double> pistonDamping = new LinkedHashMap<>();
+    private final java.util.Map<String, Double> pistonArea = new LinkedHashMap<>();
+    private final java.util.Map<String, com.physicene.backend.physics.thermal.GasCell> pistonCells = new LinkedHashMap<>();
     /** 弹簧元件（力对施加） */
     private final java.util.List<com.physicene.backend.physics.element.SpringElement> springs = new java.util.ArrayList<>();
     /** 关节键 -> DistanceJoint：绳绷紧/松弛、弹簧原长事件 */
@@ -207,6 +217,9 @@ public class SimulationInstance {
             se.bindTarget(bodies);
         }
 
+        // P2.1·耦合编排器接线：检测 rod_bar + rail_pair + b_region / piston + gas_cell 组合
+        buildCouplingOrchestrator();
+
         // 追问1 修正：接触力累积（postSolve 读冲量→力，供 accel_sensor 精确采样）
         world.addContactListener(new org.dyn4j.world.listener.ContactListenerAdapter<Body>() {
             @Override
@@ -267,6 +280,86 @@ public class SimulationInstance {
         world.addCollisionListener(collisionAdapter);
     }
 
+    /**
+     * P2.1·耦合编排器构建：扫描场景元素，检测 rod_bar+b_region / piston+gas_cell 组合。
+     * rod_bar→RodBarLink（B 从 b_region 取，L 从 rail_pair 取，R 从 rod_bar params 取）
+     * piston+gas_cell→PistonCoupling（S 从 cylinder 取，热学参数从 gas_cell 取）
+     */
+    private void buildCouplingOrchestrator() {
+        // P2.1：_srcType=1 标记的 cube = RunBridge 映射的 rod_bar（类型不匹配修——前端 rod_bar→Java cube，用参数标记识别）
+        var rodEls = scene.getElements().stream().filter(e -> e.getParams() != null
+                && e.getParams().getOrDefault("_srcType", 0.0) == 1.0).toList();
+        var bEls = scene.getElements().stream().filter(e -> "b_field".equals(e.getType()) || "b_region".equals(e.getType())).toList();
+        var pistonEls = scene.getElements().stream().filter(e -> e.getParams() != null
+                && e.getParams().getOrDefault("_srcType", 0.0) == 2.0).toList();
+        var gasEls = scene.getElements().stream().filter(e -> e.getParams() != null
+                && e.getParams().getOrDefault("_srcType", 0.0) == 3.0).toList();
+
+        boolean hasRodCoupling = !rodEls.isEmpty() && !bEls.isEmpty();
+        boolean hasPistonCoupling = !pistonEls.isEmpty() && !gasEls.isEmpty();
+        if (!hasRodCoupling && !hasPistonCoupling) return;
+
+        double subDt = dt / substeps;
+        var circuit = new com.physicene.backend.physics.circuit.CircuitEngine.Circuit();
+        var orch = new CouplingOrchestrator(circuit, subDt);
+
+        if (hasRodCoupling) {
+            double b = bEls.get(0).getProperties() != null ? Math.abs(bEls.get(0).getProperties().getBField() == null ? 1 : bEls.get(0).getProperties().getBField()) : 1;
+            double l = 1.0;  // rail L 默认 1m
+            var rail = scene.getElements().stream().filter(e -> "wall".equals(e.getType())
+                    && e.getParams() != null && e.getParams().containsKey("railL")).findFirst();
+            if (rail.isPresent()) l = rail.get().getParams().get("railL");
+            for (var rod : rodEls) {
+                Body rodBody = bodies.get(rod.getId());
+                if (rodBody == null) continue;
+                double r = rod.getParams() != null && rod.getParams().containsKey("R") ? rod.getParams().get("R") : 1.0;
+                var res = new CircuitEngine.Comp();
+                res.id = "R_" + rod.getId();
+                res.kind = "resistor";
+                res.props.put("R", r);
+                circuit.components.add(res);
+                var bat = new CircuitEngine.Comp();
+                bat.id = "src_" + rod.getId();
+                bat.kind = "battery";
+                bat.props.put("emf", 0.0);
+                bat.props.put("r", 0.001);
+                circuit.components.add(bat);
+                circuit.wires.add(new CircuitEngine.Wire(new CircuitEngine.PinRef(bat.id, 0), new CircuitEngine.PinRef(res.id, 0)));
+                circuit.wires.add(new CircuitEngine.Wire(new CircuitEngine.PinRef(bat.id, 1), new CircuitEngine.PinRef(res.id, 1)));
+                orch.addRodLink(new CouplingOrchestrator.RodBarLink(rod.getId(), rodBody, "R_" + rod.getId(), b, l));
+            }
+        }
+
+        if (hasPistonCoupling) {
+            var gasEl = gasEls.get(0);
+            double p0 = gasEl.getParams() != null && gasEl.getParams().containsKey("p0") ? gasEl.getParams().get("p0") : 101325;
+            double v0 = gasEl.getParams() != null && gasEl.getParams().containsKey("V0") ? gasEl.getParams().get("V0") : 0.01;
+            double t0 = gasEl.getParams() != null && gasEl.getParams().containsKey("T0") ? gasEl.getParams().get("T0") : 300;
+            double gamma = gasEl.getParams() != null && gasEl.getParams().containsKey("gamma") ? gasEl.getParams().get("gamma") : 1.0;
+            var cell = new com.physicene.backend.physics.thermal.GasCell(p0, v0, t0, gamma);
+            var pistonEl = pistonEls.get(0);
+            Body pistonBody = bodies.get(pistonEl.getId());
+            if (pistonBody != null) {
+                double area = 0.01;
+                var cyl = scene.getElements().stream().filter(e -> "wall".equals(e.getType())
+                        && e.getParams() != null && e.getParams().containsKey("area")).findFirst();
+                if (cyl.isPresent()) area = cyl.get().getParams().get("area");
+                double x0 = pistonEl.getPosition().y() - v0 / area;  // 初始位置推算
+                orch.addPiston(new com.physicene.backend.physics.thermal.PistonCoupling(cell, pistonBody, area, x0, true));
+                // 气弹簧阻尼：k = γ·p·A²/V₀（V₀ 处线性化）→ c = 2ζ√(kM)，ζ 来自 RunBridge dampingRatio。
+                // 无阻尼时活塞以 ω=√(k/M) 自由振荡不停，平衡断言 |vy|→0 永远不成立
+                double zeta = pistonEl.getParams() != null && pistonEl.getParams().containsKey("dampingRatio")
+                        ? pistonEl.getParams().get("dampingRatio") : 0.5;
+                double kGas = gamma * p0 * area * area / Math.max(1e-9, v0);
+                pistonDamping.put(pistonEl.getId(), 2.0 * zeta * Math.sqrt(kGas * pistonBody.getMass().getMass()));
+                pistonArea.put(pistonEl.getId(), area);
+                pistonCells.put(pistonEl.getId(), cell);
+            }
+        }
+
+        this.orchestrator = orch;
+    }
+
     /** 单步推进（仅仿真线程 / 同步测试调用） */
     public synchronized void step() {
         if (status != Status.RUNNING) {
@@ -277,6 +370,37 @@ public class SimulationInstance {
         // 统一搭建台：每个子步刷新一次（场力跟随子步位置，方案 §3.4）
         for (int i = 0; i < substeps; i++) {
             applyCustomForces();
+            // P2.1·耦合编排：EMF→电流→安培力 / 气室→压力→活塞力（每子步，方案 §3.9）
+            if (orchestrator != null) {
+                var cr = orchestrator.step(t);
+                if (cr.sol() != null && cr.sol().ok) {
+                    for (var entry : cr.sol().elements.entrySet()) {
+                        couplingReadings.put("I_" + entry.getKey(), entry.getValue().i());
+                    }
+                }
+                // rod_bar 外力 F（恒力推/拉——_srcType=1 标记的 cube = RunBridge 映射的 rod_bar）
+                for (var rodEl : scene.getElements()) {
+                    if (rodEl.getParams() != null && rodEl.getParams().getOrDefault("_srcType", 0.0) == 1.0) {
+                        Body b = bodies.get(rodEl.getId());
+                        if (b == null) continue;
+                        double fExt = rodEl.getParams().getOrDefault("F", 0.0);
+                        if (fExt != 0) b.applyForce(new org.dyn4j.geometry.Vector2(fExt, 0));
+                        couplingReadings.put("v_" + rodEl.getId(), b.getLinearVelocity().x);
+                    }
+                }
+                // 活塞阻尼力 F=-c·v（竖直缸）+ 气室读数（p_gauge/pA/Mg 对照，E2E 平衡断言数据源）
+                for (var pid : pistonDamping.keySet()) {
+                    Body pb = bodies.get(pid);
+                    if (pb == null) continue;
+                    org.dyn4j.geometry.Vector2 pv = pb.getLinearVelocity();
+                    pb.applyForce(new org.dyn4j.geometry.Vector2(0, -pistonDamping.get(pid) * pv.y));
+                    var cell = pistonCells.get(pid);
+                    double a = pistonArea.get(pid);
+                    couplingReadings.put("p_gauge_" + pid, cell.gaugePressure());
+                    couplingReadings.put("pA_" + pid, cell.gaugePressure() * a);
+                    couplingReadings.put("Mg_" + pid, pb.getMass().getMass() * 9.8);
+                }
+            }
             // 冲量式绳/滑轮约束（阶段三·五 D1）：速度约束 + Baumgarte 位置偏置，替代罚力对
             for (com.physicene.backend.physics.element.PulleyElement pe : pulleys) {
                 pe.applyImpulse(dt / substeps);
@@ -411,6 +535,14 @@ public class SimulationInstance {
                     if (val != null) probes.put(se.ownId(), val);
                 }
                 if (!probes.isEmpty()) frame.setProbes(probes);
+            }
+            // P2.1·耦合读数入 probes 通道（E2E 从 window.__builder 读到 v/I 数值）
+            if (!couplingReadings.isEmpty()) {
+                Map<String, double[]> cp = frame.getProbes() != null ? frame.getProbes() : new LinkedHashMap<>();
+                for (var entry : couplingReadings.entrySet()) {
+                    cp.put(entry.getKey(), new double[]{t, entry.getValue()});
+                }
+                frame.setProbes(cp);
             }
             frameListeners.forEach(l -> l.accept(frame));
         }

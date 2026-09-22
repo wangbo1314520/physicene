@@ -47,6 +47,8 @@ export interface SimState {
   vIds: string[] // 运动主体 id（与 vSeries 下标对应，图例命名用）
   ekSeries: { t: number; v: number }[]
   pSeries: { t: number; v: number }[]
+  /** 检测器/耦合读数（P2.1）：id → [t, value]，帧帧覆盖（末值即最新） */
+  probes: Record<string, number[]>
   endInfo: { reason: string; totalFrames: number; totalDuration: number } | null
   frameCount: number
 }
@@ -67,6 +69,7 @@ export function useSimulationSocket() {
     vIds: [],
     ekSeries: [],
     pSeries: [],
+    probes: {},
     endInfo: null,
     frameCount: 0,
   })
@@ -79,7 +82,7 @@ export function useSimulationSocket() {
     close()
     Object.assign(state, {
       status: 'connecting', currentT: 0, subjects: [], keyEvents: [],
-      vSeries: [], vIds: [], ekSeries: [], pSeries: [], endInfo: null, frameCount: 0,
+      vSeries: [], vIds: [], ekSeries: [], pSeries: [], probes: {}, endInfo: null, frameCount: 0,
       recordId: null,
     })
     try {
@@ -129,6 +132,8 @@ export function useSimulationSocket() {
           state.ekSeries.push({ t: row.t, v: row.fields.Ek })
           state.pSeries.push({ t: row.t, v: row.fields.p })
         }
+        // P2.1：耦合/检测器读数通道（服务器仅在有读数时下发；末值覆盖=最新）
+        if (msg.probes) state.probes = msg.probes
         break
       }
       case 'keyEvent': {
@@ -177,7 +182,7 @@ export function useSimulationSocket() {
     close()
     Object.assign(state, {
       status: 'connecting', currentT: 0, subjects: [], keyEvents: [],
-      vSeries: [], vIds: [], ekSeries: [], pSeries: [], endInfo: null, frameCount: 0,
+      vSeries: [], vIds: [], ekSeries: [], pSeries: [], probes: {}, endInfo: null, frameCount: 0,
       recordId,
     })
     state.simId = simId

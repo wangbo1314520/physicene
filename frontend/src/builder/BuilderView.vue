@@ -303,6 +303,7 @@ onMounted(() => {
     simT: () => sim.currentT,
     keyEvents: () => JSON.parse(JSON.stringify(sim.keyEvents)),
     subjects: () => JSON.parse(JSON.stringify(sim.subjects)),
+    probes: () => JSON.parse(JSON.stringify(sim.probes)),
     clear: clearAll,
     elements: () => JSON.parse(JSON.stringify(elements)),
     count: () => elements.length,

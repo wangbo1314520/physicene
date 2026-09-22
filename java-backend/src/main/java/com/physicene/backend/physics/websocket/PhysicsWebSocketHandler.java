@@ -222,6 +222,10 @@ public class PhysicsWebSocketHandler extends TextWebSocketHandler {
         DataRow lastRow = instance.getDataTable().isEmpty()
                 ? null : instance.getDataTable().get(instance.getDataTable().size() - 1);
         msg.put("dataTableIncrement", lastRow);
+        // P2.1：检测器/耦合读数通道（probes=[t, value]）——E2E 与数据面板从帧里读耦合数值
+        if (frame.getProbes() != null && !frame.getProbes().isEmpty()) {
+            msg.put("probes", frame.getProbes());
+        }
         msg.put("hasChart", true);
         send(session, msg);
     }
