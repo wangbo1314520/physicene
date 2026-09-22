@@ -777,7 +777,7 @@ onUnmounted(() => {
       <button @click="snap = null">保持原位</button>
     </div>
 
-    <section class="workspace">
+    <section v-if="activeTab === 'lab'" class="workspace">
       <aside class="left">
         <h3>元件库 <span class="dimtag">{{ DIM_INFO[dim].label }}</span></h3>
         <p class="dimhint">{{ dimHint }}</p>
