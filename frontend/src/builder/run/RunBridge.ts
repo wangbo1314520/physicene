@@ -10,7 +10,7 @@
  */
 import { computed, ref } from 'vue'
 import { useSimulationSocket, type PhysicsElementInput } from '../../composables/useSimulationSocket'
-import { THERMO_DEVICE_TYPES } from '../analysis/EngineAnalyzer'
+import { THERMO_DEVICE_TYPES, AC_DEVICE_TYPES } from '../analysis/EngineAnalyzer'
 import { byType, BELT_RADIUS, type GeoElement } from '../catalog'
 import { resolveAnchorById, anchorWorldOf } from '../model/anchors'
 import type { Analysis } from '../analysis/EngineAnalyzer'
@@ -22,7 +22,9 @@ const TS_ENGINE_TYPES = new Set(['light_source', 'prism', 'optic_screen', 'photo
   // 清偿5·P1 11 卡补面：劈尖(56)/双缝(57)/物质波(65)/玻尔碰撞(64)——Runner 公式已有，接 builder 元件
   'wedge', 'double_slit', 'electron_gun', 'bohr_collision',
   // P3 批2：热学静力学装置（决策1：TS 纯函数装置引擎）
-  ...THERMO_DEVICE_TYPES])
+  ...THERMO_DEVICE_TYPES,
+  // P3 批3：AC 装置（决策2：TS 复数 MNA）
+  ...AC_DEVICE_TYPES])
 /** 不建刚体的显示/检测类（静默跳过）；bracket/pole = 理想固定端（无碰撞体，绳/弹簧连接端折算固定悬点） */
 const NO_BODY = new Set(['photogate', 'force_sensor', 'trail', 'energy_meter', 'timeline', 'anchor_point', 'vector_arrow', 'graph_tag',
   'accel_sensor', 'speed_sensor', 'range_finder', 'bracket', 'pole'])
@@ -277,17 +279,21 @@ export function useRunBridge() {
     if (analysis.path === 'none') return '没有可运行的元件（只有显示类元件）'
     // P1·TS 本地引擎：光学/近代元件走 OpticsRunner/ModernRunner，不 POST Java
     if (els.every((e) => TS_ENGINE_TYPES.has(e.type) || NO_BODY.has(e.type))) {
-      const isThermo = els.some((e) => THERMO_DEVICE_TYPES.has(e.type))
+      const isAc = els.some((e) => AC_DEVICE_TYPES.has(e.type))
+      const isThermo = !isAc && els.some((e) => THERMO_DEVICE_TYPES.has(e.type))
       const isOptics = !isThermo && els.some((e) => ['light_source', 'prism', 'optic_screen', 'wedge', 'double_slit'].includes(e.type))
       const { runOptics } = await import('./OpticsRunner')
       const { runModern } = await import('./ModernRunner')
       const { runThermal } = await import('../../physics/thermal-statics')
+      const { runAc } = await import('../../physics/ac-circuit')
       const bodies = els.filter((e) => TS_ENGINE_TYPES.has(e.type)).map((e) => ({
         id: e.id, type: e.type, x: e.position.x, y: e.position.y, angle: e.angle, params: e.params,
       }))
-      const frames = isThermo
-        ? runThermal(bodies as Parameters<typeof runThermal>[0], maxDuration)
-        : isOptics
+      const frames = isAc
+        ? runAc(bodies as Parameters<typeof runAc>[0], maxDuration)
+        : isThermo
+          ? runThermal(bodies as Parameters<typeof runThermal>[0], maxDuration)
+          : isOptics
           ? runOptics(bodies as Parameters<typeof runOptics>[0], maxDuration)
           : runModern(bodies as Parameters<typeof runModern>[0], maxDuration)
       if (frames.length) {

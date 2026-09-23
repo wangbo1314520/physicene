@@ -634,6 +634,82 @@ function dvUTube54(): GeoTemplate {
   }
 }
 
+// ════ P3·批 3 第 2 步：AC 装置 4 卡（决策2：TS 复数 MNA，物理源 src/physics/ac-circuit.ts）════
+// 断言独立来源：能量守恒 P₁=P₂ / P收=P送−P损 · 欧姆定律 U₂=I₂·R · 辛普森数值积分（人教3-2
+// 第五章§2：我国生活用电有效值 220V、峰值 Um=220√2≈311V 为教材原文口径）
+// —— 卡 45 变压器动态：负载 11→44Ω 扫描，末帧断言 ——
+const P45_U1 = 220, P45_N1 = 2, P45_N2 = 1, P45_R0 = 11, P45_R1 = 44
+function dvTransformer45(): GeoTemplate {
+  return {
+    id: 'dv-transformer-45', card: '45', name: '变压器（负载动态扫描）', group: '电磁',
+    tags: ['装置', '变压器'],
+    elements: [mk('transformer', 0, 0, { u1: P45_U1, n1: P45_N1, n2: P45_N2, r_load: P45_R0, r_load_end: P45_R1 })],
+    criticalChecks: [
+      // 末帧 R=44Ω：独立定律断言（能量守恒：理想变压器 P₁=P₂；欧姆：U₂=I₂·R）
+      { label: 'P₁=P₂（能量守恒定律·独立）', theory: Math.pow(P45_U1 * P45_N2 / P45_N1, 2) / P45_R1, tol: 0.01, from: { kind: 'tsreading', key: 'p2' } },
+      { label: 'U₂=I₂·R_load（欧姆定律·独立）', theory: P45_U1 * P45_N2 / P45_N1, tol: 0.01, from: { kind: 'tsreading', key: 'u2' } },
+      { label: 'I₁=I₂·n₂/n₁（电流比·接线断言，物理由 MNA 单测教材锚）', theory: (P45_U1 * P45_N2 / P45_N1) / P45_R1 * (P45_N2 / P45_N1), tol: 0.01, from: { kind: 'tsreading', key: 'i1' } },
+    ],
+    solutionId: 'gk-transformer-dynamic',
+  }
+}
+// —— 卡 46 远距离输电：守恒 + 欧姆独立断言 ——
+const P46_P = 110e3, P46_U = 1100, P46_R = 0.5
+function dvPowerline46(): GeoTemplate {
+  return {
+    id: 'dv-powerline-46', card: '46', name: '远距离输电（I=P/U · P损=I²R）', group: '电磁',
+    tags: ['装置', '输电'],
+    elements: [mk('powerline', 0, 0, { p_send: P46_P / 1000, u_send: P46_U / 1000, r_line: P46_R })],
+    criticalChecks: [
+      { label: 'P收=P送−P损（能量守恒定律·独立）', theory: P46_P - Math.pow(P46_P / P46_U, 2) * P46_R, tol: 0.005, from: { kind: 'tsreading', key: 'p_recv' } },
+      { label: 'ΔU=I·R线（欧姆定律·独立）', theory: (P46_P / P46_U) * P46_R, tol: 0.01, from: { kind: 'tsreading', key: 'u_drop' } },
+    ],
+    solutionId: 'gk-power-transmission',
+  }
+}
+// —— 卡 47 交变四值：辛普森数值积分独立推导（教材 311/220 口径）——
+const P47_UM = 311, P47_F = 50
+const p47T = 1 / P47_F  // 周期 0.02s
+// 辛普森数值积分（独立于引擎闭式 √2 与 2/π）：rms=√(∫u²/T)、avg=∫|u|/T
+const p47N = 1200, p47H = p47T / p47N
+let p47S2 = 0, p47Sa = 0
+for (let i = 0; i <= p47N; i++) {
+  const u = P47_UM * Math.sin(2 * Math.PI * P47_F * i * p47H)
+  const c = i === 0 || i === p47N ? 1 : i % 2 ? 4 : 2
+  p47S2 += c * u * u; p47Sa += c * Math.abs(u)
+}
+const p47Rms = Math.sqrt(((p47H / 3) * p47S2) / p47T)
+const p47Avg = ((p47H / 3) * p47Sa) / p47T
+function dvAcFour47(): GeoTemplate {
+  return {
+    id: 'dv-ac-four-47', card: '47', name: '交变电流四值（峰值/有效值/平均/瞬时）', group: '电磁',
+    tags: ['装置', '交变电流'],
+    elements: [mk('ac_four_values', 0, 0, { um: P47_UM, f: P47_F })],
+    criticalChecks: [
+      { label: '有效值=辛普森数值积分 √(∫u²/T)（独立方法·教材 220V 口径）', theory: p47Rms, tol: 0.002, from: { kind: 'tsreading', key: 'rms' } },
+      { label: '平均值=∫|u|/T 数值积分（独立方法）', theory: p47Avg, tol: 0.002, from: { kind: 'tsreading', key: 'avg' } },
+      { label: '峰值=T/4 瞬时值（独立取点）', theory: P47_UM * Math.sin(2 * Math.PI * P47_F * (p47T / 4)), tol: 0.001, from: { kind: 'tsreading', key: 'peak' } },
+    ],
+    solutionId: 'gk-ac-four-values',
+  }
+}
+// —— 卡 15 变压器输电全链：MNA 全电路 + 全链守恒 ——
+const P15_UG = 220, P15_UP = 10, P15_DOWN = 10, P15_RL = 0.5, P15_RLOAD = 11
+function dvTransformerPower15(): GeoTemplate {
+  return {
+    id: 'dv-transformer-power-15', card: '15', name: '变压器输电全链（升压-线路-降压）', group: '电磁',
+    tags: ['装置', '输电', '变压器'],
+    elements: [mk('transformer_powerline', 0, 0, { u_gen: P15_UG, up: P15_UP, down: P15_DOWN, r_line: P15_RL, r_load: P15_RLOAD })],
+    criticalChecks: [
+      // 独立方法：阻抗折算（负载 R 经 T2 折算到高压侧 = R·down²）——与引擎 MNA 节点法不同路径
+      { label: 'I线=U高/(R线+R负·down²)（阻抗折算法·独立于 MNA）', theory: (P15_UG * P15_UP) / (P15_RL + P15_RLOAD * P15_DOWN * P15_DOWN), tol: 0.01, from: { kind: 'tsreading', key: 'i_line' } },
+      { label: 'P负=I线²·R负·down²（折算法·独立）', theory: Math.pow((P15_UG * P15_UP) / (P15_RL + P15_RLOAD * P15_DOWN * P15_DOWN), 2) * P15_RLOAD * P15_DOWN * P15_DOWN, tol: 0.01, from: { kind: 'tsreading', key: 'p_load' } },
+      { label: 'P损=I线²·R线（欧姆定律·独立）', theory: Math.pow((P15_UG * P15_UP) / (P15_RL + P15_RLOAD * P15_DOWN * P15_DOWN), 2) * P15_RL, tol: 0.01, from: { kind: 'tsreading', key: 'p_line_loss' } },
+    ],
+    solutionId: 'gk-transformer-transmission',
+  }
+}
+
 const FACTORIES: (() => GeoTemplate)[] = [
   gkSlopeSpring, gkSlopeSpringCorrect, gkConveyorBoard, gkBoardBlock, gkCollisionSpring,
   gkCollisionChain, gkCircularCritical, gkProjectileLoop, gkConnectedBodies,
@@ -642,6 +718,7 @@ const FACTORIES: (() => GeoTemplate)[] = [
   dvPrism55, dvWedge56, dvDoubleSlit57, dvPhotoelectric61, dvHydrogen62,
   dvBohr64, dvMatterWave65, dvCylinder52,
   dvLiquidSeal51, dvPumpSyringe53, dvUTube54,
+  dvTransformer45, dvPowerline46, dvAcFour47, dvTransformerPower15,
 ]
 
 export const TEMPLATES: GeoTemplate[] = FACTORIES.map((f) => f())

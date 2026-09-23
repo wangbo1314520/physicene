@@ -29,9 +29,18 @@ describe('OpticsRunner 物理核心（P1·批次 5）', () => {
     expect(r.t).toBeNull()
   })
 
-  it('棱镜最小偏向角：A=60° n=1.5 → δmin≈37.2°（教材标准值锚：37.18°）', () => {
+  it('棱镜最小偏向角：A=60° n=1.5 → δmin≈37.2°（数值扫描独立锚：扫描 θ₁ 求 δ 谷值 vs 闭式）', () => {
     const delta = minDeviationAngle(Math.PI / 3, 1.5)
     expect(delta * 180 / Math.PI).toBeCloseTo(37.18, 1)
+    // 独立方法：δ(θ₁)=θ₁+θ₄−A 数值扫描取最小——不引用 minDeviationAngle 的推导
+    const D2R = Math.PI / 180, A = 60, n = 1.5
+    let best = Infinity
+    for (let t1 = 47.5; t1 <= 50; t1 += 0.0005) {  // 谷值在对称入射 θ₁=(A+δmin)/2≈48.6° 附近
+      const th2 = Math.asin(Math.sin(t1 * D2R) / n)
+      const th4 = Math.asin(n * Math.sin((A * D2R) - th2))
+      if (isFinite(th4)) best = Math.min(best, t1 + th4 / D2R - A)
+    }
+    expect(best).toBeCloseTo(37.18, 1)  // 两种方法一致
   })
 
   it('双缝教材典型题值：红光 λ=700nm d=0.2mm L=1m → Δx=3.5mm（独立来源）', () => {

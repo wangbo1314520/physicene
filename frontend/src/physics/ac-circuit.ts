@@ -204,3 +204,111 @@ export function powerlineLoss(pSend: number, uSend: number, rLine: number): {
   const pLoss = i * i * rLine
   return { i, pLoss, pRecv: pSend - pLoss, uDrop: i * rLine }
 }
+
+// ───────────────── P3 批 3·第 2 步：AC 装置面（卡 15/45/46/47）─────────────────
+
+export interface AcBody {
+  id: string
+  type: 'transformer' | 'powerline' | 'ac_four_values' | 'transformer_powerline'
+  x: number; y: number; angle: number
+  params: Record<string, number>
+}
+export interface AcFrame {
+  t: number
+  readings: Record<string, number>
+}
+
+/** 单个理想变压器+负载的 MNA 求解（卡 45 变压器动态，负载可扫描） */
+function transformerOnce(u1: number, n1: number, n2: number, rLoad: number, w: number) {
+  const ct: AcCircuit = {
+    components: [
+      { id: 'u', kind: 'ac_source', pins: 2, props: { um: u1 * Math.SQRT2 } },
+      { id: 't', kind: 'ideal_transformer', pins: 4, props: { ratio: n2 / n1 } },
+      { id: 'r', kind: 'resistor', pins: 2, props: { R: rLoad } },
+    ],
+    wires: [
+      { a: ['u', 0], b: ['t', 0] }, { a: ['u', 1], b: ['t', 1] },
+      { a: ['t', 2], b: ['r', 0] }, { a: ['t', 3], b: ['r', 1] },
+    ],
+  }
+  const s = solveAC(ct, w)
+  const i2 = Math.hypot(s.iPhasors['r#I'].re, s.iPhasors['r#I'].im)
+  const i1 = Math.hypot(s.iPhasors['t#I1'].re, s.iPhasors['t#I1'].im)
+  const u2 = Math.hypot(s.uPhasors['r#U'].re, s.uPhasors['r#U'].im)
+  return { u2, i2, i1, p1: s.sPower.p, p2: i2 * i2 * rLoad }
+}
+
+/** 卡 15 变压器输电全链：发电→升压→线路电阻→降压→负载（MNA 全电路） */
+function transformerPowerlineOnce(uGen: number, up: number, down: number, rLine: number, rLoad: number, w: number) {
+  const ct: AcCircuit = {
+    components: [
+      { id: 'u', kind: 'ac_source', pins: 2, props: { um: uGen * Math.SQRT2 } },
+      { id: 't1', kind: 'ideal_transformer', pins: 4, props: { ratio: up } },     // 升压 n2/n1=up
+      { id: 'rl', kind: 'resistor', pins: 2, props: { R: rLine } },
+      { id: 't2', kind: 'ideal_transformer', pins: 4, props: { ratio: 1 / down } }, // 降压
+      { id: 'r', kind: 'resistor', pins: 2, props: { R: rLoad } },
+    ],
+    wires: [
+      { a: ['u', 0], b: ['t1', 0] }, { a: ['u', 1], b: ['t1', 1] },
+      { a: ['t1', 2], b: ['rl', 0] }, { a: ['rl', 1], b: ['t2', 0] }, { a: ['t2', 1], b: ['t1', 3] },
+      { a: ['t2', 2], b: ['r', 0] }, { a: ['t2', 3], b: ['r', 1] },
+    ],
+  }
+  const s = solveAC(ct, w)
+  const iLine = Math.hypot(s.iPhasors['rl#I'].re, s.iPhasors['rl#I'].im)
+  const iLoad = Math.hypot(s.iPhasors['r#I'].re, s.iPhasors['r#I'].im)
+  const uLoad = Math.hypot(s.uPhasors['r#U'].re, s.uPhasors['r#U'].im)
+  return {
+    p_gen: s.sPower.p, i_line: iLine,
+    p_line_loss: iLine * iLine * rLine, p_load: iLoad * iLoad * rLoad, u_load: uLoad,
+    u_high: uGen * up,
+  }
+}
+
+/** AC 装置主入口（与 runThermal 同契约；变压器卡在帧上扫描负载=动态分析） */
+export function runAc(elements: AcBody[], maxDuration = 3): AcFrame[] {
+  const steps = 60
+  const frames: AcFrame[] = []
+  const tr = elements.find((e) => e.type === 'transformer')
+  if (tr) {
+    const u1 = tr.params.u1 ?? 220, n1 = tr.params.n1 ?? 2, n2 = tr.params.n2 ?? 1
+    const r0 = tr.params.r_load ?? 11, r1 = tr.params.r_load_end ?? r0
+    const w = 2 * Math.PI * 50
+    for (let i = 0; i <= steps; i++) {
+      const rLoad = r0 + ((r1 - r0) * i) / steps
+      const m = transformerOnce(u1, n1, n2, rLoad, w)
+      frames.push({ t: i / 30, readings: { u1, n1, n2, r_load: rLoad, ...m } })
+    }
+    return frames
+  }
+  const pl = elements.find((e) => e.type === 'powerline')
+  if (pl) {
+    // catalog 面板单位 kW/kV → SI W/V
+    const r = powerlineLoss((pl.params.p_send ?? 110) * 1000, (pl.params.u_send ?? 1.1) * 1000, pl.params.r_line ?? 0.5)
+    for (let i = 0; i <= steps; i++) {
+      frames.push({ t: i / 30, readings: { i_line: r.i, p_loss: r.pLoss, p_recv: r.pRecv, u_drop: r.uDrop } })
+    }
+    return frames
+  }
+  const fv4 = elements.find((e) => e.type === 'ac_four_values')
+  if (fv4) {
+    const um = fv4.params.um ?? 311, f = fv4.params.f ?? 50
+    const fv = fourValues(um, 2 * Math.PI * f)
+    for (let i = 0; i <= steps; i++) {
+      frames.push({ t: i / 30, readings: { um, f, peak: fv.peak, rms: fv.rms, avg: fv.avg } })
+    }
+    return frames
+  }
+  const tp = elements.find((e) => e.type === 'transformer_powerline')
+  if (tp) {
+    const w = 2 * Math.PI * 50
+    const m = transformerPowerlineOnce(
+      tp.params.u_gen ?? 220, tp.params.up ?? 10, tp.params.down ?? 10,
+      tp.params.r_line ?? 0.5, tp.params.r_load ?? 11, w)
+    for (let i = 0; i <= steps; i++) {
+      frames.push({ t: i / 30, readings: { ...tp.params, ...m } })
+    }
+    return frames
+  }
+  return []
+}
