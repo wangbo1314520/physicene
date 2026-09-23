@@ -510,7 +510,8 @@ function dvDoubleSlit57(): GeoTemplate {
   }
 }
 // —— 卡 61 光电效应（TS·ModernRunner）：W₀ 表值钠 2.28eV，ν₀=W₀/h ——
-import { H_EV, E1 as E1_EV, HC_EV_NM, H_SI, M_E, Q_E } from '../../physics/modern-physics'  // 常数单源（P3 收口包同步）
+import { H_EV, E1, HC_EV_NM, H_SI, M_E, Q_E } from '../../physics/modern-physics'  // 常数单源（P3 收口包同步）
+const E1_EV = Math.abs(E1)  // E1=−13.6 带符号，theory 推导取 |E₁|=13.6
 const P61_W = 2.28  // 钠逸出功表值（eV）
 function dvPhotoelectric61(): GeoTemplate {
   return {

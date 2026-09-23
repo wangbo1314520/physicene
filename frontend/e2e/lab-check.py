@@ -120,7 +120,7 @@ def main() -> int:
         has_hook = page.evaluate("typeof window.__builder === 'object' && typeof window.__builder.add === 'function'")
         log("__builder 钩子可用（BuilderView 单例）", has_hook, "")
         n_tpl = page.evaluate("window.__builder.templates().length")
-        log("自由搭建模板下拉 17 项", n_tpl == 17, f"n={n_tpl}")
+        log("自由搭建模板下拉（与 registry 同步）", n_tpl == 45, f"n={n_tpl}")  # P3 后 17→45
         pal_default = page.locator(".free-build-tab .builder .palette .items .item").all_inner_texts()
         log("自由搭建默认域=力学（含物块）", any("物块" in t for t in pal_default), f"n={len(pal_default)}")
         page.locator(".free-build-tab .builder .palette .tabs button", has_text="电磁").click()
