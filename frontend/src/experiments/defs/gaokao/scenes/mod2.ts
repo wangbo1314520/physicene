@@ -17,7 +17,7 @@ const RXNS: Rxn[] = [
   { name: 'β 衰变：¹⁴C → ¹⁴N + e⁻（+ ν̄）', kind: 'β⁻ 衰变', left: [{ sym: 'C', A: 14, Z: 6, m: 14.003242 }], right: [{ sym: 'N', A: 14, Z: 7, m: 14.003074 }, { sym: 'e', A: 0, Z: -1, m: 0 }] },
   { name: '聚变：²H + ³H → ⁴He + n', kind: '核聚变', left: [{ sym: 'H', A: 2, Z: 1, m: 2.014102 }, { sym: 'H', A: 3, Z: 1, m: 3.016049 }], right: [{ sym: 'He', A: 4, Z: 2, m: 4.002602 }, { sym: 'n', A: 1, Z: 0, m: 1.008665 }] },
   { name: '裂变：²³⁵U + n → ¹⁴⁴Ba + ⁸⁹Kr + 3n', kind: '核裂变', left: [{ sym: 'U', A: 235, Z: 92, m: 235.043930 }, { sym: 'n', A: 1, Z: 0, m: 1.008665 }], right: [{ sym: 'Ba', A: 144, Z: 56, m: 143.922955 }, { sym: 'Kr', A: 89, Z: 36, m: 88.917636 }, { sym: 'n', A: 1, Z: 0, m: 1.008665 }, { sym: 'n', A: 1, Z: 0, m: 1.008665 }, { sym: 'n', A: 1, Z: 0, m: 1.008665 }] },
-  { name: '人工核反应：⁷Li + p → 2 ⁴He', kind: '人工转变', left: [{ sym: 'Li', A: 7, Z: 3, m: 7.016003 }, { sym: 'p', A: 1, Z: 1, m: 1.007825 }], right: [{ sym: 'He', A: 4, Z: 2, m: 4.002602 }, { sym: 'He', A: 4, Z: 2, m: 4.002602 }] },
+  { name: '人工核反应：⁷Li + p → 2 ⁴He', kind: '人工转变', left: [{ sym: 'Li', A: 7, Z: 3, m: 7.016003 }, { sym: 'H1', A: 1, Z: 1, m: 1.007825 }], right: [{ sym: 'He', A: 4, Z: 2, m: 4.002602 }, { sym: 'He', A: 4, Z: 2, m: 4.002602 }] },
 ]
 const sumA = (ns: Nuc[]) => ns.reduce((a, n) => a + n.A, 0), sumZ = (ns: Nuc[]) => ns.reduce((a, n) => a + n.Z, 0), sumM = (ns: Nuc[]) => ns.reduce((a, n) => a + n.m, 0)
 interface S63 { t: number; ph: 0 | 1 | 2 }

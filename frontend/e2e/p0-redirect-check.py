@@ -47,7 +47,8 @@ def main() -> int:
         pg.locator(".tabbar .tab", has_text="自由搭建").click()
         pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
         check("E2 BuilderView 挂载", pg.locator(".free-build-tab .builder").count() == 1)
-        check("E2 模板下拉（与 registry 同步）", pg.evaluate("window.__builder.templates().length") == 45)  # P3 后 17→45（28 装置）
+        import _counts
+        check("E2 模板下拉（与 registry 同步·制度化常量）", pg.evaluate("window.__builder.templates().length") == _counts.TEMPLATES_COUNT)
         pg.evaluate("window.__builder.clear()")
         pg.evaluate("window.__builder.loadTemplate('gk-board-block')")
         pg.wait_for_timeout(300)
