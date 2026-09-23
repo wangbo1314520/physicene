@@ -477,7 +477,7 @@ function dvPrism55(): GeoTemplate {
     criticalChecks: [
       { label: 'θ₂=arcsin(sinθ₁/n)', theory: p55Th2, tol: 0.01, from: { kind: 'tsreading', key: 'theta_2' } },
       { label: 'δ=θ₁+θ₄−A', theory: p55Delta, tol: 0.01, from: { kind: 'tsreading', key: 'delta' } },
-      { label: 'δmin=2asin(n·sin(A/2))−A', theory: 2 * Math.asin(P55_N * Math.sin(P55_A * D2R / 2)) / D2R - P55_A, tol: 0.01, from: { kind: 'tsreading', key: 'delta_min' } },
+      { label: 'δmin（接线断言·物理由单测教材值 37.18° 锚定）', theory: 2 * Math.asin(P55_N * Math.sin(P55_A * D2R / 2)) / D2R - P55_A, tol: 0.01, from: { kind: 'tsreading', key: 'delta_min' } },
     ],
     solutionId: 'gk-prism-refraction',
   }
@@ -491,7 +491,7 @@ function dvWedge56(): GeoTemplate {
     tags: ['装置', '干涉'],
     elements: [mk('wedge', 0, 0, { lam: P56_LAM, n: P56_N, alpha: P56_ALPHA_DEG })],
     criticalChecks: [
-      { label: 'ΔL=λ/(2n·tanα)', theory: p56FringeMm, tol: 0.02, from: { kind: 'tsreading', key: 'fringe_mm' } },
+      { label: 'ΔL（接线断言·物理由单测厚度差链独立式锚定）', theory: p56FringeMm, tol: 0.02, from: { kind: 'tsreading', key: 'fringe_mm' } },
     ],
     solutionId: 'gk-thin-film',
   }
@@ -504,7 +504,7 @@ function dvDoubleSlit57(): GeoTemplate {
     tags: ['装置', '干涉'],
     elements: [mk('double_slit', 0, 0, { lam: P57_LAM, d: P57_D, L: P57_L })],
     criticalChecks: [
-      { label: 'Δx=Lλ/d', theory: P57_L * P57_LAM * 1e-9 / (P57_D * 1e-3) * 1000, tol: 0.01, from: { kind: 'tsreading', key: 'dx_mm' } },
+      { label: 'Δx（接线断言·物理由单测教材典型题值锚定）', theory: P57_L * P57_LAM * 1e-9 / (P57_D * 1e-3) * 1000, tol: 0.01, from: { kind: 'tsreading', key: 'dx_mm' } },
     ],
     solutionId: 'gk-diffraction-vs-interference',
   }
@@ -518,7 +518,7 @@ function dvPhotoelectric61(): GeoTemplate {
     tags: ['装置', '光电'],
     elements: [mk('photo_tube', 0, 0, { mat: 0 })],
     criticalChecks: [
-      { label: 'W₀（钠表值）', theory: P61_W, tol: 0.01, from: { kind: 'tsreading', key: 'work_function' } },
+      { label: 'W₀（表值断言·钠逸出功 2.28eV 独立物理数据）', theory: P61_W, tol: 0.01, from: { kind: 'tsreading', key: 'work_function' } },
       { label: 'ν₀=W₀/h（×10¹⁴Hz）', theory: P61_W / H_EV / 1e14, tol: 0.01, from: { kind: 'tsreading', key: 'cutoff_freq' } },
     ],
     solutionId: 'gk-photoelectric-ek-nu',
@@ -563,7 +563,7 @@ function dvMatterWave65(): GeoTemplate {
     tags: ['装置', '物质波'],
     elements: [mk('electron_gun', 0, 0, { U: P65_U })],
     criticalChecks: [
-      { label: 'λ（pm）=h/√(2meU)', theory: H_SI / Math.sqrt(2 * M_E * Q_E * P65_U) * 1e12, tol: 0.01, from: { kind: 'tsreading', key: 'lambda_pm' } },
+      { label: 'λ（接线断言·物理由单测教材值 1.23Å@100V 锚定）', theory: H_SI / Math.sqrt(2 * M_E * Q_E * P65_U) * 1e12, tol: 0.01, from: { kind: 'tsreading', key: 'lambda_pm' } },
     ],
     solutionId: 'gk-matter-wave',
   }
@@ -596,8 +596,8 @@ function dvLiquidSeal51(): GeoTemplate {
     tags: ['装置', '液封'],
     elements: [mk('liquid_seal', 0, 0, { p0: P51_P0, h: P51_H, mode: 0 })],
     criticalChecks: [
-      { label: '开口向上 p=p₀+h', theory: P51_P0 + P51_H, tol: 0.01, from: { kind: 'tsreading', key: 'p_cmhg' } },
-      { label: 'kPa 换算（×1.33322）', theory: (P51_P0 + P51_H) * 1.33322, tol: 0.01, from: { kind: 'tsreading', key: 'p_kpa' } },
+      { label: 'p=p₀+h（接线断言·物理由单测教材值 86/66/76 锚定）', theory: P51_P0 + P51_H, tol: 0.01, from: { kind: 'tsreading', key: 'p_cmhg' } },
+      { label: 'kPa 换算（换算断言·单位常数独立）', theory: (P51_P0 + P51_H) * 1.33322, tol: 0.01, from: { kind: 'tsreading', key: 'p_kpa' } },
     ],
     solutionId: 'gk-liquid-seal-tube',
   }
@@ -610,7 +610,7 @@ function dvPumpSyringe53(): GeoTemplate {
     tags: ['装置', '打气'],
     elements: [mk('pump_syringe', 0, 0, { V: P53_V, V0: P53_V0, n: P53_N, mode: 0 })],
     criticalChecks: [
-      { label: 'nV 守恒：pₙ/p₀=1+nV₀/V', theory: 1 + (P53_N * P53_V0) / P53_V, tol: 0.02, from: { kind: 'tsreading', key: 'p_ratio' } },
+      { label: 'nV 守恒（不变量断言·p₀(V+nV₀)=pₙV 等效总体积法）', theory: 1 + (P53_N * P53_V0) / P53_V, tol: 0.02, from: { kind: 'tsreading', key: 'p_ratio' } },
     ],
     solutionId: 'gk-variable-mass-gas',
   }
@@ -626,7 +626,7 @@ function dvUTube54(): GeoTemplate {
     tags: ['装置', 'U形管'],
     elements: [mk('u_tube', 0, 0, { L1: P54_L1, dh0: P54_DH0, mode: 0, T1: P54_T1, T2: P54_T2 })],
     criticalChecks: [
-      { label: '左液面下降 x（二次方程正根）', theory: p54X, tol: 0.02, from: { kind: 'tsreading', key: 'x_cm' } },
+      { label: 'x（接线断言·物理由单测不变量 (p₁+2x)(L₁+x)=K ±1e-9 锚定）', theory: p54X, tol: 0.02, from: { kind: 'tsreading', key: 'x_cm' } },
       { label: '末态 p₂=p₀+Δh₀+2x', theory: p54P2, tol: 0.02, from: { kind: 'tsreading', key: 'p2_cmhg' } },
       { label: '气体定律自洽 p₂L₂/T₂=p₁L₁/T₁', theory: ((P54_P0 + P54_DH0) * P54_L1) / P54_T1, tol: 0.02, from: { kind: 'tsreading', key: 'plT2' } },
     ],

@@ -29,9 +29,20 @@ describe('OpticsRunner 物理核心（P1·批次 5）', () => {
     expect(r.t).toBeNull()
   })
 
-  it('棱镜最小偏向角：A=60° n=1.5 → δmin≈37.2°', () => {
+  it('棱镜最小偏向角：A=60° n=1.5 → δmin≈37.2°（教材标准值锚：37.18°）', () => {
     const delta = minDeviationAngle(Math.PI / 3, 1.5)
     expect(delta * 180 / Math.PI).toBeCloseTo(37.18, 1)
+  })
+
+  it('双缝教材典型题值：红光 λ=700nm d=0.2mm L=1m → Δx=3.5mm（独立来源）', () => {
+    // 人教选修3-3/3-4 双缝干涉典型题数据——非引擎参数自设
+    expect(doubleSlitSpacing(700e-9, 0.2e-3, 1) * 1000).toBeCloseTo(3.5, 6)
+  })
+
+  it('劈尖厚度差链独立式：Δd=λ/(2n) 分步再 tanα 换算 = wedgeFringeSpacing（不同推导路径）', () => {
+    const lam = 589.3e-9, n = 1.0, alpha = 0.002  // 钠黄光·空气劈尖
+    const dStep = lam / (2 * n)                    // 半波损失链：相邻亮纹 2nΔd=λ
+    expect(dStep / Math.tan(alpha)).toBeCloseTo(wedgeFringeSpacing(lam, n, alpha), 12)
   })
 
   it('劈尖条纹间距：λ=600nm n=1.5 α=0.001rad → Δx=0.2mm', () => {
