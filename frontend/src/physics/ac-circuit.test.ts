@@ -169,7 +169,7 @@ describe('输电/变压器 教材规律锚', () => {
     expect(p2.pLoss / p1.pLoss).toBeCloseTo(0.25, 6)
     expect(p10.pLoss / p1.pLoss).toBeCloseTo(0.01, 6)
   })
-  it('规律锚：负载 R×4 → I₂×¼ 且 U₂ 不随负载变（欧姆+理想变压器性质，教材例题形式）', async () => {
+  it('规律锚：负载 R×4 → I₂×¼ 且 U₂ 不随负载变（教材规律应用·自行总结：匝比定 U₂ + 欧姆 I₂=U₂/R）', async () => {
     const { runAc } = await import('./ac-circuit')
     const a = runAc([{ id: 'a', type: 'transformer', x: 0, y: 0, angle: 0, params: { u1: 220, n1: 2, n2: 1, r_load: 11, r_load_end: 11 } }])
     const b = runAc([{ id: 'b', type: 'transformer', x: 0, y: 0, angle: 0, params: { u1: 220, n1: 2, n2: 1, r_load: 44, r_load_end: 44 } }])

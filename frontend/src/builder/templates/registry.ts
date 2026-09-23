@@ -727,6 +727,85 @@ function dvCyclotron12(): GeoTemplate {
   }
 }
 
+// ════ P3·批 3 第 4 步：DC 装置六卡（卡 33/34/35/48/49/50，物理源 src/physics/dc-devices.ts）════
+// builder 路径（审查裁定）：电路走 TS MNA ω=0 退化，零场景内联
+const P33_B = 1, P33_D = 0.2, P33_V = 10, P33_RL = 5, P33_RI = 1
+function dvMhd33(): GeoTemplate {
+  return {
+    id: 'dv-mhd-33', card: '33', name: '磁流体发电（EMF=B·D·v）', group: '电磁',
+    tags: ['装置', '磁流体'],
+    elements: [mk('mhd_generator', 0, 0, { B: P33_B, D: P33_D, v: P33_V, r_load: P33_RL, r_in: P33_RI })],
+    criticalChecks: [
+      { label: 'EMF=B·D·v（物理独立：qU/d=qvB 洛伦兹力平衡推导）', theory: P33_B * P33_D * P33_V, tol: 0.005, from: { kind: 'tsreading', key: 'emf' } },
+      { label: '路端电压=分压定律 R/(R+r)（方法独立：闭式 vs MNA 两法）', theory: (P33_B * P33_D * P33_V * P33_RL) / (P33_RL + P33_RI), tol: 0.005, from: { kind: 'tsreading', key: 'u_out' } },
+    ],
+    solutionId: 'gk-mhd-channel',
+  }
+}
+const P34_B = 0.5, P34_D = 0.1, P34_Q = 5e-3, P34_A = 2.5e-3
+function dvFlow34(): GeoTemplate {
+  return {
+    id: 'dv-flow-34', card: '34', name: '电磁流量计（v=U/BD）', group: '电磁',
+    tags: ['装置', '流量计'],
+    elements: [mk('flow_meter', 0, 0, { B: P34_B, D: P34_D, Q: P34_Q, A: P34_A })],
+    criticalChecks: [
+      { label: 'U=B·D·(Q/A)（两定律串联：连续性 Q=Av + 洛伦兹 E=vB）', theory: P34_B * P34_D * (P34_Q / P34_A), tol: 0.005, from: { kind: 'tsreading', key: 'u_sensor' } },
+      { label: '同源互证：反解 v=U/(B·D) 还原流速（与卡 33 同一洛伦兹平衡）', theory: P34_Q / P34_A, tol: 0.005, from: { kind: 'tsreading', key: 'v_from_u' } },
+    ],
+    solutionId: 'gk-flow-meter',
+  }
+}
+const P35_B = 0.5, P35_I = 1e-3, P35_N = 1e25, P35_D = 1e-3
+function dvHall35(): GeoTemplate {
+  return {
+    id: 'dv-hall-35', card: '35', name: '霍尔效应（U_H=IB/nqd）', group: '电磁',
+    tags: ['装置', '霍尔'],
+    elements: [mk('hall_slab', 0, 0, { B: P35_B, I: P35_I, n: P35_N, d: P35_D })],
+    criticalChecks: [
+      { label: 'U_H=I·B/(n·q·d)（教材规律：霍尔电压电流式）', theory: (P35_I * P35_B) / (P35_N * 1.602e-19 * P35_D), tol: 0.005, from: { kind: 'tsreading', key: 'u_hall' } },
+    ],
+    solutionId: 'gk-hall-slab',
+  }
+}
+const P48_IG = 100e-6, P48_RG = 1000, P48_T = 1
+function dvMeter48(): GeoTemplate {
+  return {
+    id: 'dv-meter-48', card: '48', name: '电表改装（安培计分流）', group: '电磁',
+    tags: ['装置', '电表'],
+    elements: [mk('meter_conversion', 0, 0, { ig: P48_IG, rg: P48_RG, target: P48_T, mode: 0 })],
+    criticalChecks: [
+      { label: '分流电阻 Rs=Ig·Rg/(I−Ig)（物理独立：并联电压相等推导）', theory: (P48_IG * P48_RG) / (P48_T - P48_IG), tol: 0.005, from: { kind: 'tsreading', key: 'rs' } },
+      { label: '通入量程电流表头恰满偏（方法独立：MNA 实解 vs 闭式设计两法）', theory: P48_IG, tol: 0.01, from: { kind: 'tsreading', key: 'i_meter' } },
+    ],
+    solutionId: 'gk-meter-conversion',
+  }
+}
+const P49_RX = 10, P49_RA = 0.1
+function dvVoltammetry49(): GeoTemplate {
+  return {
+    id: 'dv-voltammetry-49', card: '49', name: '伏安法（内接偏大）', group: '电磁',
+    tags: ['装置', '伏安法'],
+    elements: [mk('voltammetry', 0, 0, { r_x: P49_RX, r_a: P49_RA, mode: 0 })],
+    criticalChecks: [
+      { label: '内接 R测=R+RA（物理独立：串联化简 vs MNA 两法；教材规律：大内偏大）', theory: P49_RX + P49_RA, tol: 0.005, from: { kind: 'tsreading', key: 'r_meas' } },
+    ],
+    solutionId: 'gk-volt-ammeter-resistance',
+  }
+}
+const P50_R = 20
+function dvBlackBox50(): GeoTemplate {
+  return {
+    id: 'dv-black-box-50', card: '50', name: '电学黑箱（探测判别）', group: '电磁',
+    tags: ['装置', '黑箱'],
+    elements: [mk('black_box', 0, 0, { r_ab: P50_R })],
+    criticalChecks: [
+      { label: 'A–B 电阻读数（两法：MNA 欧姆表读数 vs 直阻）', theory: P50_R, tol: 0.005, from: { kind: 'tsreading', key: 'r_ab' } },
+      { label: '正反向阻值比 1e10（理想二极管判据·二态建模 0.1Ω/1GΩ）', theory: 1e10, tol: 0.01, from: { kind: 'tsreading', key: 'fwd_rev_ratio' } },
+    ],
+    solutionId: 'gk-black-box',
+  }
+}
+
 const FACTORIES: (() => GeoTemplate)[] = [
   gkSlopeSpring, gkSlopeSpringCorrect, gkConveyorBoard, gkBoardBlock, gkCollisionSpring,
   gkCollisionChain, gkCircularCritical, gkProjectileLoop, gkConnectedBodies,
@@ -737,6 +816,7 @@ const FACTORIES: (() => GeoTemplate)[] = [
   dvLiquidSeal51, dvPumpSyringe53, dvUTube54,
   dvTransformer45, dvPowerline46, dvAcFour47, dvTransformerPower15,
   dvCyclotron12,
+  dvMhd33, dvFlow34, dvHall35, dvMeter48, dvVoltammetry49, dvBlackBox50,
 ]
 
 export const TEMPLATES: GeoTemplate[] = FACTORIES.map((f) => f())

@@ -7,7 +7,7 @@ import type { GeoElement, ElementSpec, Domain } from '../catalog'
 import { byType } from '../catalog'
 import rules from '../engine/engine-rules.json'
 
-export type EngineKey = 'rigid' | 'field' | 'circuit' | 'thermal' | 'thermoStatic' | 'acCircuit' | 'optics' | 'modern'
+export type EngineKey = 'rigid' | 'field' | 'circuit' | 'thermal' | 'thermoStatic' | 'acCircuit' | 'dcCircuit' | 'optics' | 'modern'
 
 export interface EngineDesc {
   key: EngineKey
@@ -39,6 +39,7 @@ const META: Record<EngineKey, { label: string; runner: 'java' | 'ts' }> = {
   thermal: { label: '热学·气体', runner: 'java' },
   thermoStatic: { label: '热学·静力学装置', runner: 'ts' },  // P3 批2：液封/打气/U形管（决策1）
   acCircuit: { label: '交流·时变场装置（相量 MNA / 回旋）', runner: 'ts' },  // P3 批3（决策2）
+  dcCircuit: { label: '直流装置（MNA ω=0 退化）', runner: 'ts' },  // P3 批3 第4步
   optics: { label: '光学·光线追踪', runner: 'ts' },
   modern: { label: '近代物理', runner: 'ts' },
 }
@@ -48,6 +49,8 @@ export const THERMO_DEVICE_TYPES = new Set(['liquid_seal', 'pump_syringe', 'u_tu
 /** P3 批3：AC 装置走 TS 复数 MNA 引擎（决策2） */
 export const AC_DEVICE_TYPES = new Set(['transformer', 'powerline', 'ac_four_values', 'transformer_powerline'])  // P3 批3 第3步：回旋（时变 E 场装置，非 MNA——runCyclotron 专用求解器）
 export const CYCLOTRON_TYPES = new Set(['cyclotron'])
+/** P3 批3 第4步：DC 装置六卡 */
+export const DC_DEVICE_TYPES = new Set(['mhd_generator', 'flow_meter', 'hall_slab', 'meter_conversion', 'voltammetry', 'black_box'])
 
 /** domain/role → 主引擎（util/display 类不产生引擎） */
 export function engineOfSpec(spec: ElementSpec): EngineKey | null {
@@ -57,6 +60,7 @@ export function engineOfSpec(spec: ElementSpec): EngineKey | null {
     case 'heat': return THERMO_DEVICE_TYPES.has(spec.type) ? 'thermoStatic' : 'thermal'
     case 'em':
       if (AC_DEVICE_TYPES.has(spec.type) || CYCLOTRON_TYPES.has(spec.type)) return 'acCircuit'  // P3 批3 AC/时变场装置
+      if (DC_DEVICE_TYPES.has(spec.type)) return 'dcCircuit'  // P3 批3 第4步 DC 装置
       if (spec.role === 'field' || spec.role === 'body') return 'field' // point_charge(role body) 由场引擎积分
       if (spec.role === 'circuit') return 'circuit'
       return null
