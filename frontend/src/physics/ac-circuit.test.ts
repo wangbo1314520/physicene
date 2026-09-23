@@ -101,7 +101,7 @@ describe('交变四值与输电（卡 47/46）', () => {
 //    KVL 相量和 ΣU̇=U̇源 · 能量守恒 P源=Σ|I|²R（L/C 不耗能）
 //    · 数值方法独立：辛普森积分直接从 u(t) 定义算有效值/平均值（不用闭式）
 describe('AC 独立来源锚定（定律不变量 + 数值方法独立）', () => {
-  it('KVL 相量和：RL/RC 串联 U̇源 = U̇R + U̇L（或 C）——基尔霍夫定律（独立于阻抗求解）', () => {
+  it('KVL 相量和（自洽检查·同一引擎解的后处理——验证 stamp/消元正确，非物理独立锚）', () => {
     const w = 2 * Math.PI * 50
     for (const third of [L('l', 40 / w), C('c', 1 / (w * 40))]) {
       const ct = {
@@ -116,7 +116,7 @@ describe('AC 独立来源锚定（定律不变量 + 数值方法独立）', () =
     }
   })
 
-  it('能量守恒：P源 = |I|²·R（RL/RC 串联——L/C 不耗能，独立于 |Z| 公式）', () => {
+  it('能量记账自洽（自洽检查·P=−U̇İ* 与 I²R 两路后处理一致；变压器 P₁=P₂ 由约束定义=循环，不入锚）', () => {
     const w = 2 * Math.PI * 50
     const ct = {
       components: [SRC('u', 220 * Math.SQRT2), R('r', 30), L('l', 40 / w)],
@@ -157,5 +157,23 @@ describe('AC 装置全链守恒', () => {
     const r = frames[0].readings
     expect(r.p_gen).toBeCloseTo(r.p_line_loss + r.p_load, -2)  // 守恒 ±1%
     expect(r.i_line).toBeCloseTo((220 * 10) / (0.5 + 11 * 100), 4)  // 折算对照 1.9991A
+  })
+})
+
+// ── 教材规律锚（人教选修3-2《电能的输送》：电压提高到 n 倍，损失功率减为 1/n²）──
+describe('输电/变压器 教材规律锚', () => {
+  it('规律锚：U×2 → P损/4、U×10 → P损/100（教材缩放结论，非单点公式复刻）', () => {
+    const p1 = powerlineLoss(100e3, 1000, 1)
+    const p2 = powerlineLoss(100e3, 2000, 1)
+    const p10 = powerlineLoss(100e3, 10000, 1)
+    expect(p2.pLoss / p1.pLoss).toBeCloseTo(0.25, 6)
+    expect(p10.pLoss / p1.pLoss).toBeCloseTo(0.01, 6)
+  })
+  it('规律锚：负载 R×4 → I₂×¼ 且 U₂ 不随负载变（欧姆+理想变压器性质，教材例题形式）', async () => {
+    const { runAc } = await import('./ac-circuit')
+    const a = runAc([{ id: 'a', type: 'transformer', x: 0, y: 0, angle: 0, params: { u1: 220, n1: 2, n2: 1, r_load: 11, r_load_end: 11 } }])
+    const b = runAc([{ id: 'b', type: 'transformer', x: 0, y: 0, angle: 0, params: { u1: 220, n1: 2, n2: 1, r_load: 44, r_load_end: 44 } }])
+    expect(b[0].readings.i2 / a[0].readings.i2).toBeCloseTo(0.25, 6)  // I₂=U₂/R：R×4 → I₂×¼
+    expect(a[0].readings.u2).toBeCloseTo(b[0].readings.u2, 4)  // U₂ 与负载无关（理想变压器；GMIN 1e-9 数值余量）
   })
 })

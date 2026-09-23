@@ -29,7 +29,7 @@ describe('OpticsRunner 物理核心（P1·批次 5）', () => {
     expect(r.t).toBeNull()
   })
 
-  it('棱镜最小偏向角：A=60° n=1.5 → δmin≈37.2°（数值扫描独立锚：扫描 θ₁ 求 δ 谷值 vs 闭式）', () => {
+  it('棱镜最小偏向角：A=60° n=1.5 → δmin≈37.2°（方法独立·同一 Snell 物理：数值扫描谷值 vs 闭式——非物理出处独立）', () => {
     const delta = minDeviationAngle(Math.PI / 3, 1.5)
     expect(delta * 180 / Math.PI).toBeCloseTo(37.18, 1)
     // 独立方法：δ(θ₁)=θ₁+θ₄−A 数值扫描取最小——不引用 minDeviationAngle 的推导

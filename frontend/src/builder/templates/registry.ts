@@ -646,7 +646,7 @@ function dvTransformer45(): GeoTemplate {
     elements: [mk('transformer', 0, 0, { u1: P45_U1, n1: P45_N1, n2: P45_N2, r_load: P45_R0, r_load_end: P45_R1 })],
     criticalChecks: [
       // 末帧 R=44Ω：独立定律断言（能量守恒：理想变压器 P₁=P₂；欧姆：U₂=I₂·R）
-      { label: 'P₁=P₂（能量守恒定律·独立）', theory: Math.pow(P45_U1 * P45_N2 / P45_N1, 2) / P45_R1, tol: 0.01, from: { kind: 'tsreading', key: 'p2' } },
+      { label: 'P₁=P₂（自洽检查·理想变压器约束定义——物理锚见单测教材规律锚）', theory: Math.pow(P45_U1 * P45_N2 / P45_N1, 2) / P45_R1, tol: 0.01, from: { kind: 'tsreading', key: 'p2' } },
       { label: 'U₂=I₂·R_load（欧姆定律·独立）', theory: P45_U1 * P45_N2 / P45_N1, tol: 0.01, from: { kind: 'tsreading', key: 'u2' } },
       { label: 'I₁=I₂·n₂/n₁（电流比·接线断言，物理由 MNA 单测教材锚）', theory: (P45_U1 * P45_N2 / P45_N1) / P45_R1 * (P45_N2 / P45_N1), tol: 0.01, from: { kind: 'tsreading', key: 'i1' } },
     ],
@@ -661,7 +661,7 @@ function dvPowerline46(): GeoTemplate {
     tags: ['装置', '输电'],
     elements: [mk('powerline', 0, 0, { p_send: P46_P / 1000, u_send: P46_U / 1000, r_line: P46_R })],
     criticalChecks: [
-      { label: 'P收=P送−P损（能量守恒定律·独立）', theory: P46_P - Math.pow(P46_P / P46_U, 2) * P46_R, tol: 0.005, from: { kind: 'tsreading', key: 'p_recv' } },
+      { label: 'P收=P送−P损（自洽检查·守恒记账；缩放规律锚 U×2→P损/4 见单测）', theory: P46_P - Math.pow(P46_P / P46_U, 2) * P46_R, tol: 0.005, from: { kind: 'tsreading', key: 'p_recv' } },
       { label: 'ΔU=I·R线（欧姆定律·独立）', theory: (P46_P / P46_U) * P46_R, tol: 0.01, from: { kind: 'tsreading', key: 'u_drop' } },
     ],
     solutionId: 'gk-power-transmission',
@@ -710,6 +710,23 @@ function dvTransformerPower15(): GeoTemplate {
   }
 }
 
+// ════ P3·批 3 第 3 步：回旋加速器（卡 12，专用求解器 src/physics/cyclotron.ts）════
+const P12_QM = 9.578e7, P12_B = 1.0, P12_U = 1e4, P12_R = 0.5
+const p12N = Math.floor((P12_QM * P12_B * P12_B * P12_R * P12_R) / (2 * P12_U))
+function dvCyclotron12(): GeoTemplate {
+  return {
+    id: 'dv-cyclotron-12', card: '12', name: '回旋加速器（时变 E + 匀强 B）', group: '电磁',
+    tags: ['装置', '回旋'],
+    elements: [mk('cyclotron', 0, 0, { B: P12_B, U: P12_U, R_max: P12_R, qm: P12_QM })],
+    criticalChecks: [
+      { label: 'rₙ₊₁/rₙ=√(n/(n−1))（物理独立：qvB=mv²/r 两步相除推导）', theory: Math.sqrt(p12N / (p12N - 1)), tol: 0.01, from: { kind: 'tsreading', key: 'r_ratio_last' } },
+      { label: '出射动能交叉验证：引擎能量记账 n·U vs 闭式 qm·B²R²/2（物理独立两法）', theory: (P12_QM * P12_B * P12_B * P12_R * P12_R) / 2, tol: 0.005, from: { kind: 'tsreading', key: 'ek_cross_ev' } },
+      { label: '半周期 τ=π/(qm·B)（教材结论：与速度无关）', theory: Math.PI / (P12_QM * P12_B), tol: 0.005, from: { kind: 'tsreading', key: 'half_period' } },
+    ],
+    solutionId: 'gk-cyclotron',
+  }
+}
+
 const FACTORIES: (() => GeoTemplate)[] = [
   gkSlopeSpring, gkSlopeSpringCorrect, gkConveyorBoard, gkBoardBlock, gkCollisionSpring,
   gkCollisionChain, gkCircularCritical, gkProjectileLoop, gkConnectedBodies,
@@ -719,6 +736,7 @@ const FACTORIES: (() => GeoTemplate)[] = [
   dvBohr64, dvMatterWave65, dvCylinder52,
   dvLiquidSeal51, dvPumpSyringe53, dvUTube54,
   dvTransformer45, dvPowerline46, dvAcFour47, dvTransformerPower15,
+  dvCyclotron12,
 ]
 
 export const TEMPLATES: GeoTemplate[] = FACTORIES.map((f) => f())
