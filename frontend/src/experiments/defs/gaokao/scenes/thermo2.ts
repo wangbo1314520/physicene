@@ -10,7 +10,8 @@ const f3 = (x: number) => (Number.isFinite(x) ? x.toFixed(3) : '—')
 /* ══════════ 模型 53：变质量气体（打气 / 抽气） ══════════ */
 const MODES53 = [{ value: 0, label: '打气：每次把 p₀、V₀ 的空气压入容器' }, { value: 1, label: '抽气：每次抽走容器内 V₀ 的气体' }]
 interface S53 { k: number; phase: number; p: number; done: boolean }
-function p53(p: Record<string, number>, k: number) { return p.mode === 0 ? 1 + (k * p.V0) / p.V : Math.pow(p.V / (p.V + p.V0), k) }
+import { pumpPressureRatio, uTubeSolveX } from '../../../../physics/thermal-statics'
+function p53(p: Record<string, number>, k: number) { return pumpPressureRatio(k, p.V0, p.V, p.mode) }  // 共享物理源（P3 批2 收编）
 export const variableMassGas: MechSceneDef<S53> = {
   id: 'gk-variable-mass-gas',
   title: '变质量气体（打气 / 抽气 · 等效总体积法）',
@@ -94,15 +95,7 @@ export const variableMassGas: MechSceneDef<S53> = {
 const MODES54 = [{ value: 0, label: '左端封闭气体缓慢升温（p、L 同时变）' }, { value: 1, label: '向开口端注入汞柱 Δ（等温）' }]
 interface S54 { x: number; T: number; done: boolean; target: number }
 const P0 = 76
-function solve54(p: Record<string, number>) {
-  const p1 = P0 + p.dh0
-  if (p.mode === 0) {
-    const K = (p1 * p.L1 * p.T2) / p.T1, b = p1 + 2 * p.L1, c = p1 * p.L1 - K
-    return (-b + Math.sqrt(b * b - 8 * c)) / 4
-  }
-  const B = p1 + p.dAdd - 2 * p.L1
-  return (-B + Math.sqrt(B * B + 8 * p.dAdd * p.L1)) / 4
-}
+function solve54(p: Record<string, number>) { return uTubeSolveX(P0, p.dh0, p.L1, p.T1, p.T2, p.dAdd, p.mode) }  // 共享物理源（P3 批2 收编）
 export const uTube: MechSceneDef<S54> = {
   id: 'gk-u-tube',
   title: 'U 形管（液面差定压强 · 两端联动 · 二次方程）',

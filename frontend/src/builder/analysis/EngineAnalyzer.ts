@@ -7,7 +7,7 @@ import type { GeoElement, ElementSpec, Domain } from '../catalog'
 import { byType } from '../catalog'
 import rules from '../engine/engine-rules.json'
 
-export type EngineKey = 'rigid' | 'field' | 'circuit' | 'thermal' | 'optics' | 'modern'
+export type EngineKey = 'rigid' | 'field' | 'circuit' | 'thermal' | 'thermoStatic' | 'optics' | 'modern'
 
 export interface EngineDesc {
   key: EngineKey
@@ -37,16 +37,20 @@ const META: Record<EngineKey, { label: string; runner: 'java' | 'ts' }> = {
   field: { label: '电磁场·积分', runner: 'java' },
   circuit: { label: '电路·MNA', runner: 'java' },
   thermal: { label: '热学·气体', runner: 'java' },
+  thermoStatic: { label: '热学·静力学装置', runner: 'ts' },  // P3 批2：液封/打气/U形管（决策1）
   optics: { label: '光学·光线追踪', runner: 'ts' },
   modern: { label: '近代物理', runner: 'ts' },
 }
+
+/** P3 批2：热学静力学装置走 TS 纯函数引擎（决策1）；其余热学（气体耦合）走 Java */
+export const THERMO_DEVICE_TYPES = new Set(['liquid_seal', 'pump_syringe', 'u_tube'])
 
 /** domain/role → 主引擎（util/display 类不产生引擎） */
 export function engineOfSpec(spec: ElementSpec): EngineKey | null {
   switch (spec.domain) {
     case 'optics': return 'optics'
     case 'modern': return 'modern'
-    case 'heat': return 'thermal'
+    case 'heat': return THERMO_DEVICE_TYPES.has(spec.type) ? 'thermoStatic' : 'thermal'
     case 'em':
       if (spec.role === 'field' || spec.role === 'body') return 'field' // point_charge(role body) 由场引擎积分
       if (spec.role === 'circuit') return 'circuit'

@@ -69,7 +69,7 @@ describe('数字口径闸门', () => {
     const { PLAN_COUNT, CATALOG } = await import('../catalog')
     const { TEMPLATES } = await import('./registry')
     expect(PLAN_COUNT).toBe(CATALOG.length)
-    expect(PLAN_COUNT).toBe(46)   // 40+vector_arrow/graph_tag（任务E）+wedge/double_slit/electron_gun/bohr_collision（清偿5·11卡补面）  // 变更须同步数字口径审计
-    expect(TEMPLATES.length).toBe(25)   // 17 几何（力学9+电磁8）+ P3 批1 装置 8（光学3+近代4+热学1）
+    expect(PLAN_COUNT).toBe(49)   // 46 + liquid_seal/pump_syringe/u_tube（P3 批2 热学装置，决策1）  // 变更须同步数字口径审计
+    expect(TEMPLATES.length).toBe(28)   // 17 几何 + P3 批1 装置 8 + 批2 热学 3（决策1：TS 静力学装置引擎）
   })
 })

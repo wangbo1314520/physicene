@@ -586,6 +586,54 @@ function dvCylinder52(): GeoTemplate {
   }
 }
 
+// ════ P3·批 2 装置模板（热学静力学 3 卡，决策1：TS 纯函数装置引擎）════
+// 物理单一源：src/physics/thermal-statics.ts（场景卡 thermo1/thermo2 已收编同源）
+// —— 卡 51 液封：p=p₀±h（cmHg 教学口径）——
+const P51_P0 = 76, P51_H = 10
+function dvLiquidSeal51(): GeoTemplate {
+  return {
+    id: 'dv-liquid-seal-51', card: '51', name: '液封玻璃管（p=p₀±ρgh）', group: '热学',
+    tags: ['装置', '液封'],
+    elements: [mk('liquid_seal', 0, 0, { p0: P51_P0, h: P51_H, mode: 0 })],
+    criticalChecks: [
+      { label: '开口向上 p=p₀+h', theory: P51_P0 + P51_H, tol: 0.01, from: { kind: 'tsreading', key: 'p_cmhg' } },
+      { label: 'kPa 换算（×1.33322）', theory: (P51_P0 + P51_H) * 1.33322, tol: 0.01, from: { kind: 'tsreading', key: 'p_kpa' } },
+    ],
+    solutionId: 'gk-liquid-seal-tube',
+  }
+}
+// —— 卡 53 变质量气体：打气 pₙ=p₀(1+nV₀/V) ——
+const P53_V = 5, P53_V0 = 0.25, P53_N = 10
+function dvPumpSyringe53(): GeoTemplate {
+  return {
+    id: 'dv-pump-syringe-53', card: '53', name: '打气抽气（变质量气体）', group: '热学',
+    tags: ['装置', '打气'],
+    elements: [mk('pump_syringe', 0, 0, { V: P53_V, V0: P53_V0, n: P53_N, mode: 0 })],
+    criticalChecks: [
+      { label: 'nV 守恒：pₙ/p₀=1+nV₀/V', theory: 1 + (P53_N * P53_V0) / P53_V, tol: 0.02, from: { kind: 'tsreading', key: 'p_ratio' } },
+    ],
+    solutionId: 'gk-variable-mass-gas',
+  }
+}
+// —— 卡 54 U 形管：升温二次方程 + p₂L₂/T₂=p₁L₁/T₁ 自洽 ——
+const P54_L1 = 20, P54_DH0 = 4, P54_T1 = 300, P54_T2 = 360, P54_P0 = 76
+const p54X = (-((P54_P0 + P54_DH0) + 2 * P54_L1) + Math.sqrt(((P54_P0 + P54_DH0) + 2 * P54_L1) ** 2 - 8 * ((P54_P0 + P54_DH0) * P54_L1 * (1 - P54_T2 / P54_T1)))) / 4
+const p54P2 = P54_P0 + P54_DH0 + 2 * p54X
+const p54L2 = P54_L1 + p54X
+function dvUTube54(): GeoTemplate {
+  return {
+    id: 'dv-u-tube-54', card: '54', name: 'U 形管（液面差定压强）', group: '热学',
+    tags: ['装置', 'U形管'],
+    elements: [mk('u_tube', 0, 0, { L1: P54_L1, dh0: P54_DH0, mode: 0, T1: P54_T1, T2: P54_T2 })],
+    criticalChecks: [
+      { label: '左液面下降 x（二次方程正根）', theory: p54X, tol: 0.02, from: { kind: 'tsreading', key: 'x_cm' } },
+      { label: '末态 p₂=p₀+Δh₀+2x', theory: p54P2, tol: 0.02, from: { kind: 'tsreading', key: 'p2_cmhg' } },
+      { label: '气体定律自洽 p₂L₂/T₂=p₁L₁/T₁', theory: ((P54_P0 + P54_DH0) * P54_L1) / P54_T1, tol: 0.02, from: { kind: 'tsreading', key: 'plT2' } },
+    ],
+    solutionId: 'gk-u-tube',
+  }
+}
+
 const FACTORIES: (() => GeoTemplate)[] = [
   gkSlopeSpring, gkSlopeSpringCorrect, gkConveyorBoard, gkBoardBlock, gkCollisionSpring,
   gkCollisionChain, gkCircularCritical, gkProjectileLoop, gkConnectedBodies,
@@ -593,6 +641,7 @@ const FACTORIES: (() => GeoTemplate)[] = [
   gkBBCombo, gkAccelDeflectScreen, gkAccelSelectorB, gkEBEMulti,
   dvPrism55, dvWedge56, dvDoubleSlit57, dvPhotoelectric61, dvHydrogen62,
   dvBohr64, dvMatterWave65, dvCylinder52,
+  dvLiquidSeal51, dvPumpSyringe53, dvUTube54,
 ]
 
 export const TEMPLATES: GeoTemplate[] = FACTORIES.map((f) => f())

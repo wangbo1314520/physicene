@@ -11,7 +11,8 @@ const RAMP = 4   // 过程用时 s
 /* ══════════ 模型 51：玻璃管液封 ══════════ */
 const MODES51 = [{ value: 0, label: '开口向上，升温（等压）' }, { value: 1, label: '开口向下，升温（等压）' }, { value: 2, label: '开口向上 → 缓慢转到开口向下（等温）' }]
 interface S51 { L: number; p: number; T: number; ang: number; done: boolean; logged: boolean }
-function p51(p: Record<string, number>, ang: number) { return p.p0 + p.h * Math.cos(ang) }   // ang=0 开口向上（液柱压在气体上）；π 开口向下
+import { liquidSealPressure as p51fn } from '../../../../physics/thermal-statics'
+function p51(p: Record<string, number>, ang: number) { return p51fn(p.p0, p.h, ang) }   // 共享物理源（P3 批2 收编）；ang=0 开口向上，π 开口向下
 export const liquidSealTube: MechSceneDef<S51> = {
   id: 'gk-liquid-seal-tube',
   title: '玻璃管液封气体（p=p₀±ρgh · 等压 / 等温）',
