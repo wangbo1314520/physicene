@@ -806,6 +806,96 @@ function dvBlackBox50(): GeoTemplate {
   }
 }
 
+// ════ P3·批 4 装置模板 6 卡（波 58/59/60 + 核反应 63 + 微元 66 + 超重失重 24）════
+// 物理源：wave.ts / misc-devices.ts；断言分级见 label
+// —— 卡 58 波多解：+x/-x 双解 ——
+const P58_LAM = 4, P58_DX0 = 1, P58_DT = 1, P58_N = 1
+function dvWaveMulti58(): GeoTemplate {
+  return {
+    id: 'dv-wave-multi-58', card: '58', name: '波的多解（方向与 n 不定）', group: '光学',
+    tags: ['装置', '波'],
+    elements: [mk('wave_multi', 0, 0, { lambda: P58_LAM, dx0: P58_DX0, dt: P58_DT, n: P58_N })],
+    criticalChecks: [
+      { label: '+x：v=(nλ+Δx₀)/Δt（教材通式；与场景卡 DOM 值 5.00 互证见 E2E）', theory: (P58_N * P58_LAM + P58_DX0) / P58_DT, tol: 0.005, from: { kind: 'tsreading', key: 'v_plus' } },
+      { label: '−x：v=(nλ+λ−Δx₀)/Δt（教材通式）', theory: (P58_N * P58_LAM + (P58_LAM - P58_DX0)) / P58_DT, tol: 0.005, from: { kind: 'tsreading', key: 'v_minus' } },
+      { label: 'T=λ/v=0.8s（教材规律：周期由波长与波速定）', theory: P58_LAM / ((P58_N * P58_LAM + P58_DX0) / P58_DT), tol: 0.005, from: { kind: 'tsreading', key: 'T_plus' } },
+    ],
+    solutionId: 'gk-wave-multi-solution',
+  }
+}
+// —— 卡 59 振动+波动图像：v=λ/T、首峰、同侧法 ——
+const P59_LAM = 4, P59_T = 2, P59_XP = 1
+function dvWaveGraphs59(): GeoTemplate {
+  return {
+    id: 'dv-wave-graphs-59', card: '59', name: '振动图像 + 波动图像', group: '光学',
+    tags: ['装置', '波'],
+    elements: [mk('wave_graphs', 0, 0, { a: 1, lambda: P59_LAM, T: P59_T, dir: 1, x_p: P59_XP })],
+    criticalChecks: [
+      { label: 'v=λ/T（方法独立锚：x 峰峰距测 λ + t 峰峰距测 T，见单测）', theory: P59_LAM / P59_T, tol: 0.005, from: { kind: 'tsreading', key: 'v' } },
+      { label: '首峰 t=T(1/4+x_P/λ)（方法独立：数值扫描首极大 vs 相位闭式，见单测）', theory: P59_T * (0.25 + P59_XP / P59_LAM), tol: 0.005, from: { kind: 'tsreading', key: 't_crest' } },
+    ],
+    solutionId: 'gk-vibration-wave-graphs',
+  }
+}
+// —— 卡 60 波叠加：Δr=kλ 加强 ——
+const P60_LAM = 2, P60_D = 4, P60_PX = 1
+function dvWaveSuper60(): GeoTemplate {
+  return {
+    id: 'dv-wave-super-60', card: '60', name: '波的叠加与干涉', group: '光学',
+    tags: ['装置', '干涉'],
+    elements: [mk('wave_super', 0, 0, { lambda: P60_LAM, d: P60_D, px: P60_PX, py: 0 })],
+    criticalChecks: [
+      { label: 'Δr=|PS₁−PS₂|=2.00m（几何两点距，独立于干涉判据）', theory: Math.abs(3 - 1), tol: 0.005, from: { kind: 'tsreading', key: 'delta_r' } },
+      { label: 'Δr=1.00λ → 加强（光程差判据；数值叠加振幅扫描互证见单测）', theory: 1, tol: 0.005, from: { kind: 'tsreading', key: 'k_ratio' } },
+      { label: '判定=加强（离散值，容差 1e-3）', theory: 1, tol: 0.001, from: { kind: 'tsreading', key: 'enhanced' } },
+    ],
+    solutionId: 'gk-wave-superposition',
+  }
+}
+// —— 卡 63 核反应：D+T 聚变 ——
+function dvNuclear63(): GeoTemplate {
+  return {
+    id: 'dv-nuclear-63', card: '63', name: '核反应（D+T 聚变）', group: '近代',
+    tags: ['装置', '核反应'],
+    elements: [mk('nuclear_react', 0, 0, {})],
+    criticalChecks: [
+      { label: 'A 守恒（教材核反应方程规范；离散值容差 1e-3）', theory: 1, tol: 0.001, from: { kind: 'tsreading', key: 'a_ok' } },
+      { label: 'Z 守恒', theory: 1, tol: 0.001, from: { kind: 'tsreading', key: 'z_ok' } },
+      { label: 'ΔE=17.59MeV（教材经典聚变值：Δm≈0.0189u×931.5）', theory: (2.014102 + 3.016049 - 4.002603 - 1.008665) * 931.5, tol: 0.01, from: { kind: 'tsreading', key: 'energy_mev' } },
+    ],
+    solutionId: 'gk-nuclear-reaction',
+  }
+}
+// —— 卡 66 微元积分：弹簧功两法 ——
+const P66_K = 100, P66_X = 0.5
+function dvMicroIntegral66(): GeoTemplate {
+  return {
+    id: 'dv-micro-integral-66', card: '66', name: '微元法变力做功（W=∫F dx）', group: '力学',
+    tags: ['装置', '微元'],
+    elements: [mk('micro_integral', 0, 0, { k: P66_K, x: P66_X })],
+    criticalChecks: [
+      { label: 'W=½kx²（教材闭式）', theory: 0.5 * P66_K * P66_X * P66_X, tol: 0.005, from: { kind: 'tsreading', key: 'w_analytic' } },
+      { label: '辛普森数值积分与闭式一致（方法独立两法）', theory: 0.5 * P66_K * P66_X * P66_X, tol: 0.005, from: { kind: 'tsreading', key: 'w_numeric' } },
+    ],
+    solutionId: 'gk-variable-force',
+  }
+}
+// —— 卡 24 超重失重（归力学组：审查事件 2 裁定，TS 计算面）——
+const P24_M = 60, P24_A = 2
+function dvElevator24(): GeoTemplate {
+  return {
+    id: 'dv-elevator-24', card: '24', name: '超重失重（N=m(g±a)）', group: '力学',
+    tags: ['装置', '超重失重'],
+    elements: [mk('elevator_scale', 0, 0, { m: P24_M, a: P24_A, t_acc: 2, t_const: 2 })],
+    criticalChecks: [
+      { label: '加速段 N=m(g+a)=708N（牛顿第二定律闭式）', theory: P24_M * (9.8 + P24_A), tol: 0.005, from: { kind: 'tsreading', key: 'n_acc' } },
+      { label: '减速段 N=m(g−a)=468N（教材规律：失重）', theory: P24_M * (9.8 - P24_A), tol: 0.005, from: { kind: 'tsreading', key: 'n_dec' } },
+      { label: '匀速段 N=Mg=588N（教材规律：既不超重也不失重）', theory: P24_M * 9.8, tol: 0.005, from: { kind: 'tsreading', key: 'n_const' } },
+    ],
+    solutionId: 'gk-weight-change',
+  }
+}
+
 const FACTORIES: (() => GeoTemplate)[] = [
   gkSlopeSpring, gkSlopeSpringCorrect, gkConveyorBoard, gkBoardBlock, gkCollisionSpring,
   gkCollisionChain, gkCircularCritical, gkProjectileLoop, gkConnectedBodies,
@@ -817,6 +907,7 @@ const FACTORIES: (() => GeoTemplate)[] = [
   dvTransformer45, dvPowerline46, dvAcFour47, dvTransformerPower15,
   dvCyclotron12,
   dvMhd33, dvFlow34, dvHall35, dvMeter48, dvVoltammetry49, dvBlackBox50,
+  dvWaveMulti58, dvWaveGraphs59, dvWaveSuper60, dvNuclear63, dvMicroIntegral66, dvElevator24,
 ]
 
 export const TEMPLATES: GeoTemplate[] = FACTORIES.map((f) => f())

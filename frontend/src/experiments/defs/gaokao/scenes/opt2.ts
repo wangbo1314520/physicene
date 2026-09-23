@@ -1,6 +1,8 @@
+import { pathDiff as pathDiffFn } from '../../../../physics/wave'
 /**
  * B11 光学与振动波组 2（纯 2D）：薄膜干涉（模型56）· 单缝衍射 vs 双缝干涉（模型57）· 波的叠加与干涉（模型60）
  */
+import { pathDiff } from '../../../../physics/wave'
 import type { MechSceneDef } from '../../../engine/mechScene'
 
 const f1 = (x: number) => (Number.isFinite(x) ? x.toFixed(1) : '—')
@@ -187,7 +189,7 @@ export const waveSuperposition: MechSceneDef<S60> = {
     s.t = t
     if (!s.logged && t >= 1.5) {
       s.logged = true
-      const r1 = Math.hypot(p.px + p.d / 2, p.py), r2 = Math.hypot(p.px - p.d / 2, p.py), dr = Math.abs(r1 - r2), k = dr / p.lam
+      const r1 = Math.hypot(p.px + p.d / 2, p.py), r2 = Math.hypot(p.px - p.d / 2, p.py), dr = pathDiffFn(p.px, p.py, [-p.d / 2, 0], [p.d / 2, 0]), k = dr / p.lam  // 共享物理源（P3 批4 收编）
       const near = Math.abs(k - Math.round(k)), half = Math.abs(k - Math.floor(k) - 0.5)
       const kind = near < 0.06 ? (p.phase ? '振动减弱' : '振动加强') : half < 0.06 ? (p.phase ? '振动加强' : '振动减弱') : '介于加强与减弱之间'
       tl.log(t, `探针 P(${p.px}, ${p.py})：PS₁=${f2(r1)}，PS₂=${f2(r2)}，Δr=${f2(dr)} m = ${f2(k)} λ → ${kind}`)

@@ -51,6 +51,9 @@ export const AC_DEVICE_TYPES = new Set(['transformer', 'powerline', 'ac_four_val
 export const CYCLOTRON_TYPES = new Set(['cyclotron'])
 /** P3 批3 第4步：DC 装置六卡 */
 export const DC_DEVICE_TYPES = new Set(['mhd_generator', 'flow_meter', 'hall_slab', 'meter_conversion', 'voltammetry', 'black_box'])
+/** P3 批4：波3（optics 域内 ts 已覆盖）+ 杂项装置（核反应→modern / 微元·电梯→mech 计算面） */
+export const WAVE_DEVICE_TYPES = new Set(['wave_multi', 'wave_graphs', 'wave_super'])
+export const MISC_DEVICE_TYPES = new Set(['nuclear_react', 'micro_integral', 'elevator_scale'])
 
 /** domain/role → 主引擎（util/display 类不产生引擎） */
 export function engineOfSpec(spec: ElementSpec): EngineKey | null {
@@ -65,6 +68,7 @@ export function engineOfSpec(spec: ElementSpec): EngineKey | null {
       if (spec.role === 'circuit') return 'circuit'
       return null
     case 'mech':
+      if (MISC_DEVICE_TYPES.has(spec.type)) return 'rigid' // 占位——实际由 RunBridge TS 装置分支截留（见 run 路由）
       if (spec.role === 'body' || spec.role === 'constraint' || spec.role === 'detector') return 'rigid'
       return null
     case 'util':

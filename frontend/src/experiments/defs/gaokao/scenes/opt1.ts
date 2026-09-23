@@ -1,6 +1,7 @@
 /**
  * B11 光学与振动波组 1（纯 2D）：玻璃砖/棱镜折射（模型55）· 波的多解（模型58）· 振动图像 + 波动图像（模型59）
  */
+import { waveMultiSolution as waveMultiFn, firstCrestTime } from '../../../../physics/wave'
 import type { MechSceneDef } from '../../../engine/mechScene'
 
 const f1 = (x: number) => (Number.isFinite(x) ? x.toFixed(1) : '—')
@@ -205,7 +206,7 @@ export const waveMultiSolution: MechSceneDef<S58> = {
   step(s, p, d, t, tl) {
     s.t = t
     const dx0 = p.frac * p.lam
-    const dx = p.dir > 0 ? p.n * p.lam + dx0 : p.n * p.lam + (p.lam - dx0)
+    const dx = waveMultiFn(p.lam, dx0, p.dt, p.dir > 0 ? 1 : -1, p.n).dx  // 共享物理源（P3 批4 收编）
     const v = dx / p.dt
     if (!s.matched && t >= p.dt) { s.matched = true; tl.switchTo('t=Δt：与虚线重合 ✓', '#3ecf8e', t, `t=Δt=${p.dt}s 波形与虚线重合：Δx=${f2(dx)} m，v=${f2(v)} m/s（n=${p.n}，${p.dir > 0 ? '+x' : '−x'}），T=λ/v=${f2(p.lam / v)} s`) }
     return t < p.dt * 1.6
@@ -214,7 +215,7 @@ export const waveMultiSolution: MechSceneDef<S58> = {
     const { ctx, w, h } = dc
     const x0 = 60, x1 = w - 30, y0 = h / 2 - 40, xMax = 3 * p.lam, PX = (x1 - x0) / xMax, PY = 70 / p.A
     const dx0 = p.frac * p.lam
-    const dx = p.dir > 0 ? p.n * p.lam + dx0 : p.n * p.lam + (p.lam - dx0)
+    const dx = waveMultiFn(p.lam, dx0, p.dt, p.dir > 0 ? 1 : -1, p.n).dx  // 共享物理源（P3 批4 收编）
     const v = dx / p.dt
     ctx.strokeStyle = '#3a3a5e'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y0); ctx.moveTo(x0, y0 - 90); ctx.lineTo(x0, y0 + 90); ctx.stroke()
     for (let x = 0; x <= xMax + 1e-9; x += p.lam / 2) { ctx.fillStyle = '#3a3a5e'; ctx.fillRect(x0 + x * PX, y0 - 3, 1, 6); dc.label(f1(x), x0 + x * PX, y0 + 14, '#565675', 9) }
@@ -326,8 +327,7 @@ export const vibrationWaveGraphs: MechSceneDef<S59> = {
   },
   readout(p, s) {
     const v = p.lam / p.T
-    const phase = p.dir > 0 ? 0.25 + p.xP / p.lam : 0.25 - p.xP / p.lam
-    const tCrest = p.T * (phase - Math.floor(phase))
+    const tCrest = firstCrestTime(p.xP, p.lam, p.T, p.dir > 0 ? 1 : -1)  // 共享物理源（P3 批4 收编）
     return `v=λ/T=${f2(v)} m/s　f=1/T=${f2(1 / p.T)} Hz
 P 点：y_P(t)=A·sin[2π(t/T ${p.dir > 0 ? '−' : '+'} x_P/λ)]，首次到波峰 t=${f2(tCrest)} s${s ? `\n当前 t=${f2(s.t)} s，y_P=${f2(p.A * Math.sin(2 * Math.PI * (s.t / p.T - (p.dir * p.xP) / p.lam)))} m` : ''}`
   },

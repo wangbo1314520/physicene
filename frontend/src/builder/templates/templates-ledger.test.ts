@@ -69,7 +69,7 @@ describe('数字口径闸门', () => {
     const { PLAN_COUNT, CATALOG } = await import('../catalog')
     const { TEMPLATES } = await import('./registry')
     expect(PLAN_COUNT).toBe(CATALOG.length)
-    expect(PLAN_COUNT).toBe(60)   // 54 + DC 装置 6（P3 批3 第4步）  // 变更须同步数字口径审计
-    expect(TEMPLATES.length).toBe(39)   // 17 几何 + 批1 8 + 批2 3 + 批3: AC4+回旋1+DC6
+    expect(PLAN_COUNT).toBe(66)   // 60 + 批4 装置 6（波3+核+微元+电梯）  // 变更须同步数字口径审计
+    expect(TEMPLATES.length).toBe(45)   // 17 几何 + 装置 28（批1-4 全量）
   })
 })
