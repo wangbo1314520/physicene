@@ -10,6 +10,7 @@ import { U_PER_MEV as C2 } from '../../../../physics/misc-devices'  // 共享常
 
 /* ══════════ 模型 63：核反应方程 + 质量亏损 ══════════ */
 interface Nuc { sym: string; A: number; Z: number; m: number }
+// 对账伙伴：src/physics/misc-devices.ts NUCLEON_MASS_U——2026-09-23 对齐（原子质量约定），改动须双改
 interface Rxn { name: string; kind: string; left: Nuc[]; right: Nuc[] }
 const RXNS: Rxn[] = [
   { name: 'α 衰变：²³⁸U → ²³⁴Th + ⁴He', kind: 'α 衰变', left: [{ sym: 'U', A: 238, Z: 92, m: 238.050788 }], right: [{ sym: 'Th', A: 234, Z: 90, m: 234.043601 }, { sym: 'He', A: 4, Z: 2, m: 4.002602 }] },

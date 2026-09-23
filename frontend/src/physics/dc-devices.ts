@@ -8,7 +8,7 @@
 import { solveAC, cabs } from './ac-circuit'
 import type { AcCircuit, AcComp } from './ac-circuit'
 
-const Q_E = 1.602e-19
+import { Q_E } from './modern-physics'  // 常数单源
 const R = (id: string, r: number): AcComp => ({ id, kind: 'resistor', pins: 2, props: { R: r } })
 const SRC = (id: string, u: number): AcComp => ({ id, kind: 'ac_source', pins: 2, props: { um: u * Math.SQRT2 } })
 const W = (a: [string, number], b: [string, number]) => ({ a, b })

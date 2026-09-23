@@ -510,7 +510,7 @@ function dvDoubleSlit57(): GeoTemplate {
   }
 }
 // —— 卡 61 光电效应（TS·ModernRunner）：W₀ 表值钠 2.28eV，ν₀=W₀/h ——
-const H_EV = 4.1357e-15, C_M = 3e8, E1_EV = 13.6  // 与 ModernRunner 同源常数
+import { H_EV, E1 as E1_EV, HC_EV_NM, H_SI, M_E, Q_E } from '../../physics/modern-physics'  // 常数单源（P3 收口包同步）
 const P61_W = 2.28  // 钠逸出功表值（eV）
 function dvPhotoelectric61(): GeoTemplate {
   return {
@@ -534,7 +534,7 @@ function dvHydrogen62(): GeoTemplate {
     elements: [mk('h_atom', 0, 0, { m: P62_M, n: P62_N })],
     criticalChecks: [
       { label: 'ΔE=13.6(1/n²−1/m²)', theory: p62DE, tol: 0.01, from: { kind: 'tsreading', key: 'delta_E' } },
-      { label: 'λ=hc/ΔE（nm）', theory: H_EV * C_M / p62DE * 1e9, tol: 0.005, from: { kind: 'tsreading', key: 'wavelength_nm' } },
+      { label: 'λ=hc/ΔE（nm，统一 1240 口径）', theory: HC_EV_NM / p62DE, tol: 0.005, from: { kind: 'tsreading', key: 'wavelength_nm' } },
     ],
     solutionId: 'gk-hydrogen-levels',
   }
@@ -555,8 +555,7 @@ function dvBohr64(): GeoTemplate {
   }
 }
 // —— 卡 65 物质波（TS）：λ=h/√(2meU) ——
-const H_SI = 6.626e-34, M_E = 9.11e-31, Q_E = 1.602e-19
-const P65_U = 100
+const P65_U = 100  // H_SI/M_E/Q_E 已从 modern-physics 导入
 function dvMatterWave65(): GeoTemplate {
   return {
     id: 'dv-matter-wave-65', card: '65', name: '物质波（λ=h/√(2meU)）', group: '近代',

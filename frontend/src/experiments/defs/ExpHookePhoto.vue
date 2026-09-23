@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { H_SI as h, Q_E as e } from '../../physics/modern-physics'
 /**
  * 代表实验②③：胡克定律（F-x）与光电效应（Uc-ν）
  * 共用"档位选择 → 读数记录 → 坐标纸拟合"骨架，参数由 props 注入。
@@ -35,7 +36,7 @@ function reading(): { label: string; x: number; y: number } {
     return { label: `${current.value}g`, x: +(x * 0.01).toFixed(4), y: +F.toFixed(2) } // x 米, F 牛
   }
   const nu = current.value
-  const h = 6.626e-34, e = 1.602e-19, W = 4.0 // eV 简化功函数
+  const W = 4.0 // eV 简化功函数（h/e 已从 modern-physics 导入）
   const uc = ((h * nu * 1e14) / e - W) * noise()
   return { label: `${nu.toFixed(1)}×10¹⁴Hz`, x: +nu.toFixed(2), y: +Math.max(0, uc).toFixed(3) }
 }

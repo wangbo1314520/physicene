@@ -154,8 +154,8 @@ export const hydrogenLevels: MechSceneDef<S62> = {
   h: 1 / 200,
   init(p, tl) {
     const jumps: Jump[] = []
-    if (p.mode === 0) { const dE = E_N(p.n) - E_N(p.m); jumps.push({ from: p.m, to: p.n, dE, lam: 1240 / Math.abs(dE) }) }
-    else for (let a = p.m; a >= 2; a--) for (let b = a - 1; b >= 1; b--) { const dE = E_N(b) - E_N(a); jumps.push({ from: a, to: b, dE, lam: 1240 / Math.abs(dE) }) }
+    if (p.mode === 0) { const dE = E_N(p.n) - E_N(p.m); jumps.push({ from: p.m, to: p.n, dE, lam: HC_EV_NM / Math.abs(dE) }) }
+    else for (let a = p.m; a >= 2; a--) for (let b = a - 1; b >= 1; b--) { const dE = E_N(b) - E_N(a); jumps.push({ from: a, to: b, dE, lam: HC_EV_NM / Math.abs(dE) }) }
     tl.start(p.mode === 0 ? `跃迁 ${p.m} → ${p.n}` : `n=${p.m} 能级全部向下跃迁（共 ${jumps.length} 条）`, '#F5C542')
     return { jumps, k: 0, ph: 0, tk: 0, photons: [], done: false }
   },
@@ -222,9 +222,9 @@ export const hydrogenLevels: MechSceneDef<S62> = {
     dc.label('紫外 ← 可见 → 红外（按 1/λ 排列）', (sx0 + sx1) / 2, bot + 4, '#565675', 9)
   },
   readout(p) {
-    if (p.mode === 0) { const dE = E_N(p.n) - E_N(p.m); return `E_${p.m}=${E_N(p.m).toFixed(2)} eV，E_${p.n}=${E_N(p.n).toFixed(2)} eV\nΔE=${f2(Math.abs(dE))} eV → ${dE < 0 ? '放出' : '吸收'}光子 λ=1240/ΔE=${Math.round(1240 / Math.abs(dE))} nm（${dE < 0 && p.n <= 4 ? series(p.n) : '—'}）` }
+    if (p.mode === 0) { const dE = E_N(p.n) - E_N(p.m); return `E_${p.m}=${E_N(p.m).toFixed(2)} eV，E_${p.n}=${E_N(p.n).toFixed(2)} eV\nΔE=${f2(Math.abs(dE))} eV → ${dE < 0 ? '放出' : '吸收'}光子 λ=1240/ΔE=${Math.round(HC_EV_NM / Math.abs(dE))} nm（${dE < 0 && p.n <= 4 ? series(p.n) : '—'}）` }
     const N = (p.m * (p.m - 1)) / 2
-    return `处于 n=${p.m} 的大量氢原子向下跃迁：谱线 C(${p.m},2)=${N} 条\n最长波长 ${p.m}→${p.m - 1}：${Math.round(1240 / (E_N(p.m) - E_N(p.m - 1)))} nm；最短波长 ${p.m}→1：${Math.round(1240 / (E_N(p.m) - E_N(1)))} nm`
+    return `处于 n=${p.m} 的大量氢原子向下跃迁：谱线 C(${p.m},2)=${N} 条\n最长波长 ${p.m}→${p.m - 1}：${Math.round(HC_EV_NM / (E_N(p.m) - E_N(p.m - 1)))} nm；最短波长 ${p.m}→1：${Math.round(HC_EV_NM / (E_N(p.m) - E_N(1)))} nm`
   },
   solution(p) {
     const dE = Math.abs(E_N(p.n) - E_N(p.m))

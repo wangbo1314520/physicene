@@ -84,7 +84,7 @@ describe('波动引擎（卡 58/59/60）', () => {
     expect(ws[0].readings.enhanced).toBe(1)
   })
 
-  it('v=λ/T 物理独立锚：局部窗口追踪单一波峰位移，直接测传播速度（第三量）', () => {
+  it('v=λ/T 方法独立锚：局部窗口追踪单一波峰位移（采样极值——同一 y 函数两测量协议，非物理出处独立）', () => {
     const A = 1, lambda = 4, T = 2, dir = 1 as const
     // t=0：在 [λ, 2λ) 窗口找波峰 x₀；t=Δt：在 [x₀, x₀+λ) 局部窗口找同波峰新位置
     const findPeak = (t: number, x0: number, x1: number) => {
