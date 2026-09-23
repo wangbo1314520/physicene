@@ -24,57 +24,15 @@ export interface ModernFrame {
   transitions: { from: number; to: number; energy: number; wavelength: number }[]
 }
 
-// 物理常量（SI / eV 混用按教学惯例）
-export const H_EV = 4.1357e-15   // eV·s
-export const C = 3e8             // m/s
-export const E1 = -13.6          // eV（氢原子基态）
-
-/** 光电效应：给定频率和材料功函数，返回最大动能 */
-export function photoelectricEk(nu: number, workFunction: number): number {
-  const nu0 = workFunction / H_EV
-  if (nu < nu0) return 0
-  return H_EV * nu - workFunction
-}
-
-/** 截止频率 */
-export function cutoffFrequency(workFunction: number): number {
-  return workFunction / H_EV
-}
+// P3 收口包：常量与纯函数移入 src/physics/modern-physics.ts（单一物理源），此处 re-export 保 API。
+// 常数统一：λ=hc/ΔE 统一教学速算 1240 eV·nm（原 1240.71 与场景 1240 漂移收口）
+export { H_EV, C, E1, HC_EV_NM, photoelectricEk, cutoffFrequency, energyLevel,
+  transitionEnergy, transitionWavelength, deBroglieWavelength, deBroglieWavelengthM,
+  bohrResonance } from '../../physics/modern-physics'
+import { H_EV, C, E1, photoelectricEk, cutoffFrequency, energyLevel, transitionEnergy, transitionWavelength, deBroglieWavelength, bohrResonance } from '../../physics/modern-physics'
 
 /** 氢原子能级 Eₙ = −13.6/n² */
-export function energyLevel(n: number): number {
-  return E1 / (n * n)
-}
 
-/** 跃迁能量 ΔE（m→n，m>n 为释放光子 → 正值） */
-export function transitionEnergy(m: number, n: number): number {
-  return energyLevel(m) - energyLevel(n)  // Eₘ−Eₙ：m>n 时为正=释放光子
-}
-
-/** 跃迁波长 λ = hc/ΔE（返回 nm） */
-export function transitionWavelength(m: number, n: number): number {
-  const dE = transitionEnergy(m, n)
-  if (dE <= 0) return Infinity
-  return (H_EV * C / dE) * 1e9  // eV·s × m/s / eV = m → nm
-}
-
-/** 物质波德布罗意波长（经电压 U 加速的电子） */
-export function deBroglieWavelength(voltage: number): number {
-  // λ = h/√(2meU)，电子 m=9.11e-31, e=1.602e-19, h=6.626e-34
-  return 6.626e-34 / Math.sqrt(2 * 9.11e-31 * 1.602e-19 * voltage)  // m
-}
-
-/** 玻尔碰撞：电子能量 E 恰等于某跃迁 ΔE 时共振吸收 */
-export function bohrResonance(electronEnergy: number, maxN: number): { n: number; m: number } | null {
-  for (let m = 1; m <= maxN; m++) {
-    for (let n = m + 1; n <= maxN; n++) {
-      if (Math.abs(electronEnergy - Math.abs(transitionEnergy(m, n))) < 0.01) {
-        return { n, m }
-      }
-    }
-  }
-  return null
-}
 
 /**
  * 主入口：从 GeoElement[] 提取近代物理体，运行计算，输出帧。

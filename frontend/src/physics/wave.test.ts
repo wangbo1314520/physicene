@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { waveY, waveMultiSolution, firstCrestTime, particleVelDir, pathDiff, runWave } from './wave'
 
 describe('波动引擎（卡 58/59/60）', () => {
-  it('v=λ/T（方法独立：x 峰峰距测 λ + 定点峰峰时距测 T，两测合成 v）', () => {
+  it('规格一致性：输出波形的 λ/T 对输入参数（规格核对，非物理定律独立验证）', () => {
     const A = 1, lambda = 4, T = 2, dir = 1 as const
     // 测 λ：y(x,0) 相邻两极大值的 x 距离
     const xs: number[] = []
@@ -25,10 +25,10 @@ describe('波动引擎（卡 58/59/60）', () => {
     const tMeas = ts[1] - ts[0]
     expect(lambdaMeas).toBeCloseTo(lambda, 2)
     expect(tMeas).toBeCloseTo(T, 2)
-    expect(lambdaMeas / tMeas).toBeCloseTo(lambda / T, 2)  // v=λ/T 由两独立测量合成
+    expect(lambdaMeas / tMeas).toBeCloseTo(lambda / T, 2)  // 比值断言（近循环，由上两条蕴含——保留作回归哨兵）
   })
 
-  it('首峰时刻 T(1/4+x_P/λ)（方法独立：数值扫描首个极大 vs 相位闭式）', () => {
+  it('首峰时刻 T(1/4+x_P/λ)（方法独立·同一 y 函数：数值扫描首极大 vs 相位闭式——非物理出处独立）', () => {
     const lambda = 4, T = 2, xP = 1
     const closed = firstCrestTime(xP, lambda, T, 1)
     expect(closed).toBeCloseTo(T * (0.25 + xP / lambda), 9)   // 2×0.5=1.0s
@@ -42,7 +42,7 @@ describe('波动引擎（卡 58/59/60）', () => {
     expect(tFirst).toBeCloseTo(closed, 2)
   })
 
-  it('同侧法（教材图解 vs 解析 ∂y/∂t 符号）：上坡下行、下坡上行', () => {
+  it('同侧法（教学校验：教学图解规则 vs 解析 ∂y/∂t——非物理定律）', () => {
     // t=0 波形 y=sin(−πx/2)（+x 传播）：x=2 沿 +x 波形上升（上坡）→ 质点向下；
     // x=4 沿 +x 波形下降（下坡）→ 质点向上
     expect(particleVelDir(2, 0, 1, 4, 2, 1)).toBe(-1)
@@ -82,5 +82,23 @@ describe('波动引擎（卡 58/59/60）', () => {
     const ws = runWave([{ id: 'c', type: 'wave_super', x: 0, y: 0, angle: 0, params: { lambda: 2, d: 4, px: 1, py: 0 } }])
     expect(ws[0].readings.delta_r).toBeCloseTo(2, 9)
     expect(ws[0].readings.enhanced).toBe(1)
+  })
+
+  it('v=λ/T 物理独立锚：局部窗口追踪单一波峰位移，直接测传播速度（第三量）', () => {
+    const A = 1, lambda = 4, T = 2, dir = 1 as const
+    // t=0：在 [λ, 2λ) 窗口找波峰 x₀；t=Δt：在 [x₀, x₀+λ) 局部窗口找同波峰新位置
+    const findPeak = (t: number, x0: number, x1: number) => {
+      let best = -9, bx = 0
+      for (let x = x0; x < x1; x += lambda / 1000) {
+        const y = waveY(x, t, A, lambda, T, dir)
+        if (y > best) { best = y; bx = x }
+      }
+      return bx
+    }
+    const x0 = findPeak(0, lambda, 2 * lambda)
+    const dt = 0.37   // 非整周期采样，避免巧合
+    const x1p = findPeak(dt, x0, x0 + lambda)
+    const vMeas = (x1p - x0) / dt
+    expect(vMeas).toBeCloseTo(lambda / T, 2)   // 传播速度测量值 vs λ/T 闭式（第三量独立）
   })
 })

@@ -2,6 +2,7 @@
  * B11 光学与振动波组 1（纯 2D）：玻璃砖/棱镜折射（模型55）· 波的多解（模型58）· 振动图像 + 波动图像（模型59）
  */
 import { waveMultiSolution as waveMultiFn, firstCrestTime } from '../../../../physics/wave'
+import { snellDir } from '../../../../physics/optics-statics'
 import type { MechSceneDef } from '../../../engine/mechScene'
 
 const f1 = (x: number) => (Number.isFinite(x) ? x.toFixed(1) : '—')
@@ -16,12 +17,13 @@ const len = (a: V) => Math.hypot(a[0], a[1])
 const unit = (a: V): V => mul(a, 1 / len(a))
 /** 矢量形式 Snell：d 入射方向，N 迎着入射光的法线（单位），eta=n₁/n₂；返回 {t, tir} */
 function refract(d: V, N: V, eta: number): { t: V; tir: boolean; thetaI: number; thetaT: number } {
+  // 方向内核共享（optics-statics.snellDir，P3 收口包）；角度为显示投影量
+  const r = snellDir(d[0], d[1], N[0], N[1], eta)
   const cosi = -dot(N, d)
   const k = 1 - eta * eta * (1 - cosi * cosi)
   const thetaI = Math.acos(Math.min(1, Math.max(-1, cosi))) * R2D
-  if (k < 0) return { t: unit(sub(d, mul(N, 2 * dot(d, N)))), tir: true, thetaI, thetaT: NaN }
-  const t = add(mul(d, eta), mul(N, eta * cosi - Math.sqrt(k)))
-  return { t: unit(t), tir: false, thetaI, thetaT: Math.acos(Math.min(1, Math.sqrt(k))) * R2D }
+  if (r.tir) return { t: unit([r.tx, r.ty]), tir: true, thetaI, thetaT: NaN }
+  return { t: unit([r.tx, r.ty]), tir: false, thetaI, thetaT: Math.acos(Math.min(1, Math.sqrt(k))) * R2D }
 }
 /** 射线 (o, d) 与线段 ab 的交点参数 s>1e-6，返回 s 或 null */
 function hitSeg(o: V, d: V, a: V, b: V): number | null {

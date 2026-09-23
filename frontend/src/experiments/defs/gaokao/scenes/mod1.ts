@@ -5,7 +5,8 @@ import type { MechSceneDef } from '../../../engine/mechScene'
 
 const f2 = (x: number) => (Number.isFinite(x) ? x.toFixed(2) : '—')
 const f3 = (x: number) => (Number.isFinite(x) ? x.toFixed(3) : '—')
-const H_EV = 0.4136   // h = 4.136×10⁻¹⁵ eV·s → 以 10¹⁴ Hz 为频率单位时 h=0.4136 eV/(10¹⁴ Hz)
+import { H_EV as H_EV_SI, energyLevel, HC_EV_NM } from '../../../../physics/modern-physics'
+const H_EV = H_EV_SI * 1e14   // 共享常数（P3 收口包）：h=4.1357e-15 eV·s → 10¹⁴Hz 单位 0.41357
 
 /* ══════════ 模型 61：光电效应 + Eₖ–ν 图像 ══════════ */
 const MATS = [{ value: 0, label: '钠 Na（W₀=2.28 eV）', W: 2.28 }, { value: 1, label: '钾 K（W₀=2.25 eV）', W: 2.25 }, { value: 2, label: '铯 Cs（W₀=1.94 eV）', W: 1.94 }, { value: 3, label: '锌 Zn（W₀=4.31 eV）', W: 4.31 }, { value: 4, label: '铜 Cu（W₀=4.70 eV）', W: 4.70 }]
@@ -128,7 +129,7 @@ export const photoelectricEkNu: MechSceneDef<S61> = {
 }
 
 /* ══════════ 模型 62：氢原子能级跃迁 ══════════ */
-const E_N = (n: number) => -13.6 / (n * n)
+const E_N = energyLevel   // 共享物理源（P3 收口包）
 interface Jump { from: number; to: number; dE: number; lam: number }
 interface S62 { jumps: Jump[]; k: number; ph: 0 | 1 | 2; tk: number; photons: { x: number; y: number; lam: number; born: number }[]; done: boolean }
 function lamColor(lam: number): string {
@@ -235,7 +236,7 @@ export const hydrogenLevels: MechSceneDef<S62> = {
       laws: ['能级公式 Eₙ=E₁/n²', '频率条件 hν=Eₘ−Eₙ', '组合数 C(n,2)=n(n−1)/2'],
       critical: ['电离：n→∞，E=0，电离能=|Eₙ|', '入射光子必须恰好等于能级差才能被吸收；入射电子只需 ≥ 能级差', '可见光只有巴耳末系（n→2）的前几条'],
       derivation: ['ΔE=13.6(1/n²−1/m²) eV', 'λ=hc/ΔE=1240/ΔE nm', p.mode === 1 ? `C(${p.m},2)=${(p.m * (p.m - 1)) / 2}` : `${p.m}→${p.n}：ΔE=${f2(dE)} eV`],
-      numeric: [p.mode === 0 ? `ΔE=${f2(dE)} eV，λ=${Math.round(1240 / dE)} nm` : `共 ${(p.m * (p.m - 1)) / 2} 条谱线`, `基态电离能 13.6 eV；n=2 电离能 3.4 eV`, `巴耳末系：656（3→2）、486（4→2）、434（5→2）、410 nm（6→2）`],
+      numeric: [p.mode === 0 ? `ΔE=${f2(dE)} eV，λ=${Math.round(HC_EV_NM / dE)} nm` : `共 ${(p.m * (p.m - 1)) / 2} 条谱线`, `基态电离能 13.6 eV；n=2 电离能 3.4 eV`, `巴耳末系：656（3→2）、486（4→2）、434（5→2）、410 nm（6→2）`],
       pitfalls: ['能级差算成 Eₘ+Eₙ', '一个原子按 C(n,2) 算条数（一个原子最多 n−1 条）', '用光子能量大于能级差也能吸收（错，必须相等）', 'λ 与 ΔE 成正比（错，反比）'],
       similar: ['类氢离子（He⁺）能级 Z² 倍', '弗兰克–赫兹实验', '光电效应 + 跃迁组合题'],
       competition: ['里德伯公式与量子数', '精细结构与塞曼效应', '玻尔模型的对应原理'],

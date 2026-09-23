@@ -6,7 +6,7 @@ import type { MechSceneDef } from '../../../engine/mechScene'
 const f2 = (x: number) => (Number.isFinite(x) ? x.toFixed(2) : '—')
 const f3 = (x: number) => (Number.isFinite(x) ? x.toFixed(3) : '—')
 const f4 = (x: number) => (Number.isFinite(x) ? x.toFixed(4) : '—')
-const C2 = 931.494   // MeV/u
+import { U_PER_MEV as C2 } from '../../../../physics/misc-devices'  // 共享常数（P3 收口包）：931.5
 
 /* ══════════ 模型 63：核反应方程 + 质量亏损 ══════════ */
 interface Nuc { sym: string; A: number; Z: number; m: number }
@@ -168,7 +168,8 @@ ${p.kind === 0 ? '电子：E_k ≥ 能级差即可激发（多余带走）' : '�
 }
 
 /* ══════════ 模型 65：物质波 ══════════ */
-const H_SI = 6.626e-34, E_C = 1.602e-19
+import { deBroglieWavelengthM, H_SI } from '../../../../physics/modern-physics'
+const E_C = 1.602e-19
 const PARTS = [{ value: 0, label: '电子', m: 9.109e-31 }, { value: 1, label: '质子', m: 1.673e-27 }, { value: 2, label: 'α 粒子', m: 6.645e-27 }]
 interface S65 { hits: number[][]; n: number }
 export const matterWave: MechSceneDef<S65> = {
@@ -239,4 +240,4 @@ export const matterWave: MechSceneDef<S65> = {
     }
   },
 }
-function lam65(p: Record<string, number>): number { const m = PARTS[p.part].m; return (H_SI / Math.sqrt(2 * m * E_C * p.U)) * 1e9 }
+function lam65(p: Record<string, number>): number { return deBroglieWavelengthM(PARTS[p.part].m, p.U) * 1e9 }  // 共享物理源（P3 收口包）

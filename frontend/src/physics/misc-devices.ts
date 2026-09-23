@@ -13,7 +13,7 @@ const NUCLEON_MASS_U: Record<string, number> = {
   C12: 12.0, N14: 14.0031, O16: 15.9949, U235: 235.0439, U238: 238.0508,
   Pu239: 239.0522, Xe135: 134.9072, Sr90: 89.9077, Ba141: 140.9144, Kr92: 91.9262,
 }
-const U_PER_MEV = 931.5  // 1u = 931.5 MeV/c²（教材常数）
+export const U_PER_MEV = 931.5  // 1u = 931.5 MeV/c²（教材常数）
 
 /** 核反应：A/Z 守恒校验 + 质量亏损 + 释能（MeV） */
 export function nuclearReaction(

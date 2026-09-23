@@ -1,4 +1,5 @@
 import { pathDiff as pathDiffFn } from '../../../../physics/wave'
+import { wedgeFringeSpacing } from '../../../../physics/optics-statics'
 /**
  * B11 光学与振动波组 2（纯 2D）：薄膜干涉（模型56）· 单缝衍射 vs 双缝干涉（模型57）· 波的叠加与干涉（模型60）
  */
@@ -27,9 +28,9 @@ export const thinFilm: MechSceneDef<S56> = {
     { key: 'n', label: '膜层折射率 n', min: 1.0, max: 1.6, step: 0.03, default: 1.0 },
   ],
   h: 1 / 200,
-  init(p, tl) { tl.start('探针从棱边向厚端扫描', '#F5C542'); tl.log(0, `棱边 d=0：δ=λ/2 → 暗纹（半波损失）；条纹间距 Δx=λ/(2nα)=${f2((p.lam * 1e-9) / (2 * p.n * p.alpha * 1e-4) * 1e3)} mm`); return { xProbe: 0, done: false } },
+  init(p, tl) { tl.start('探针从棱边向厚端扫描', '#F5C542'); tl.log(0, `棱边 d=0：δ=λ/2 → 暗纹（半波损失）；条纹间距 Δx=λ/(2nα)=${f2(wedgeFringeSpacing(p.lam * 1e-9, p.n, p.alpha * 1e-4) * 1e3)} mm`); return { xProbe: 0, done: false } },
   step(s, p, d, t, tl) {
-    const dx = (p.lam * 1e-9) / (2 * p.n * p.alpha * 1e-4) * 1e3   // mm
+    const dx = wedgeFringeSpacing(p.lam * 1e-9, p.n, p.alpha * 1e-4) * 1e3   // mm
     s.xProbe = Math.min(12, t * 2.4)
     const k = s.xProbe / dx
     const prevK = (s.xProbe - 2.4 * d) / dx
@@ -39,7 +40,7 @@ export const thinFilm: MechSceneDef<S56> = {
   },
   draw(dc, s, p) {
     const { ctx, w, h } = dc
-    const dx = (p.lam * 1e-9) / (2 * p.n * p.alpha * 1e-4) * 1e3
+    const dx = wedgeFringeSpacing(p.lam * 1e-9, p.n, p.alpha * 1e-4) * 1e3
     // 侧视：劈尖
     const x0 = 50, x1 = w - 50, yb = h / 2 + 10, PX = (x1 - x0) / 12
     ctx.fillStyle = '#4A90D922'; ctx.strokeStyle = '#9cc5ff'; ctx.lineWidth = 2
@@ -68,11 +69,11 @@ export const thinFilm: MechSceneDef<S56> = {
     for (let xm = 0; xm <= 12; xm += 2) dc.label(`${xm}`, x0 + xm * PX, fy0 - 10, '#565675', 9)
   },
   readout(p) {
-    const dx = (p.lam * 1e-9) / (2 * p.n * p.alpha * 1e-4) * 1e3
+    const dx = wedgeFringeSpacing(p.lam * 1e-9, p.n, p.alpha * 1e-4) * 1e3
     return `相邻亮纹厚度差 Δd=λ/2n=${f1(p.lam / (2 * p.n))} nm　条纹间距 Δx=λ/(2nα)=${f2(dx)} mm\n棱边处 d=0，δ=λ/2 → 暗纹；条纹随 α 增大变密、随 λ 增大变疏；把上板抬高（α 减小）条纹变疏并向棱边方向移动`
   },
   solution(p) {
-    const dx = (p.lam * 1e-9) / (2 * p.n * p.alpha * 1e-4) * 1e3
+    const dx = wedgeFringeSpacing(p.lam * 1e-9, p.n, p.alpha * 1e-4) * 1e3
     return {
       problemType: '薄膜（劈尖）干涉：等厚条纹的成因、间距与变化规律',
       hints: ['干涉的两束光来自同一入射光在膜的上下表面的反射', '光程差主要是 2nd（走了两遍膜厚），还要加半波损失 λ/2', '厚度相同的地方明暗相同 → 条纹是等厚线', '条纹间距对应厚度变化 λ/2n，再除以劈尖角'],

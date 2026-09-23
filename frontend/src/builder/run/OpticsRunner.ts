@@ -31,30 +31,14 @@ export interface OpticsFrame {
   readings: Record<string, number>
 }
 
+// P3 收口包：纯函数移入 src/physics/optics-statics.ts（单一物理源），此处 re-export 保 API
+export { minDeviationAngle, wedgeFringeSpacing, doubleSlitSpacing } from '../../physics/optics-statics'
+import { snellDir, minDeviationAngle, wedgeFringeSpacing, doubleSlitSpacing } from '../../physics/optics-statics'
+
 /** Snell 矢量折射：d 入射方向（单位），N 法线（单位，指向入射侧），eta = n₁/n₂ */
 export function refract(d: { x: number; y: number }, N: { x: number; y: number }, eta: number): { t: { x: number; y: number } | null; tir: boolean } {
-  const cosI = -(d.x * N.x + d.y * N.y)
-  const sin2T = eta * eta * (1 - cosI * cosI)
-  if (sin2T > 1) return { t: null, tir: true }
-  const cosT = Math.sqrt(1 - sin2T)
-  const tx = eta * d.x + (eta * cosI - cosT) * N.x
-  const ty = eta * d.y + (eta * cosI - cosT) * N.y
-  return { t: { x: tx, y: ty }, tir: false }
-}
-
-/** 棱镜最小偏向角 */
-export function minDeviationAngle(A: number, n: number): number {
-  return 2 * (Math.asin(n * Math.sin(A / 2)) - A / 2)
-}
-
-/** 劈尖干涉条纹间距 */
-export function wedgeFringeSpacing(lambda: number, n: number, alphaRad: number): number {
-  return lambda / (2 * n * Math.tan(alphaRad))
-}
-
-/** 双缝干涉条纹间距 */
-export function doubleSlitSpacing(lambda: number, d: number, D: number): number {
-  return lambda * D / d
+  const r = snellDir(d.x, d.y, N.x, N.y, eta)
+  return r.tir ? { t: null, tir: true } : { t: { x: r.tx, y: r.ty }, tir: false }
 }
 
 /**
