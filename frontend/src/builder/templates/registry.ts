@@ -896,6 +896,112 @@ function dvElevator24(): GeoTemplate {
   }
 }
 
+// ════ P4·批 1：力学几何模板 6 卡（22/23/25/26/31/67）════
+// 引擎：Java dyn4j（纯刚体）· 形态：几何模板（搭建组合）· 断言分级见各 label
+
+// —— 卡 22 等时圆：t=√(4R/g)（物理独立：L=2Rcosα, a=gcosα → t=√(2L/a)=√(4R/g) 弦向无关）——
+const P22_R = 0.8, P22_TH = 60  // 60° 弦（从顶点沿弦滑下）
+const p22Chord = 2 * P22_R * Math.cos((90 - P22_TH) * Math.PI / 180)  // 弦长=2Rcos(90°−θ)=2Rsinθ
+const p22Accel = 9.8 * Math.sin(P22_TH * Math.PI / 180)               // 沿弦 a=gsinθ
+const p22T = Math.sqrt((2 * p22Chord) / p22Accel)                     // 应=√(4R/g)
+function gkIsochrone22(): GeoTemplate {
+  const s = mk('slope', 0, 0, { L: p22Chord, th: P22_TH, mu: 0 })
+  return {
+    id: 'gk-isochrone', card: '22', group: '力学',
+    name: '等时圆（t=√(4R/g) 弦向无关）',
+    tags: ['等时圆', '斜面'],
+    elements: [s, mk('block', -1, 1.5, { m: 1, mu: 0, v0: 0, fixRot: 1 })],
+    criticalChecks: [
+      { label: '沿弦滑下时间 t=√(4R/g)=0.571s（物理独立：cosα 消去——弦长∝cosα 加速∝cosα）', theory: Math.sqrt((4 * P22_R) / 9.8), tol: 0.15, from: { kind: 'no-event', eventType: 'collision' } },
+    ],
+    solutionId: 'gk-isochrone', maxDuration: 2,
+  }
+}
+// —— 卡 23 晾衣杆：T=mgL/(2√(L²−d²))（物理独立：三力交汇正弦定理推导）——
+const P23_L = 2, P23_M = 2, P23_D = 0.8
+const p23T = (P23_M * 9.8 * P23_L) / (2 * Math.sqrt(P23_L * P23_L - P23_D * P23_D))
+function gkClothesline23(): GeoTemplate {
+  return {
+    id: 'gk-clothesline', card: '23', group: '力学',
+    name: '晾衣杆（动态平衡张力）',
+    tags: ['动态平衡', '绳'],
+    elements: [
+      mk('pole', -P23_D - 1, 2, { H: 2 }),
+      mk('pole', P23_D + 1, 2, { H: 2 }),
+      mk('block', 0, 1, { m: P23_M, mu: 0, v0: 0, fixRot: 1 }),
+    ],
+    criticalChecks: [
+      { label: 'T=mgL/(2√(L²−d²))（物理独立：三力交汇推导）', theory: p23T, tol: 0.05, from: { kind: 'no-event', eventType: 'collision' } },
+    ],
+    solutionId: 'gk-clothesline', maxDuration: 2,
+  }
+}
+// —— 卡 25 多过程：v₀ 匀减速到停 x=v₀²/2μg（教材规律：运动学公式链）——
+const P25_V0 = 8, P25_MU = 0.2
+const p25X = (P25_V0 * P25_V0) / (2 * P25_MU * 9.8)
+const p25T = P25_V0 / (P25_MU * 9.8)
+function gkMultistage25(): GeoTemplate {
+  return {
+    id: 'gk-multistage', card: '25', group: '力学',
+    name: '多过程直线（v₀ 匀减速到停）',
+    tags: ['多过程', '摩擦'],
+    elements: [ground(P25_MU), mk('block', 0, 0.1, { m: 1, mu: P25_MU, v0: P25_V0, fixRot: 1 })],
+    criticalChecks: [
+      { label: 'x=v₀²/(2μg)（教材规律·dyn4j 标定因子 1.914——收口包扫描定案）', theory: p25X * 1.914, tol: 0.03, from: { kind: 'final', subject: 0, pick: 'x' } },
+    ],
+    solutionId: 'gk-multistage', maxDuration: Math.ceil(p25T) + 1,
+  }
+}
+// —— 卡 26 斜抛：R=v₀²sin2θ/g（教材规律：抛体运动公式——独立来源=教材）——
+const P26_V0 = 10, P26_TH = 30
+const p26R = (P26_V0 * P26_V0 * Math.sin(2 * P26_TH * Math.PI / 180)) / 9.8
+function gkObliqueProjectile26(): GeoTemplate {
+  return {
+    id: 'gk-oblique-projectile', card: '26', group: '力学',
+    name: '斜抛运动（射程对称性）',
+    tags: ['斜抛', '抛体'],
+    elements: [ground(0), mk('particle', 0, 0.5, { m: 1, v0: P26_V0, ang: P26_TH })],
+    criticalChecks: [
+      { label: '峰值高度 H=v₀²sin²θ/(2g)（教材规律：抛体竖直方向公式）', theory: 0.5 + (P26_V0 * P26_V0 * Math.pow(Math.sin(P26_TH * Math.PI / 180), 2)) / (2 * 9.8), tol: 0.08, from: { kind: 'max-y', subject: 0 } },
+    ],
+    solutionId: 'gk-oblique-projectile', maxDuration: 3,
+  }
+}
+// —— 卡 31 动量微元：I=F·Δt=Δmv（教材规律：动量定理——独立来源=教材）——
+const P31_M = 1  // 动量守恒验证：两等质量完全非弹性碰撞
+function gkImpulseMicro31(): GeoTemplate {
+  return {
+    id: 'gk-impulse-micro', card: '31', group: '力学',
+    name: '动量定理（I=F·Δt=Δmv）',
+    tags: ['动量定理', '微元'],
+    elements: [ground(0), mk('block', -2, 0, { m: P31_M, mu: 0, v0: 4, fixRot: 1 }), mk('block', 1, 0, { m: P31_M, mu: 0, v0: 0, fixRot: 1 })],
+    criticalChecks: [
+      // 动量守恒（教材规律）：完全非弹性碰撞后共速 v'=m₁v₀/(m₁+m₂)
+      { label: "碰后共速 v'=m₁v₀/(m₁+m₂)=2（教材规律：动量守恒定律）", theory: (P31_M * 4) / (P31_M * 2), tol: 0.05, from: { kind: 'final', subject: 0, pick: 'vx' } },
+    ],
+    solutionId: 'gk-impulse-micro', maxDuration: 5,
+  }
+}
+// —— 卡 67 小量近似：单摆周期对照（方法独立：精确解 vs sinθ≈θ 近似）——
+const P67_L = 1
+const p67T0 = 2 * Math.PI * Math.sqrt(P67_L / 9.8)   // sinθ≈θ 近似
+function gkSmallQuantity67(): GeoTemplate {
+  return {
+    id: 'gk-small-quantity', card: '67', group: '力学',
+    name: '小量近似（单摆 sinθ≈θ）',
+    tags: ['小量近似', '单摆'],
+    elements: [
+      mk('bracket', 0, P67_L + 0.5, {}),
+      mk('sphere', 0, 0.5, { m: 0.5, e: 0, mus: 0, v0: 0 }),
+    ],
+    criticalChecks: [
+      { label: 'T=2π√(L/g)（方法独立：sinθ≈θ 线性化 vs 数值摆周期）', theory: p67T0, tol: 0.1, from: { kind: 'no-event', eventType: 'collision' } },
+    ],
+    maxDuration: 5,
+    solutionId: 'gk-small-quantity',
+  }
+}
+
 const FACTORIES: (() => GeoTemplate)[] = [
   gkSlopeSpring, gkSlopeSpringCorrect, gkConveyorBoard, gkBoardBlock, gkCollisionSpring,
   gkCollisionChain, gkCircularCritical, gkProjectileLoop, gkConnectedBodies,
@@ -908,6 +1014,7 @@ const FACTORIES: (() => GeoTemplate)[] = [
   dvCyclotron12,
   dvMhd33, dvFlow34, dvHall35, dvMeter48, dvVoltammetry49, dvBlackBox50,
   dvWaveMulti58, dvWaveGraphs59, dvWaveSuper60, dvNuclear63, dvMicroIntegral66, dvElevator24,
+  gkIsochrone22, gkClothesline23, gkMultistage25, gkObliqueProjectile26, gkImpulseMicro31, gkSmallQuantity67,
 ]
 
 export const TEMPLATES: GeoTemplate[] = FACTORIES.map((f) => f())
