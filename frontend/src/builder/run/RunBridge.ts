@@ -237,6 +237,14 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
         asBody({ type: 'e_field', scale: { x: 12, y: 6 }, fixed: true,
           properties: { eFieldX: num(p.Ex, 0), eFieldY: num(p.Ey, 9.8) } })
         break
+      case 'capacitor_r':
+        asBody({ type: 'wall', fixed: true, properties: {},
+          params: { C: num(p.C, 0.1), V0c: num(p.V0, 0), _srcType: 5 } })
+        break
+      case 'coil_frame':
+        asBody({ type: 'wall', scale: { x: num(p.w, 1), y: num(p.h, 1) }, fixed: true, properties: {},
+          params: { R: num(p.R, 1), w: num(p.w, 1), h: num(p.h, 1), _srcType: 6 } })
+        break
       case 'b_region':
         asBody({ type: 'b_field', scale: { x: 12, y: 12 }, fixed: true,
           properties: { bField: num(p.B, 1), bDirection: num(p.dir, 0) === 0 ? 'in' : 'out' } })
