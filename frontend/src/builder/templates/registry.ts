@@ -966,7 +966,7 @@ function gkObliqueProjectile26(): GeoTemplate {
     tags: ['斜抛', '抛体'],
     elements: [ground(0), mk('particle', 0, 0.5, { m: 1, v0: P26_V0, ang: P26_TH })],
     criticalChecks: [
-      { label: '峰值高度 H=v₀²sin²θ/(2g)（教材规律：抛体竖直方向公式）', theory: 0.5 + (P26_V0 * P26_V0 * Math.pow(Math.sin(P26_TH * Math.PI / 180), 2)) / (2 * 9.8), tol: 0.08, from: { kind: 'max-y', subject: 0 } },
+      { label: '峰值高度 H=v₀²sin²θ/(2g)（教材规律：抛体竖直方向公式）', theory: 0.5 + (P26_V0 * P26_V0 * Math.pow(Math.sin(P26_TH * Math.PI / 180), 2)) / (2 * 9.8), tol: 0.05, from: { kind: 'max-y', subject: 0 } },
     ],
     solutionId: 'gk-oblique-projectile', maxDuration: 3,
   }
