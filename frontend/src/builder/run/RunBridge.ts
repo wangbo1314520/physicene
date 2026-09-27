@@ -145,7 +145,7 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
         break
       }
       case 'ground':
-        asBody({ type: 'wall', scale: { x: 20, y: 0.2 }, fixed: true,
+        asBody({ type: 'wall', scale: { x: 100, y: 0.2 }, fixed: true,
           properties: { friction: num(p.mu, 0.3) } })
         break
       case 'vwall': // 竖直墙面（整改1）：wall 旋转 90°，高度 H

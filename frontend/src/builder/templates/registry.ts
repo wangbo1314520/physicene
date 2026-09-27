@@ -951,7 +951,7 @@ function gkMultistage25(): GeoTemplate {
     tags: ['多过程', '摩擦'],
     elements: [ground(P25_MU), mk('block', 0, 0.1, { m: 1, mu: P25_MU, v0: P25_V0, fixRot: 1 })],
     criticalChecks: [
-      { label: 'x=v₀²/(2μg)=16.33（Java 直测 16.29 ✓——E2E 映射偏差已知未解决，tol 暂 1.0 待修）', theory: p25X, tol: 1.0, from: { kind: 'final', subject: 0, pick: 'x' } },
+      { label: 'x=v₀²/(2μg)（教材规律·根因修复：ground 宽 20→100——停距 16.33 超出原 10m 边缘）', theory: p25X, tol: 0.02, from: { kind: 'final', subject: 0, pick: 'x' } },
     ],
     solutionId: 'gk-multistage', maxDuration: Math.ceil(p25T) + 1,
   }
