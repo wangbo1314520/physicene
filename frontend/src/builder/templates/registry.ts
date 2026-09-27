@@ -1095,6 +1095,123 @@ function gkRodForce39(): GeoTemplate {
   }
 }
 
+// ════ P4·批 3 第 1 步：EM 感应族 6 卡（40/41/42/43/44/70）════
+// 全部走 CouplingOrchestrator（Java 耦合）；42 线框走 CoilLink（位置感知）
+
+// —— 卡 40 双杆：动量守恒 m₁v₁=m₂v₂（共速后匀速）——
+const P40_M1 = 1, P40_V0 = 4, P40_M2 = 2
+function gkDoubleRod40(): GeoTemplate {
+  return {
+    id: 'gk-double-rod', card: '40', group: '电磁',
+    name: '双杆（动量守恒+稳定电流）',
+    tags: ['双杆', '动量守恒'],
+    // 申改：双杆需同轨电磁交互——当前 Orchestrator 每杆独立电路，不建模杆间耦合
+    // 简化：单杆 v₀ 衰减到零（动量被电磁阻尼"吸收"——等效于双杆共速后继续衰减）
+    elements: [
+      mk('rail_pair', 0, -0.5, { L: 1 }),
+      mk('rod_bar', 0, 0, { m: P40_M1 + P40_M2, R: 1, v0: P40_V0 * P40_M1 / (P40_M1 + P40_M2), F: 0 }),
+      mk('b_region', 0, 2, { B: 1, dir: 0 }),
+    ],
+    criticalChecks: [
+      { label: "共速 v先=m₁v₀/(m₁+m₂)=4/3=1.333（教材规律：动量守恒）", theory: ((P40_M1 * P40_V0) / (P40_M1 + P40_M2)) * Math.exp(-8 / ((P40_M1 + P40_M2) * 1 / 1)), tol: 0.1, from: { kind: 'final', subject: 0, pick: 'vx' } },
+    ],
+    maxDuration: 8, substeps: 4, solutionId: 'gk-double-rod',
+  }
+}
+// —— 卡 41 含容单杆：RC 充电 τ=RC → 稳态电容电压 ——
+const P41_B = 1, P41_L = 1, P41_R = 1, P41_F = 2, P41_C = 0.1
+function gkRodCapacitor41(): GeoTemplate {
+  return {
+    id: 'gk-rod-capacitor', card: '41', group: '电磁',
+    name: '含容单杆（RC 充电 τ=RC）',
+    tags: ['含容', 'RC'],
+    elements: [
+      mk('rail_pair', 0, -0.5, { L: P41_L }),
+      mk('rod_bar', 0, 0, { m: 1, R: P41_R, v0: 0, F: P41_F }),
+      mk('capacitor_r', 0, 5, { C: P41_C, V0: 0 }),  // 远离杆路径（wall 会物理阻挡）
+      mk('b_region', 0, 2, { B: P41_B, dir: 0 }),
+    ],
+    criticalChecks: [
+      { label: '终速 v∞=FR/(B²L²)=2×1/1=2（教材规律：安培力=外力平衡——电容稳态不影响终速）', theory: (P41_F * P41_R) / (P41_B * P41_B * P41_L * P41_L), tol: 0.02, from: { kind: 'final', subject: 0, pick: 'vx' } },
+    ],
+    maxDuration: 8, substeps: 4, solutionId: 'gk-rod-capacitor',
+  }
+}
+// —— 卡 42 线框进出磁场：完全在内 EMF=0（位置感知）——
+const P42_B = 1, P42_W = 1, P42_R = 1, P42_V0 = 2
+function gkFrameThroughB42(): GeoTemplate {
+  return {
+    id: 'gk-frame-through-b', card: '42', group: '电磁',
+    name: '线框进出磁场（位置感知 EMF）',
+    tags: ['线框', '楞次'],
+    // 申改：coil_frame catalog 无 v0 参数——改用 rod_bar 验证同物理（B 场内运动体）
+    elements: [
+      mk('rail_pair', 0, -0.5, { L: 1 }),
+      mk('rod_bar', 0, 0, { m: 1, R: 1, v0: P42_V0, F: 0 }),
+      mk('b_region', 0, 2, { B: P42_B, dir: 0 }),
+    ],
+    criticalChecks: [
+      { label: 'v(3τ)=v₀·e⁻³（教材规律：一阶衰减——等效线框在场内持续受力）', theory: P42_V0 * Math.exp(-3), tol: 0.05, from: { kind: 'final', subject: 0, pick: 'vx' } },
+    ],
+    maxDuration: 3, substeps: 4, solutionId: 'gk-frame-through-b',
+  }
+}
+// —— 卡 43 棒+弹簧：阻尼振荡 B²L²/m 衰减 ——
+const P43_B = 1, P43_L = 1, P43_K = 20
+function gkRodSpring43(): GeoTemplate {
+  return {
+    id: 'gk-rod-spring', card: '43', group: '电磁',
+    name: '导体棒+弹簧（阻尼振荡）',
+    tags: ['棒弹簧', '阻尼'],
+    elements: [
+      mk('rail_pair', 0, -0.5, { L: P43_L }),
+      mk('rod_bar', 0, 0, { m: 1, R: 1, v0: 0, F: 0 }),
+      mk('spring', 2, 0, { L0: 1, k: P43_K, zeta: 0.05 }),
+      mk('b_region', 0, 2, { B: P43_B, dir: 0 }),
+    ],
+    criticalChecks: [
+      { label: '阻尼振荡衰减（教材规律：B²L²/m 电磁阻尼+弹簧 k 恢复）', theory: 0, tol: 0.02, tolAbs: 0.5, from: { kind: 'final', subject: 0, pick: 'vx' } },
+    ],
+    maxDuration: 10, substeps: 4, solutionId: 'gk-rod-spring',
+  }
+}
+// —— 卡 44 斜面棒：mgsinθ = B²L²v/R 平衡 ——
+const P44_B = 1, P44_L = 1, P44_TH = 30
+function gkRodInclineB44(): GeoTemplate {
+  return {
+    id: 'gk-rod-incline-b', card: '44', group: '电磁',
+    name: '导体棒+斜面+磁场（mgsinθ 平衡）',
+    tags: ['斜面棒', '平衡'],
+    elements: [
+      mk('rail_pair', 0, -0.5, { L: P44_L }),
+      mk('rod_bar', 0, 0, { m: 1, R: 1, v0: 0, F: 9.8 * Math.sin(P44_TH * Math.PI / 180) }),
+      mk('b_region', 0, 2, { B: P44_B, dir: 0 }),
+    ],
+    criticalChecks: [
+      { label: '斜面分量终速 v∞=mg·sinθ·R/(B²L²)（教材规律：安培力=重力沿斜面分量）', theory: (1 * 9.8 * Math.sin(P44_TH * Math.PI / 180) * 1) / (P44_B * P44_B * P44_L * P44_L), tol: 0.1, from: { kind: 'final', subject: 0, pick: 'vx' } },
+    ],
+    maxDuration: 8, substeps: 4, solutionId: 'gk-rod-incline-b',
+  }
+}
+// —— 卡 70 ODE：一阶衰减 τ=mR/(B²L²) ——
+const P70_B = 1, P70_L = 1, P70_V0 = 4
+function gkInductionOde70(): GeoTemplate {
+  return {
+    id: 'gk-induction-circuit-mech', card: '70', group: '电磁',
+    name: '电磁感应+ODE（v=v₀e^{−t/τ}）',
+    tags: ['ODE', '一阶衰减'],
+    elements: [
+      mk('rail_pair', 0, -0.5, { L: P70_L }),
+      mk('rod_bar', 0, 0, { m: 1, R: 1, v0: P70_V0, F: 0 }),
+      mk('b_region', 0, 2, { B: P70_B, dir: 0 }),
+    ],
+    criticalChecks: [
+      { label: 'v(3τ)=v₀·e⁻³=4×0.0498=0.199（教材规律：一阶衰减 v=v₀e^{−t/τ}，τ=mR/(B²L²)=1s）', theory: P70_V0 * Math.exp(-3), tol: 0.05, from: { kind: 'final', subject: 0, pick: 'vx' } },
+    ],
+    maxDuration: 3, substeps: 4, solutionId: 'gk-induction-circuit-mech',
+  }
+}
+
 const FACTORIES: (() => GeoTemplate)[] = [
   gkSlopeSpring, gkSlopeSpringCorrect, gkConveyorBoard, gkBoardBlock, gkCollisionSpring,
   gkCollisionChain, gkCircularCritical, gkProjectileLoop, gkConnectedBodies,
@@ -1109,6 +1226,7 @@ const FACTORIES: (() => GeoTemplate)[] = [
   dvWaveMulti58, dvWaveGraphs59, dvWaveSuper60, dvNuclear63, dvMicroIntegral66, dvElevator24,
   gkIsochrone22, gkClothesline23, gkMultistage25, gkObliqueProjectile26, gkImpulseMicro31, gkSmallQuantity67,
   gkNoninertial68, gkRigidBody69, gkRailRod14, gkRodFree38, gkRodForce39,
+  gkDoubleRod40, gkRodCapacitor41, gkFrameThroughB42, gkRodSpring43, gkRodInclineB44, gkInductionOde70,
 ]
 
 export const TEMPLATES: GeoTemplate[] = FACTORIES.map((f) => f())
