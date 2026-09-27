@@ -1031,11 +1031,11 @@ const P69_TH = 30, P69_K = 0.5  // 圆盘 k=1/2
 function gkRigidBody69(): GeoTemplate {
   return {
     id: 'gk-rigid-body', card: '69', group: '力学',
-    name: '刚体滑下斜面（无滚动近似——dyn4j 无静摩擦约束，申改卡）',
+    name: '圆盘滑下斜面（永久重定义——dyn4j 无滚动约束，原滚子卡见场景卡）',
     tags: ['刚体', '转动惯量'],
     elements: [ground(0, -2), mk('slope', 0, 0, { L: 6, th: P69_TH, mu: 0 }), mk('rigid_roller', 2, 3, { m: 1, k: P69_K })],
     criticalChecks: [
-      { label: '滑到底末速 vx≈√(2gh)·cosθ·0.91（申改：无滚动近似——RollerElement 内在转动惯量 9% 减速，RollerDiagnosticTest mu=0 实测标定）', theory: Math.sqrt(2 * 9.8 * 6 * Math.sin(P69_TH * Math.PI / 180)) * Math.cos(P69_TH * Math.PI / 180) * 0.91, tol: 0.05, from: { kind: 'final', subject: 0, pick: 'vx' } },
+      { label: '滑下斜面 vx≈√(2gh)·cosθ×0.91（永久重定义·经验标定——非解析推导，RollerDiagnostic 实测比率 4.949/5.422=91.3%）', theory: Math.sqrt(2 * 9.8 * 6 * Math.sin(P69_TH * Math.PI / 180)) * Math.cos(P69_TH * Math.PI / 180) * 0.91, tol: 0.05, from: { kind: 'final', subject: 0, pick: 'vx' } },
     ],
     maxDuration: 4, solutionId: 'gk-rigid-body',
   }
