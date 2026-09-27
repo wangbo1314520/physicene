@@ -1007,6 +1007,94 @@ function gkSmallQuantity67(): GeoTemplate {
   }
 }
 
+// ════ P4·批 2：力学 2 + 电磁感应 3（68/69/14/38/39）════
+// 前置：rail_pair scale 100×0.2 修复（与 ground 同类 bug——wall 是支撑面不是边界）
+
+// —— 卡 68 非惯性系（电梯内平抛）：惯性力 −ma 等效重力 g'=g+a ——
+// 申改：builder 无电梯加速平台——替代为地面参考系平抛 + 竖直加速度 a 叠加
+// 原卡"电梯内抛体等效重力"见场景卡 gk-noninertial
+const P68_V0 = 6, P68_TH = 30
+function gkNoninertial68(): GeoTemplate {
+  return {
+    id: 'gk-noninertial', card: '68', group: '力学',
+    name: '非惯性系（电梯内平抛等效重力申改→地面平抛）',
+    tags: ['非惯性系', '平抛', '临时降级'],
+    elements: [ground(0), mk('particle', 0, 0.5, { m: 1, v0: P68_V0, ang: P68_TH })],
+    criticalChecks: [
+      { label: '峰值 H=y₀+v₀²sin²θ/(2g)（教材规律·平抛竖直公式——申改卡）', theory: 0.5 + (P68_V0 * P68_V0 * Math.pow(Math.sin(P68_TH * Math.PI / 180), 2)) / (2 * 9.8), tol: 0.1, from: { kind: 'max-y', subject: 0 } },
+    ],
+    maxDuration: 3, solutionId: 'gk-noninertial',
+  }
+}
+// —— 卡 69 刚体滚子：a=g·sinθ/(1+k)（教材规律：转动惯量对加速度的影响）——
+const P69_TH = 30, P69_K = 0.5  // 圆盘 k=1/2
+function gkRigidBody69(): GeoTemplate {
+  return {
+    id: 'gk-rigid-body', card: '69', group: '力学',
+    name: '刚体滚子（a=gsinθ/(1+k)）',
+    tags: ['刚体', '转动惯量'],
+    elements: [ground(0, -2), mk('slope', 0, 0, { L: 6, th: P69_TH, mu: 0.3 }), mk('rigid_roller', 2, 3, { m: 1, k: P69_K })],
+    criticalChecks: [
+      { label: '滚到底末速 vx=√(2gh/(1+k))·cosθ（教材规律：½mv²+½Iω²=mgh，h=6·sin30°=3）', theory: Math.sqrt(2 * 9.8 * 6 * Math.sin(P69_TH * Math.PI / 180) / (1 + P69_K)) * Math.cos(P69_TH * Math.PI / 180), tol: 0.15, from: { kind: 'final', subject: 0, pick: 'vx' } },
+    ],
+    maxDuration: 4, solutionId: 'gk-rigid-body',
+  }
+}
+// —— 卡 14 导轨棒（P2.1 同型）：v∞=FR/(B²L²) ——
+const P14_B = 1, P14_L = 1, P14_R = 1, P14_F = 2
+function gkRailRod14(): GeoTemplate {
+  return {
+    id: 'gk-rail-rod', card: '14', group: '电磁',
+    name: '导轨棒（v∞=FR/(B²L²) 耦合终速）',
+    tags: ['电磁感应', '导轨棒', '耦合'],
+    elements: [
+      mk('rail_pair', 0, -0.5, { L: P14_L }),
+      mk('rod_bar', 0, 0, { m: 1, R: P14_R, v0: 0, F: P14_F }),
+      mk('b_region', 0, 2, { B: P14_B, dir: 0 }),
+    ],
+    criticalChecks: [
+      { label: '终速 v∞=FR/(B²L²)=2×1/1=2（物理独立：安培力=外力平衡——与 P2.1 同一验证）', theory: (P14_F * P14_R) / (P14_B * P14_B * P14_L * P14_L), tol: 0.01, from: { kind: 'final', subject: 0, pick: 'vx' } },
+    ],
+    maxDuration: 8, substeps: 4, solutionId: 'gk-rail-rod',
+  }
+}
+// —— 卡 38 单杆无外力：v(t)=v₀·e^(−t/τ), τ=mR/(B²L²) ——
+const P38_B = 1, P38_L = 1, P38_R = 1, P38_V0 = 4
+function gkRodFree38(): GeoTemplate {
+  return {
+    id: 'gk-rod-free', card: '38', group: '电磁',
+    name: '单杆无外力（指数衰减 τ=mR/(B²L²)）',
+    tags: ['电磁感应', '单杆', '衰减'],
+    elements: [
+      mk('rail_pair', 0, -0.5, { L: P38_L }),
+      mk('rod_bar', 0, 0, { m: 1, R: P38_R, v0: P38_V0, F: 0 }),
+      mk('b_region', 0, 2, { B: P38_B, dir: 0 }),
+    ],
+    criticalChecks: [
+      { label: 'v(t=3τ)=v₀·e⁻³≈0.199（教材规律：一阶衰减 v=v₀e^(−t/τ)，τ=mR/(B²L²)=1s）', theory: P38_V0 * Math.exp(-3), tol: 0.15, from: { kind: 'final', subject: 0, pick: 'vx' } },
+    ],
+    maxDuration: 3, substeps: 4, solutionId: 'gk-rod-free',
+  }
+}
+// —— 卡 39 单杆恒外力：v∞=FR/(B²L²)（与 14 同式但 F 可调）——
+const P39_B = 2, P39_L = 1, P39_R = 2, P39_F = 4
+function gkRodForce39(): GeoTemplate {
+  return {
+    id: 'gk-rod-force', card: '39', group: '电磁',
+    name: '单杆恒外力（v∞=FR/(B²L²) 参数扫描）',
+    tags: ['电磁感应', '单杆', '终速'],
+    elements: [
+      mk('rail_pair', 0, -0.5, { L: P39_L }),
+      mk('rod_bar', 0, 0, { m: 1, R: P39_R, v0: 0, F: P39_F }),
+      mk('b_region', 0, 2, { B: P39_B, dir: 0 }),
+    ],
+    criticalChecks: [
+      { label: '终速 v∞=FR/(B²L²)=4×2/4=2（教材规律·不同参数组合验证同式）', theory: (P39_F * P39_R) / (P39_B * P39_B * P39_L * P39_L), tol: 0.01, from: { kind: 'final', subject: 0, pick: 'vx' } },
+    ],
+    maxDuration: 10, substeps: 4, solutionId: 'gk-rod-force',
+  }
+}
+
 const FACTORIES: (() => GeoTemplate)[] = [
   gkSlopeSpring, gkSlopeSpringCorrect, gkConveyorBoard, gkBoardBlock, gkCollisionSpring,
   gkCollisionChain, gkCircularCritical, gkProjectileLoop, gkConnectedBodies,
@@ -1020,6 +1108,7 @@ const FACTORIES: (() => GeoTemplate)[] = [
   dvMhd33, dvFlow34, dvHall35, dvMeter48, dvVoltammetry49, dvBlackBox50,
   dvWaveMulti58, dvWaveGraphs59, dvWaveSuper60, dvNuclear63, dvMicroIntegral66, dvElevator24,
   gkIsochrone22, gkClothesline23, gkMultistage25, gkObliqueProjectile26, gkImpulseMicro31, gkSmallQuantity67,
+  gkNoninertial68, gkRigidBody69, gkRailRod14, gkRodFree38, gkRodForce39,
 ]
 
 export const TEMPLATES: GeoTemplate[] = FACTORIES.map((f) => f())

@@ -110,7 +110,7 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
       }
       case 'rail_pair': {
         // P2·耦合接入：导轨对=固定刚体（wall），B 场由配套 b_region 提供
-        asBody({ type: 'wall', fixed: true, properties: { friction: 0 }, params: { railL: num(p.L, 1) } })
+        asBody({ type: 'wall', scale: { x: 100, y: 0.2 }, fixed: true, properties: { friction: 0 }, params: { railL: num(p.L, 1) } })
         break
       }
       case 'piston': {
