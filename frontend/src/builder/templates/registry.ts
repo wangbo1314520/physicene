@@ -1023,7 +1023,7 @@ function gkNoninertial68(): GeoTemplate {
     criticalChecks: [
       { label: '峰值 H=y₀+v₀²sin²θ/(2g)（教材规律·平抛竖直公式——申改卡）', theory: 0.5 + (P68_V0 * P68_V0 * Math.pow(Math.sin(P68_TH * Math.PI / 180), 2)) / (2 * 9.8), tol: 0.1, from: { kind: 'max-y', subject: 0 } },
     ],
-    maxDuration: 3, solutionId: 'gk-noninertial',
+    maxDuration: 3, solutionId: 'gk-noninertial', substeps: 8,
   }
 }
 // —— 卡 69 刚体滚子：a=g·sinθ/(1+k)（教材规律：转动惯量对加速度的影响）——
