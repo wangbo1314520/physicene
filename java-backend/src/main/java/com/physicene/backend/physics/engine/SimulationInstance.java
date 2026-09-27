@@ -390,7 +390,11 @@ public class SimulationInstance {
                 double bCoil = bEls.get(0).getProperties() != null ? Math.abs(bEls.get(0).getProperties().getBField() == null ? 1 : bEls.get(0).getProperties().getBField()) : 1;
                 double wCoil = coilEl.getParams().getOrDefault("w", 1.0);
                 double rCoil = coilEl.getParams().getOrDefault("R", 1.0);
-                orch.addRodLink(new CouplingOrchestrator.RodBarLink(coilEl.getId(), coilBody, "R_coil", bCoil, wCoil));
+                // 场域边界（B 场 scale 12×12 默认，中心=场元件位置）
+                double fieldCx = bEls.get(0).getPosition().x();
+                double fieldHalf = bEls.get(0).getScale() != null ? bEls.get(0).getScale().x() / 2.0 : 6.0;
+                orch.addCoilLink(new CouplingOrchestrator.CoilLink(coilEl.getId(), coilBody, "R_coil", bCoil, wCoil,
+                    fieldCx - fieldHalf, fieldCx + fieldHalf));
                 var coilRes = new CircuitEngine.Comp();
                 coilRes.id = "R_coil";
                 coilRes.kind = "resistor";
