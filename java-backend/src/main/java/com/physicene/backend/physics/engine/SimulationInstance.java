@@ -357,6 +357,52 @@ public class SimulationInstance {
             }
         }
 
+// P4 批3 第0.5步：电容支路接入 rod 回路（RC 充放电）
+        if (hasRodCoupling && !pistonEls.isEmpty() == false) {
+            var capEls5 = scene.getElements().stream().filter(e -> e.getParams() != null
+                    && e.getParams().getOrDefault("_srcType", 0.0) == 5.0).toList();
+            if (!capEls5.isEmpty()) {
+                var capEl = capEls5.get(0);
+                double capacitance = capEl.getParams().getOrDefault("C", 0.1);
+                var capComp = new CircuitEngine.Comp();
+                capComp.id = "C_cap";
+                capComp.kind = "capacitor";
+                capComp.props.put("C", capacitance);
+                capComp.props.put("v0", 0.0);
+                circuit.components.add(capComp);
+                if (!rodEls.isEmpty()) {
+                    circuit.wires.add(new CircuitEngine.Wire(new CircuitEngine.PinRef("src_" + rodEls.get(0).getId(), 0), new CircuitEngine.PinRef("C_cap", 0)));
+                    circuit.wires.add(new CircuitEngine.Wire(new CircuitEngine.PinRef("src_" + rodEls.get(0).getId(), 1), new CircuitEngine.PinRef("C_cap", 1)));
+                }
+            }
+        }
+        // P4 批3 第0.5步：线框感应（磁通量→EMF→楞次力，与 rod 同形式但 w 代替 L）
+        var coilEls6 = scene.getElements().stream().filter(e -> e.getParams() != null
+                && e.getParams().getOrDefault("_srcType", 0.0) == 6.0).toList();
+        if (!coilEls6.isEmpty() && !bEls.isEmpty()) {
+            var coilEl = coilEls6.get(0);
+            Body coilBody = bodies.get(coilEl.getId());
+            if (coilBody != null) {
+                double bCoil = bEls.get(0).getProperties() != null ? Math.abs(bEls.get(0).getProperties().getBField() == null ? 1 : bEls.get(0).getProperties().getBField()) : 1;
+                double wCoil = coilEl.getParams().getOrDefault("w", 1.0);
+                double rCoil = coilEl.getParams().getOrDefault("R", 1.0);
+                orch.addRodLink(new CouplingOrchestrator.RodBarLink(coilEl.getId(), coilBody, "R_coil", bCoil, wCoil));
+                var coilRes = new CircuitEngine.Comp();
+                coilRes.id = "R_coil";
+                coilRes.kind = "resistor";
+                coilRes.props.put("R", rCoil);
+                circuit.components.add(coilRes);
+                var coilSrc = new CircuitEngine.Comp();
+                coilSrc.id = "src_coil";
+                coilSrc.kind = "battery";
+                coilSrc.props.put("emf", 0.0);
+                coilSrc.props.put("r", 0.001);
+                circuit.components.add(coilSrc);
+                circuit.wires.add(new CircuitEngine.Wire(new CircuitEngine.PinRef("src_coil", 0), new CircuitEngine.PinRef("R_coil", 0)));
+                circuit.wires.add(new CircuitEngine.Wire(new CircuitEngine.PinRef("src_coil", 1), new CircuitEngine.PinRef("R_coil", 1)));
+            }
+        }
+
         this.orchestrator = orch;
     }
 

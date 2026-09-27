@@ -238,10 +238,13 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
           properties: { eFieldX: num(p.Ex, 0), eFieldY: num(p.Ey, 9.8) } })
         break
       case 'capacitor_r':
+        asBody({ type: 'wall', fixed: true, properties: {},
+          params: { C: num(p.C, 0.1), V0c: num(p.V0, 0), _srcType: 5 } })
+        break
       case 'coil_frame':
-        // P4 批3 第0步元件壳——显式拒绝（不许静默当 wall，教学误导）
-        // 第 0.5 步补物理后移除此拦截
-        skipped.push(e.type)
+        asBody({ type: 'cube', properties: { mass: 1, friction: 0 },
+          params: { R: num(p.R, 1), w: num(p.w, 1), h: num(p.h, 1), _srcType: 6 },
+          initialState: v0State(p) })
         break
       case 'b_region':
         asBody({ type: 'b_field', scale: { x: 12, y: 12 }, fixed: true,
