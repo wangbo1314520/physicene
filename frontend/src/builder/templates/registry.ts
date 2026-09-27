@@ -1033,9 +1033,9 @@ function gkRigidBody69(): GeoTemplate {
     id: 'gk-rigid-body', card: '69', group: '力学',
     name: '刚体滚子（a=gsinθ/(1+k)）',
     tags: ['刚体', '转动惯量'],
-    elements: [ground(0, -2), mk('slope', 0, 0, { L: 6, th: P69_TH, mu: 0.3 }), mk('rigid_roller', 2, 3, { m: 1, k: P69_K })],
+    elements: [ground(0, -2), mk('slope', 0, 0, { L: 6, th: P69_TH, mu: 0 }), mk('rigid_roller', 2, 3, { m: 1, k: P69_K })],
     criticalChecks: [
-      { label: '滚到底末速 vx=√(2gh/(1+k))·cosθ（教材规律：½mv²+½Iω²=mgh，h=6·sin30°=3）', theory: Math.sqrt(2 * 9.8 * 6 * Math.sin(P69_TH * Math.PI / 180) / (1 + P69_K)) * Math.cos(P69_TH * Math.PI / 180), tol: 0.15, from: { kind: 'final', subject: 0, pick: 'vx' } },
+      { label: '滚到底末速 vx=√(2gh/(1+k))·cosθ（教材规律：½mv²+½Iω²=mgh，h=6·sin30°=3）', theory: Math.sqrt(2 * 9.8 * 6 * Math.sin(P69_TH * Math.PI / 180) / (1 + P69_K)) * Math.cos(P69_TH * Math.PI / 180), tol: 0.12, from: { kind: 'final', subject: 0, pick: 'vx' } },
     ],
     maxDuration: 4, solutionId: 'gk-rigid-body',
   }
@@ -1071,7 +1071,7 @@ function gkRodFree38(): GeoTemplate {
       mk('b_region', 0, 2, { B: P38_B, dir: 0 }),
     ],
     criticalChecks: [
-      { label: 'v(t=3τ)=v₀·e⁻³≈0.199（教材规律：一阶衰减 v=v₀e^(−t/τ)，τ=mR/(B²L²)=1s）', theory: P38_V0 * Math.exp(-3), tol: 0.15, from: { kind: 'final', subject: 0, pick: 'vx' } },
+      { label: 'v(t=3τ)=v₀·e⁻³≈0.199（教材规律：一阶衰减 v=v₀e^(−t/τ)，τ=mR/(B²L²)=1s）', theory: P38_V0 * Math.exp(-3), tol: 0.02, from: { kind: 'final', subject: 0, pick: 'vx' } },
     ],
     maxDuration: 3, substeps: 4, solutionId: 'gk-rod-free',
   }
