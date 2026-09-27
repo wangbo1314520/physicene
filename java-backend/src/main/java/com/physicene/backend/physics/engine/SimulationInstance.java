@@ -295,9 +295,13 @@ public class SimulationInstance {
         var gasEls = scene.getElements().stream().filter(e -> e.getParams() != null
                 && e.getParams().getOrDefault("_srcType", 0.0) == 3.0).toList();
 
+        // P4 批3：coil(_srcType=6) 也需要 bEls——早退条件扩展
+        var coilElsCheck = scene.getElements().stream().filter(e -> e.getParams() != null
+                && e.getParams().getOrDefault("_srcType", 0.0) == 6.0).toList();
+        boolean hasCoilCoupling = !coilElsCheck.isEmpty() && !bEls.isEmpty();
         boolean hasRodCoupling = !rodEls.isEmpty() && !bEls.isEmpty();
         boolean hasPistonCoupling = !pistonEls.isEmpty() && !gasEls.isEmpty();
-        if (!hasRodCoupling && !hasPistonCoupling) return;
+        if (!hasRodCoupling && !hasPistonCoupling && !hasCoilCoupling) return;
 
         double subDt = dt / substeps;
         var circuit = new com.physicene.backend.physics.circuit.CircuitEngine.Circuit();
