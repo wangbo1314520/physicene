@@ -71,14 +71,16 @@ def main() -> int:
     # ── D. Vite dev server 内容 = 当前工作树 ──
     marker_rel = "src/builder/run/RunBridge.ts"
     local = (ROOT / "frontend" / marker_rel).read_text(encoding="utf-8")
+    # P4 追问2 修正：项目独有 token（非 TS 类型名/JS 内建——那些会被 esbuild 消掉）
+    # 选 5 个本项目特有标识符，编译后保证存在
+    stable = ['TS_ENGINE_TYPES', 'useRunBridge', 'runStates', 'NO_BODY', 'pickWireParams']
     tokens = re.findall(r"[A-Za-z_$][A-Za-z0-9_$]{6,}", local)
-    picks = [tokens[i] for i in (0, len(tokens) // 4, len(tokens) // 2, 3 * len(tokens) // 4, len(tokens) - 1)]
+    picks = [t for t in stable if t in tokens] or [tokens[i] for i in (0, len(tokens)//4, len(tokens)//2, 3*len(tokens)//4, len(tokens)-1)]  # 回退
     try:
         served = urllib.request.urlopen(f"http://localhost:5173/{marker_rel}", timeout=8).read().decode("utf-8", "ignore")
         missing = [t for t in picks if t not in served]
         # TS→JS 转译可能消掉纯类型名（tree-shake/类型擦除），5 中 ≥4 视为同源
-        # P4 修正：≥3/5（esbuild 类型擦除可消 1-2 个 token；0/5 才是不同代码）
-        chk("Vite 服务内容=工作树（5 token 抽样 ≥3 命中）", len(missing) <= 2,
+        chk("Vite 服务内容=工作树（5 项目独有 token ≥4 命中）", len(missing) <= 1,
             f"{5 - len(missing)}/5 命中" + (f" 缺失: {missing[:2]}" if missing else ""))
     except Exception as e:
         chk("Vite 服务内容=工作树", False, str(e)[:80])
