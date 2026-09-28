@@ -234,8 +234,13 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
         break
       }
       case 'e_region':
-        asBody({ type: 'e_field', scale: { x: 12, y: 6 }, fixed: true,
+        asBody({ type: 'e_field', scale: { x: num(p.L, 12), y: num(p.W, 6) }, fixed: true,
           properties: { eFieldX: num(p.Ex, 0), eFieldY: num(p.Ey, 9.8) } })
+        break
+      case 'constant_force':
+        // P5a 回填：恒力装置——通过 Orchestrator 对目标体施力
+        asBody({ type: 'wall', fixed: true, properties: {},
+          params: { F: num(p.F, 4), duration: num(p.duration, 2), target: num(p.target, 0), _srcType: 7 } })
         break
       case 'capacitor_r':
         asBody({ type: 'wall', fixed: true, properties: {},
@@ -247,7 +252,7 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
           initialState: v0State(p) })
         break
       case 'b_region':
-        asBody({ type: 'b_field', scale: { x: 12, y: 12 }, fixed: true,
+        asBody({ type: 'b_field', scale: { x: num(p.L, 12), y: num(p.W, 12) }, fixed: true,
           properties: { bField: num(p.B, 1), bDirection: num(p.dir, 0) === 0 ? 'in' : 'out' } })
         break
       case 'point_charge': {

@@ -978,10 +978,9 @@ function gkImpulseMicro31(): GeoTemplate {
     id: 'gk-impulse-micro', card: '31', group: '力学',
     name: '动量定理（I=F·Δt=Δmv）',
     tags: ['动量定理', '微元'],
-    elements: [ground(0), mk('block', -2, 0, { m: P31_M, mu: 0, v0: 4, fixRot: 1 }), mk('block', 1, 0, { m: P31_M, mu: 0, v0: 0, fixRot: 1 })],
+    elements: [ground(0), mk('constant_force', 5, 3, { F: 4, duration: 2, target: 0 }), mk('block', 0, 0.1, { m: 1, mu: 0, v0: 0, fixRot: 1 })],
     criticalChecks: [
-      // 动量守恒（教材规律）：完全非弹性碰撞后共速 v'=m₁v₀/(m₁+m₂)
-      { label: "碰后共速 v'=m₁v₀/(m₁+m₂)=2（教材规律：动量守恒定律）", theory: (P31_M * 4) / (P31_M * 2), tol: 0.05, from: { kind: 'final', subject: 0, pick: 'vx' } },
+      { label: 'Δv=I/m=F·Δt/m=4×2/1=8（教材规律：动量定理 I=F·Δt=Δp）', theory: (4 * 2) / 1, tol: 0.05, from: { kind: 'final', subject: 0, pick: 'vx' } },
     ],
     solutionId: 'gk-impulse-micro', maxDuration: 5,
   }

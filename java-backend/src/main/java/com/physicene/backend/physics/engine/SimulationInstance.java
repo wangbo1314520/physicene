@@ -99,6 +99,8 @@ public class SimulationInstance {
     private final java.util.List<com.physicene.backend.physics.element.RopeElement> ropes = new java.util.ArrayList<>();
     /** P2.1·耦合编排器（null=无耦合场景零开销） */
     private CouplingOrchestrator orchestrator = null;
+    /** P5a：恒力装置持续时间 */
+    private double forceDuration = Double.MAX_VALUE;
     /** P2.1·耦合读数（E2E 数值断言用：各 rod 支路电流 / 气室压强 / 活塞位置） */
     private final java.util.Map<String, Double> couplingReadings = new LinkedHashMap<>();
     /** P2.1·活塞耦合参数：阻尼系数 c=2ζ√(kM)（气弹簧 k=γpA²/V₀ 线性化）/ 活塞面积 / 气室元胞 */
@@ -431,6 +433,21 @@ public class SimulationInstance {
                 if (cr.sol() != null && cr.sol().ok) {
                     for (var entry : cr.sol().elements.entrySet()) {
                         couplingReadings.put("I_" + entry.getKey(), entry.getValue().i());
+                    }
+                }
+                // P5a 回填：恒力装置（_srcType=7）对目标体施加恒力 F·Δt
+                if (t < forceDuration) {
+                    for (var cfEl : scene.getElements()) {
+                        if (cfEl.getParams() != null && cfEl.getParams().getOrDefault("_srcType", 0.0) == 7.0) {
+                            double fVal = cfEl.getParams().getOrDefault("F", 4.0);
+                            int targetIdx = (int)(double) cfEl.getParams().getOrDefault("target", 0.0);
+                            var dynIt = dynamicBodies.iterator();
+                            Body target = null;
+                            for (int bi = 0; bi <= targetIdx && dynIt.hasNext(); bi++) target = dynIt.next();
+                            if (target != null && fVal != 0) {
+                                target.applyForce(new org.dyn4j.geometry.Vector2(fVal, 0));
+                            }
+                        }
                     }
                 }
                 // rod_bar 外力 F（恒力推/拉——_srcType=1 标记的 cube = RunBridge 映射的 rod_bar）
