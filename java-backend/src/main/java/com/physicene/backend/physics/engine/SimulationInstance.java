@@ -427,21 +427,21 @@ public class SimulationInstance {
         // 统一搭建台：每个子步刷新一次（场力跟随子步位置，方案 §3.4）
         for (int i = 0; i < substeps; i++) {
             applyCustomForces();
-            // P5a 回填：恒力装置（_srcType=7）对目标体施加恒力 F·Δt
-                if (t < forceDuration) {
-                    for (var cfEl : scene.getElements()) {
-                        if (cfEl.getParams() != null && cfEl.getParams().getOrDefault("_srcType", 0.0) == 7.0) {
-                            double fVal = cfEl.getParams().getOrDefault("F", 4.0);
-                            int targetIdx = (int)(double) cfEl.getParams().getOrDefault("target", 0.0);
-                            var dynIt = dynamicBodies.iterator();
-                            Body target = null;
-                            for (int bi = 0; bi <= targetIdx && dynIt.hasNext(); bi++) target = dynIt.next();
-                            if (target != null && fVal != 0) {
-                                target.applyForce(new org.dyn4j.geometry.Vector2(fVal, 0));
-                            }
-                        }
+// P5a 回填：恒力装置（_srcType=7）对目标体施加恒力 F·Δt（duration 后停止）
+            for (var cfEl : scene.getElements()) {
+                if (cfEl.getParams() != null && cfEl.getParams().getOrDefault("_srcType", 0.0) == 7.0) {
+                    double fVal = cfEl.getParams().getOrDefault("F", 4.0);
+                    double fDur = cfEl.getParams().getOrDefault("duration", 2.0);
+                    if (t >= fDur) continue;
+                    int targetIdx = (int)(double) cfEl.getParams().getOrDefault("target", 0.0);
+                    var dynIt = dynamicBodies.iterator();
+                    Body target = null;
+                    for (int bi = 0; bi <= targetIdx && dynIt.hasNext(); bi++) target = dynIt.next();
+                    if (target != null && fVal != 0) {
+                        target.applyForce(new org.dyn4j.geometry.Vector2(fVal, 0));
                     }
                 }
+            }
 
             // P2.1·耦合编排：EMF→电流→安培力 / 气室→压力→活塞力（每子步，方案 §3.9）
             if (orchestrator != null) {
