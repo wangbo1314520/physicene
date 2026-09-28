@@ -78,8 +78,11 @@ class CapacitorCoilTest {
         in.runToEndSync();
         // 理论：v(1τ)=4×e⁻¹=1.472（线圈在大场内持续减速 1s）
         // 实际可能因进入过渡（从场外到场内）略有差异——tol 20%
-        assertTrue(lastVx[0] < 3.5,
-            "进入减速 v=" + String.format("%.3f", lastVx[0]) + " < 3.5（从场外进入场内经历减速）");
+        // 理论：线圈从场外进入（1 条边界），v_final = v₀ − w/τ = 4 − 1 = 3.0
+        // （dv/dx = −B²w²/(mR)，积分 Δv = −B²w³/(mR) = −1）
+        double theory = 4.0 - 1.0 / 1.0;  // v₀ − w/τ
+        assertTrue(Math.abs(lastVx[0] - theory) / theory < 0.05,
+            "进入减速 v=" + String.format("%.3f", lastVx[0]) + " theory=" + String.format("%.3f", theory) + " ±5%（1条边界 v₀−w/τ）");
     }
 
     // ═══ 5. coil 完全在内匀速（已有——保持） ═══

@@ -19,7 +19,36 @@ def login_api():
     with urllib.request.urlopen(req, timeout=10) as r:
         return json.loads(r.read().decode())["data"]
 
+def env_gate() -> bool:
+    """P4 制度化：回归前 env-check 强制门禁——失败则不启动回归"""
+    import _env, sys
+    _env.banner()
+    _, _, dirty = _env.git_info()
+    if dirty > 0:
+        print("❌ env-check: 工作树不干净，先提交再回归"); return False
+    pid, name, start = _env.java_proc()
+    if not pid or 'java' not in name.lower():
+        print("❌ env-check: 8080 无 java 进程"); return False
+    import os, time, datetime
+    from pathlib import Path
+    cls = Path(__file__).resolve().parent.parent / 'java-backend' / 'target' / 'classes'
+    cls_new = 0.0
+    for dp, _, fs in os.walk(cls):
+        for f in fs:
+            if f.endswith('.class'): cls_new = max(cls_new, os.path.getmtime(os.path.join(dp, f)))
+    if start:
+        try:
+            st = time.mktime(time.strptime(start, '%Y-%m-%d %H:%M:%S'))
+            if cls_new > st + 5:
+                print(f"❌ env-check: backend 未重启（class@{datetime.datetime.fromtimestamp(cls_new):%H:%M:%S} > proc@{start}）——先重启再回归")
+                return False
+        except ValueError: pass
+    print("✅ env-check 门禁通过")
+    return True
+
 def main() -> int:
+    if not env_gate():
+        return 1
     ap = argparse.ArgumentParser()
     ap.add_argument("--ids", default="", help="逗号分隔模板 id（默认全部）")
     ap.add_argument("--shot-dir", default=r"E:\Program\physicene\frontend\e2e\shots\templates")
