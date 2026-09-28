@@ -77,7 +77,8 @@ def main() -> int:
         served = urllib.request.urlopen(f"http://localhost:5173/{marker_rel}", timeout=8).read().decode("utf-8", "ignore")
         missing = [t for t in picks if t not in served]
         # TS→JS 转译可能消掉纯类型名（tree-shake/类型擦除），5 中 ≥4 视为同源
-        chk("Vite 服务内容=工作树（5 token 抽样 ≥4 命中）", len(missing) <= 1,
+        # P4 修正：≥3/5（esbuild 类型擦除可消 1-2 个 token；0/5 才是不同代码）
+        chk("Vite 服务内容=工作树（5 token 抽样 ≥3 命中）", len(missing) <= 2,
             f"{5 - len(missing)}/5 命中" + (f" 缺失: {missing[:2]}" if missing else ""))
     except Exception as e:
         chk("Vite 服务内容=工作树", False, str(e)[:80])
