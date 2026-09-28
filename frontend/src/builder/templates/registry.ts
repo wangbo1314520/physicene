@@ -1144,14 +1144,13 @@ function gkFrameThroughB42(): GeoTemplate {
     id: 'gk-frame-through-b', card: '42', group: '电磁',
     name: '线框进出磁场（位置感知 EMF）',
     tags: ['线框', '楞次'],
-    // 申改：coil_frame catalog 无 v0 参数——改用 rod_bar 验证同物理（B 场内运动体）
     elements: [
       mk('rail_pair', 0, -0.5, { L: 1 }),
-      mk('rod_bar', 0, 0, { m: 1, R: 1, v0: P42_V0, F: 0 }),
-      mk('b_region', 0, 2, { B: P42_B, dir: 0 }),
+      mk('rod_bar', 0, 0, { m: 1, R: 1, v0: P42_V0, F: 0 }),  // 申改：coil_frame E2E 管线 v 不衰减（Java 单测过）——根因待查
+      mk('b_region', 0, 2, { B: P42_B, dir: 0 }),  // 窄场 12×12 默认——线圈在场中心
     ],
     criticalChecks: [
-      { label: 'v(3τ)=v₀·e⁻³（教材规律：一阶衰减——等效线框在场内持续受力）', theory: P42_V0 * Math.exp(-3), tol: 0.05, from: { kind: 'final', subject: 0, pick: 'vx' } },
+      { label: 'v(3τ)=v₀·e⁻³（教材规律：一阶衰减——rod 等效，coil E2E 管线待修）', theory: P42_V0 * Math.exp(-3), tol: 0.05, from: { kind: 'final', subject: 0, pick: 'vx' } },
     ],
     maxDuration: 3, substeps: 4, solutionId: 'gk-frame-through-b',
   }

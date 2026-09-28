@@ -168,6 +168,7 @@ public class CouplingOrchestrator {
                 cl.coilBody().applyForce(new org.dyn4j.geometry.Vector2(f, 0));
             }
         }
+        
         for (var pc : pistons.values()) {
             pc.applyForce();
         }
