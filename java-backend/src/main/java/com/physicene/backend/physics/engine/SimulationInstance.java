@@ -386,6 +386,7 @@ public class SimulationInstance {
         if (!coilEls6.isEmpty() && !bEls.isEmpty()) {
             var coilEl = coilEls6.get(0);
             Body coilBody = bodies.get(coilEl.getId());
+            ilEl.getParams().getOrDefault("_srcType", 0.0) == 6.0);
             if (coilBody != null) {
                 double bCoil = bEls.get(0).getProperties() != null ? Math.abs(bEls.get(0).getProperties().getBField() == null ? 1 : bEls.get(0).getProperties().getBField()) : 1;
                 double wCoil = coilEl.getParams().getOrDefault("w", 1.0);

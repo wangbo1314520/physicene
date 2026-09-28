@@ -1146,11 +1146,11 @@ function gkFrameThroughB42(): GeoTemplate {
     tags: ['线框', '楞次'],
     elements: [
       mk('rail_pair', 0, -0.5, { L: 1 }),
-      mk('rod_bar', 0, 0, { m: 1, R: 1, v0: P42_V0, F: 0 }),  // 申改：coil_frame E2E 管线 v 不衰减（Java 单测过）——根因待查
+      mk('coil_frame', 5, 0, { v0: P42_V0, w: P42_W, h: 1, R: P42_R }),
       mk('b_region', 0, 2, { B: P42_B, dir: 0 }),  // 窄场 12×12 默认——线圈在场中心
     ],
     criticalChecks: [
-      { label: 'v(3τ)=v₀·e⁻³（教材规律：一阶衰减——rod 等效，coil E2E 管线待修）', theory: P42_V0 * Math.exp(-3), tol: 0.05, from: { kind: 'final', subject: 0, pick: 'vx' } },
+      { label: '离场末速 v=v₀−w/τ=2−1=1（物理独立：离场距离 w 内指数衰减闭式解）', theory: P42_V0 - P42_W / 1, tol: 0.05, from: { kind: 'final', subject: 0, pick: 'vx' } },
     ],
     maxDuration: 3, substeps: 4, solutionId: 'gk-frame-through-b',
   }
