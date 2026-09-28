@@ -78,8 +78,10 @@ class CapacitorCoilTest {
         in.runToEndSync();
         // 理论：v(1τ)=4×e⁻¹=1.472（线圈在大场内持续减速 1s）
         // 实际可能因进入过渡（从场外到场内）略有差异——tol 20%
-        // 理论：线圈从场外进入（1 条边界），v_final = v₀ − w/τ = 4 − 1 = 3.0
-        // （dv/dx = −B²w²/(mR)，积分 Δv = −B²w³/(mR) = −1）
+        // 精确解（非匀速近似）：线圈进入磁场（1 条边界）
+        // m(dv/dx)v = −B²w²v/R → m(dv/dx) = −B²w²/R（v 消去→dv/dx=常数）
+        // 积分 Δv = −B²w³/(mR) = −w/τ → v_final = v₀ − w/τ = 4 − 1 = 3.0
+        // 注：v₀·e^{−w/(v₀τ)}=3.11 是匀速近似（误差 3.7%）——撤回
         double theory = 4.0 - 1.0 / 1.0;  // v₀ − w/τ
         assertTrue(Math.abs(lastVx[0] - theory) / theory < 0.05,
             "进入减速 v=" + String.format("%.3f", lastVx[0]) + " theory=" + String.format("%.3f", theory) + " ±5%（1条边界 v₀−w/τ）");

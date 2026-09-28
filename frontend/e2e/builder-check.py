@@ -43,7 +43,15 @@ def env_gate() -> bool:
                 print(f"❌ env-check: backend 未重启（class@{datetime.datetime.fromtimestamp(cls_new):%H:%M:%S} > proc@{start}）——先重启再回归")
                 return False
         except ValueError: pass
-    print("✅ env-check 门禁通过")
+    # Vite dev 直出签名（第 4 项——日常回归最高频环境风险）
+    try:
+        import urllib.request
+        html = urllib.request.urlopen('http://localhost:5173/', timeout=5).read().decode('utf-8', 'ignore')
+        if '/@vite/client' not in html:
+            print("❌ env-check: Vite 非 dev 直出（疑似 build 产物）"); return False
+    except Exception:
+        print("❌ env-check: Vite 5173 不可达"); return False
+    print("✅ env-check 门禁通过（4 项）")
     return True
 
 def main() -> int:
