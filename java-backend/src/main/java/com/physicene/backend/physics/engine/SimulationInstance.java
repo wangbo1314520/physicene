@@ -427,15 +427,7 @@ public class SimulationInstance {
         // 统一搭建台：每个子步刷新一次（场力跟随子步位置，方案 §3.4）
         for (int i = 0; i < substeps; i++) {
             applyCustomForces();
-            // P2.1·耦合编排：EMF→电流→安培力 / 气室→压力→活塞力（每子步，方案 §3.9）
-            if (orchestrator != null) {
-                var cr = orchestrator.step(t);
-                if (cr.sol() != null && cr.sol().ok) {
-                    for (var entry : cr.sol().elements.entrySet()) {
-                        couplingReadings.put("I_" + entry.getKey(), entry.getValue().i());
-                    }
-                }
-                // P5a 回填：恒力装置（_srcType=7）对目标体施加恒力 F·Δt
+            // P5a 回填：恒力装置（_srcType=7）对目标体施加恒力 F·Δt
                 if (t < forceDuration) {
                     for (var cfEl : scene.getElements()) {
                         if (cfEl.getParams() != null && cfEl.getParams().getOrDefault("_srcType", 0.0) == 7.0) {
@@ -448,6 +440,15 @@ public class SimulationInstance {
                                 target.applyForce(new org.dyn4j.geometry.Vector2(fVal, 0));
                             }
                         }
+                    }
+                }
+
+            // P2.1·耦合编排：EMF→电流→安培力 / 气室→压力→活塞力（每子步，方案 §3.9）
+            if (orchestrator != null) {
+                var cr = orchestrator.step(t);
+                if (cr.sol() != null && cr.sol().ok) {
+                    for (var entry : cr.sol().elements.entrySet()) {
+                        couplingReadings.put("I_" + entry.getKey(), entry.getValue().i());
                     }
                 }
                 // rod_bar 外力 F（恒力推/拉——_srcType=1 标记的 cube = RunBridge 映射的 rod_bar）
