@@ -124,10 +124,16 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
         asBody({ type: 'wall', fixed: true, properties: { friction: 0 }, params: { area: num(p.S, 0.01) } })
         break
       }
-      case 'gas_cell': case 'heater': {
-        // P2.1·耦合接入：_srcType=3 标记（gas_cell）/ 4（heater）
+      case 'heater':
+        // v3 发现（2026-09-29）：heater 曾并入 gas_cell 合并 case → 幽灵气室（gasEls.get(0) 可能取到
+        // heater 的默认参数）+ T2 无 Java 消费静默丢失。Java 无 _srcType=4 加热路径，
+        // 升温卡由 TS 热学装置引擎承载（u_tube 自带 T1/T2）——诚实跳过并告知
+        notes.push(`温度源「${e.id}」暂不参与刚体模拟（加热类卡片由热学装置引擎承载）`)
+        continue
+      case 'gas_cell': {
+        // P2.1·耦合接入：_srcType=3 标记（Java GasCell 耦合读 p0/V0/T0/gamma）
         asBody({ type: 'wall', fixed: true, properties: {},
-          params: { p0: num(p.p0, 101325), V0: num(p.V0, 0.01), T0: num(p.T0, 300), gamma: num(p.gamma, 1), T2: num(p.T2, 360), _srcType: 3 } })
+          params: { p0: num(p.p0, 101325), V0: num(p.V0, 0.01), T0: num(p.T0, 300), gamma: num(p.gamma, 1), _srcType: 3 } })
         break
       }
       case 'cart':
@@ -247,8 +253,10 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
           params: { C: num(p.C, 0.1), V0c: num(p.V0, 0), _srcType: 5 } })
         break
       case 'coil_frame':
-        asBody({ type: 'cube', properties: { mass: 1, friction: 0 },
-          params: { R: num(p.R, 1), w: num(p.w, 1), h: num(p.h, 1), _srcType: 6 },
+        // v3 发现：h 曾入 params 但 Java 不消费——改经 body scale 消费（w/h=框几何，与 cart L 同形式；
+        // w 另留 params 供 Java EMF=B·w·v 读）。卡 42 w=h=1 与默认 1×1 等价，行为不变
+        asBody({ type: 'cube', scale: { x: num(p.w, 1), y: num(p.h, 1) }, properties: { mass: 1, friction: 0 },
+          params: { R: num(p.R, 1), w: num(p.w, 1), _srcType: 6 },
           initialState: v0State(p) })
         break
       case 'b_region':

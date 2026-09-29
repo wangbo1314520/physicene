@@ -374,7 +374,9 @@ public class SimulationInstance {
                 capComp.id = "C_cap";
                 capComp.kind = "capacitor";
                 capComp.props.put("C", capacitance);
-                capComp.props.put("v0", 0.0);
+                // v3 发现（2026-09-29）：RunBridge 透传 V0c 但此处曾硬编码 0.0 → 初电压静默丢失；
+                // CircuitEngine L216 经 k.num("v0") 消费。卡 41 V0=0 行为不变
+                capComp.props.put("v0", capEl.getParams().getOrDefault("V0c", 0.0));
                 circuit.components.add(capComp);
                 if (!rodEls.isEmpty()) {
                     circuit.wires.add(new CircuitEngine.Wire(new CircuitEngine.PinRef("src_" + rodEls.get(0).getId(), 0), new CircuitEngine.PinRef("C_cap", 0)));

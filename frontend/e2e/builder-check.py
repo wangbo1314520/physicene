@@ -31,7 +31,11 @@ def env_gate() -> bool:
         print("❌ env-check: 8080 无 java 进程"); return False
     import os, time, datetime
     from pathlib import Path
-    cls = Path(__file__).resolve().parent.parent / 'java-backend' / 'target' / 'classes'
+    # 修复（2026-09-29）：原 parent.parent 指 frontend/java-backend（不存在）→ 此项检查一直空转，
+    # 第 4 次假重启正是从此漏过。正确路径 = 仓库根/java-backend
+    cls = Path(__file__).resolve().parent.parent.parent / 'java-backend' / 'target' / 'classes'
+    if not cls.exists():
+        print(f"❌ env-check: class 目录不存在 {cls}"); return False
     cls_new = 0.0
     for dp, _, fs in os.walk(cls):
         for f in fs:

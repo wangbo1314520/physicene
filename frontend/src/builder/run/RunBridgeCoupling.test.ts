@@ -1,5 +1,6 @@
 /**
- * P2·耦合接入 RunBridge 映射单测：rod_bar/rail_pair/piston/cylinder/gas_cell/heater → Java PhysicsElement
+ * P2·耦合接入 RunBridge 映射单测：rod_bar/rail_pair/piston/cylinder/gas_cell → Java PhysicsElement
+ * （heater 无 Java 路径：诚实跳过+note，见 v3 修复用例）
  */
 import { describe, it, expect } from 'vitest'
 import { toPhysicsElements } from '../run/RunBridge'
@@ -40,11 +41,17 @@ describe('P2 耦合元件映射', () => {
     expect(list[0].type).toBe('wall')
   })
 
-  it('gas_cell/heater → wall（fixed，热学参数透传）', () => {
+  it('gas_cell → wall（fixed，热学参数透传）', () => {
     const { list, skipped } = toPhysicsElements([mk('gas_cell', { p0: 101325, V0: 0.02, T0: 300 })])
     expect(skipped).toHaveLength(0)
     expect(list[0].type).toBe('wall')
     expect(list[0].params?.p0).toBe(101325)
+  })
+
+  it('heater → 不建体（v3 修复：Java 无加热路径，诚实跳过+note，防幽灵气室）', () => {
+    const { list, notes } = toPhysicsElements([mk('heater', { T2: 400 })])
+    expect(list).toHaveLength(0)
+    expect(notes.join()).toContain('温度源')
   })
 
   it('rod_bar + rail_pair + b_region 组合不跳过', () => {
