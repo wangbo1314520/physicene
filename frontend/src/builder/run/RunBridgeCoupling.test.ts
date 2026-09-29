@@ -48,10 +48,11 @@ describe('P2 耦合元件映射', () => {
     expect(list[0].params?.p0).toBe(101325)
   })
 
-  it('heater → 不建体（v3 修复：Java 无加热路径，诚实跳过+note，防幽灵气室）', () => {
-    const { list, notes } = toPhysicsElements([mk('heater', { T2: 400 })])
+  it('heater → 显式拒绝进 skipped（追问3：物理未实现不许静默——run() 会返回阻断信息）', () => {
+    const { list, skipped } = toPhysicsElements([mk('heater', { T2: 400 })])
     expect(list).toHaveLength(0)
-    expect(notes.join()).toContain('温度源')
+    expect(skipped.join()).toContain('温度源')
+    expect(skipped.join()).toContain('热学装置卡')
   })
 
   it('rod_bar + rail_pair + b_region 组合不跳过', () => {

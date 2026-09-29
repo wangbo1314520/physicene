@@ -70,6 +70,7 @@ async function doRun() {
   const t = currentTemplateId.value ? templateById(currentTemplateId.value) : null
   const err = await bridge.run(elements, analysis.value, t?.maxDuration ?? 12, t?.gravityY ?? -9.8, t?.substeps)
   if (err) say(err)
+  else if (bridge.lastNotes.value.length) say(bridge.lastNotes.value.join('；'))  // 非阻断提示上屏（追问3：不再静默）
 }
 /** P1.1·TS 引擎 ended → 数据面板记录（与 Java ended 同入口，读数从 tsRun 取） */
 watch(() => bridge.tsRun.value.status, (st) => {

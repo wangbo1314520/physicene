@@ -1,4 +1,4 @@
-"""CI v3：RunBridge params 输出 key → Java 消费 key 跨语言对照（WARNING 级）。
+"""CI v3：RunBridge params 输出 key → Java 消费 key 跨语言对照（BLOCKING + 白名单制）。
 防 dampingRatio 类 bug（RunBridge 透传但 Java 不消费 → 值静默丢失）。
 
 采集（TS 侧，RunBridge.ts 的 Java 路径 toPhysicsElements）：
@@ -9,7 +9,13 @@
 对照（Java 侧全源码 grep 四种消费形式）：
   getOrDefault("key" / param("key" / getParams().get("key" / containsKey("key"
   —— 覆盖 SimulationInstance 直接读、BeltElement 等 param() 助手、SceneValidator 局部变量 pr.getOrDefault
-用法：python scripts/check-java-consumption.py（已接入 npm run verify，WARNING 层不阻断）"""
+
+执行规则（2026-09-30 追问2 制度化，替代 WARNING 放行制）：
+  未消费 key → exit 1（阻断提交）。白名单 ALLOWLIST 是唯一放行通道：
+  - 条目 = key → 理由（必须写明经哪条非字符串路径消费）
+  - 白名单条目出现在 git diff 中 = 放行签字记录，评审可审计
+  - v3 每次运行恒打印白名单条目数——增长必出现在 diff，防静默膨胀
+用法：python scripts/check-java-consumption.py（已接入 npm run verify，BLOCKING 层）"""
 import re
 import sys
 from pathlib import Path
@@ -17,6 +23,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent  # frontend/
 BRIDGE = ROOT / "src" / "builder" / "run" / "RunBridge.ts"
 JAVA_DIR = ROOT / ".." / "java-backend" / "src" / "main" / "java"
+
+# 唯一放行通道：key → 消费路径理由。新增条目须经评审（diff 可见 = 签字记录）
+ALLOWLIST: dict[str, str] = {}
 
 
 def extract_bridge_param_keys(bridge_text: str) -> list[tuple[str, int, str]]:
@@ -73,18 +82,22 @@ def main() -> int:
     bridge_keys = extract_bridge_param_keys(bridge_text)
     java_keys = extract_java_consumed_keys()
 
-    print(f"RunBridge params 输出 {len(bridge_keys)} 个 key（含跨 case 重复），Java 消费 {len(java_keys)} 个 key")
-    warnings = 0
+    print(f"RunBridge params 输出 {len(bridge_keys)} 个 key（含跨 case 重复），Java 消费 {len(java_keys)} 个 key，白名单 {len(ALLOWLIST)} 条")
+    breaks = 0
     for owner, line, key in sorted(set(bridge_keys), key=lambda t: (t[1], t[2])):
-        if key not in java_keys:
-            print(f'⚠️ L{line} {owner}.{key} → RunBridge 透传但 Java 无 getOrDefault/param/get/containsKey 消费')
-            warnings += 1
+        if key in java_keys:
+            continue
+        if key in ALLOWLIST:
+            print(f"⚪ {owner}.{key} → 白名单放行：{ALLOWLIST[key]}")
+        else:
+            print(f'❌ L{line} {owner}.{key} → RunBridge 透传但 Java 无消费（dampingRatio 类断链）')
+            print("   修复：Java 补 getOrDefault/param 消费；或确经非字符串路径消费 → 加 ALLOWLIST 条目（须写明路径，diff=签字）")
+            breaks += 1
 
-    if warnings > 0:
-        print(f"\n⚠️ {warnings} 个参数 RunBridge→Java 链路可能有断（人工确认是否经其他路径消费）")
-        print("   已知盲区：局部变量 .get(\"k\") 直读、properties getter 路径——见 docs/参数链审计表.md 三层防线")
-        return 0  # WARNING 层：不阻断，与 v2 BLOCKING 层互补
-    print("✅ RunBridge params → Java 消费 全通")
+    if breaks > 0:
+        print(f"\n❌ {breaks} 个 RunBridge→Java 断链——阻断（BLOCKING）")
+        return 1
+    print("✅ RunBridge params → Java 消费 全通（白名单外 0 断链）")
     return 0
 
 

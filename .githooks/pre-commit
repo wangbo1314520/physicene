@@ -23,6 +23,16 @@ fi
 cd frontend
 npx vue-tsc --noEmit || { echo "❌ vue-tsc failed"; exit 1; }
 npx vitest run src/builder 2>&1 | tail -3
+# 参数链 CI v2（BLOCKING：catalog→消费点+合并case白名单）+ v3（BLOCKING：RunBridge→Java 消费）
+E:/Program/Python312/python scripts/check-param-chain.py || exit 1
+E:/Program/Python312/python scripts/check-java-consumption.py || exit 1
+# catalog 参数变更 ↔ 人工审计表 co-change 强制（2026-09-30 追问5：checklist 第2条机械化——
+# 改名映射/新参数语义只活在本里，跳过登记=人工表烂掉。v2/v3 抓不到改名，此规则补位）
+STAGED=$(git diff --cached --name-only)
+if echo "$STAGED" | grep -qx 'frontend/src/builder/catalog.ts' && ! echo "$STAGED" | grep -q '参数链审计表'; then
+  echo "❌ catalog.ts 变更但参数链审计表.md 未同步——新参数/SEL 须登记映射行（checklist 第2条，co-change 强制）"
+  exit 1
+fi
 # .gitignore 变更的提交必须过双层扫描自测（防新规则误伤——data/ 事故同型，第二十四轮制度）
 if git diff --cached --name-only | grep -qx '.gitignore'; then
   bash ../.githooks/selftest.sh || exit 1

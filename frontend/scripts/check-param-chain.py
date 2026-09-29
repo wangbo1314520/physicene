@@ -13,6 +13,17 @@ RUNNERS = ROOT / "src" / "builder" / "run"
 
 SEL_SKIP = {"dir", "mat", "mode", "color", "len", "scale", "size"}  # SEL+显示类参数
 
+# 合并 case 白名单（2026-09-30 追问5 机械化）：新增合并 case 必须登记 docs/参数链审计表.md ③ 节
+# 并给出双类型分流证明（heater 并入 gas_cell 产生幽灵气室的前科——默认禁止）
+COMBINED_CASE_ALLOW = {frozenset(s.split("|")) for s in ("rope|spring",)}
+
+def check_combined_cases(bridge_text: str) -> list[str]:
+    """RunBridge 中相邻 case 'x': case 'y': 模式（含换行/注释间隔）→ 未登记的合并即违规"""
+    pairs = []
+    for m in re.finditer(r"case '(\w+)':(\s*(?://[^\n]*\n)?\s*)case '(\w+)':", bridge_text):
+        pairs.append((m.group(1), m.group(3)))
+    return [f"{a}+{b}" for a, b in pairs if frozenset((a, b)) not in COMBINED_CASE_ALLOW]
+
 def main() -> int:
     cat_text = CATALOG.read_text(encoding="utf-8")
     bridge_text = BRIDGE.read_text(encoding="utf-8")
@@ -38,7 +49,11 @@ def main() -> int:
         for p in sorted(missing):
             print(f"  {p}")
         return 1
-    print(f"✅ {len(cat_params)} 个 catalog 参数全有消费点（RunBridge {len(bridge_consumed)} + TS {len(ts_consumed)}）")
+    bad_combined = check_combined_cases(bridge_text)
+    if bad_combined:
+        print(f"❌ 未登记的合并 case：{bad_combined}——默认禁止（heater 幽灵气室前科）；须登记参数链审计表③节+分流证明")
+        return 1
+    print(f"✅ {len(cat_params)} 个 catalog 参数全有消费点（RunBridge {len(bridge_consumed)} + TS {len(ts_consumed)}）；合并 case 仅白名单 {sorted('|'.join(s) for s in COMBINED_CASE_ALLOW)}")
     return 0
 
 if __name__ == "__main__":

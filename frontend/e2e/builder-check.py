@@ -178,6 +178,22 @@ def main() -> int:
         if errs:
             failures.append(f"页面错误 {errs[:2]}")
             print("页面错误:", errs[:3])
+
+        # ── 追问4：heater 显式拒绝 E2E（free-build 放置温度源 → 运行 → 阻断信息可见，不许静默）──
+        # heater 无 Java 加热路径（v3 修复前=幽灵气室）。任何卡不用它——用 free-build 行为验证
+        page.evaluate("window.__builder.clear()")
+        page.locator(".palette .tabs button", has_text="热学").click()
+        page.locator(".palette .item", has_text="温度源").first.click()
+        page.locator(".tools .primary").click()
+        page.wait_for_timeout(600)
+        toast = page.evaluate("window.__builder.toast()")
+        sim_st = page.evaluate("window.__builder.simStatus()")
+        # 拒绝发生在 socket.run 之前：状态不得进入 running/connecting（clearAll 不重置 sim，允许 idle/ended 残留）
+        heater_ok = ("温度源" in (toast or "")) and "热学装置卡" in (toast or "") and sim_st in ("idle", "ended")
+        print(f"{'✅' if heater_ok else '❌'} heater 显式拒绝（追问4：toast 含指引={bool(toast)}, status={sim_st}）")
+        if not heater_ok:
+            failures.append("heater-reject")
+
         b.close()
 
     passed = len(want) - len([f for f in failures if f in [t["id"] for t in want]])

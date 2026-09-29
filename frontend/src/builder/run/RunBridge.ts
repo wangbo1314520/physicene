@@ -127,8 +127,9 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
       case 'heater':
         // v3 发现（2026-09-29）：heater 曾并入 gas_cell 合并 case → 幽灵气室（gasEls.get(0) 可能取到
         // heater 的默认参数）+ T2 无 Java 消费静默丢失。Java 无 _srcType=4 加热路径，
-        // 升温卡由 TS 热学装置引擎承载（u_tube 自带 T1/T2）——诚实跳过并告知
-        notes.push(`温度源「${e.id}」暂不参与刚体模拟（加热类卡片由热学装置引擎承载）`)
+        // 升温卡由 TS 热学装置引擎承载（u_tube 自带 T1/T2）。
+        // 显式拒绝（2026-09-30 追问3）：物理未实现的元件不许静默跳过——进 skipped 阻断运行+提示
+        skipped.push('温度源(heater)——刚体场景暂不支持加热（加热实验请用热学装置卡）')
         continue
       case 'gas_cell': {
         // P2.1·耦合接入：_srcType=3 标记（Java GasCell 耦合读 p0/V0/T0/gamma）
@@ -296,6 +297,8 @@ export function useRunBridge() {
     rays: { x0: number; y0: number; x1: number; y1: number; kind: string }[]
     frames: unknown[]
   }>({ status: 'idle', t: 0, readings: {}, rays: [], frames: [] })
+  /** 最近一次 run() 的非阻断提示（连接缺失等）——BuilderView toast 展示，不再静默（2026-09-30 追问3） */
+  const lastNotes = ref<string[]>([])
   let tsTimer: ReturnType<typeof setInterval> | null = null
 
   function stopTs() {
@@ -304,6 +307,7 @@ export function useRunBridge() {
   }
 
   async function run(els: GeoElement[], analysis: Analysis, maxDuration = 12, gravityY = -9.8, substepsOverride?: number): Promise<string | null> {
+    lastNotes.value = []  // 每次运行重置（TS 路径不经 toPhysicsElements）
     if (els.length === 0) return '画布为空'
     if (analysis.path === 'none') return '没有可运行的元件（只有显示类元件）'
     // P1·TS 本地引擎：光学/近代元件走 OpticsRunner/ModernRunner，不 POST Java
@@ -366,6 +370,7 @@ export function useRunBridge() {
       return '光学/近代元件不能与力学刚体混合运行（需拆为独立场景）'
     // P2·耦合接入：rail-rod / 热学已解除拒绝（Java 联合运行，CouplingOrchestrator 调度）
     const pkg = toPhysicsElements(els)
+    lastNotes.value = pkg.notes
     if (pkg.skipped.length) return `暂不支持运行的元件：${[...new Set(pkg.skipped)].join('、')}`
     if (!pkg.list.length) return '没有可映射到求解器的元件'
     const hasBeltOrLoop = els.some((e) => e.type === 'belt' || e.type === 'loop_track')
@@ -386,5 +391,5 @@ export function useRunBridge() {
     return m
   })
 
-  return { socket, run, runStates, tsRun }
+  return { socket, run, runStates, tsRun, lastNotes }
 }
