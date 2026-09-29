@@ -432,7 +432,7 @@ public class SimulationInstance {
                 if (cfEl.getParams() != null && cfEl.getParams().getOrDefault("_srcType", 0.0) == 7.0) {
                     double fVal = cfEl.getParams().getOrDefault("F", 4.0);
                     double fDur = cfEl.getParams().getOrDefault("duration", 2.0);
-                    System.out.printf("[cf-dbg] t=%.3f fDur=%.3f F=%.1f params=%s%n", t, fDur, fVal, cfEl.getParams().keySet()); if (t >= fDur) continue;
+                    if (t >= fDur) continue;
                     int targetIdx = (int)(double) cfEl.getParams().getOrDefault("target", 0.0);
                     var dynIt = dynamicBodies.iterator();
                     Body target = null;
