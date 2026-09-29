@@ -917,27 +917,41 @@ function gkIsochrone22(): GeoTemplate {
     solutionId: 'gk-isochrone', maxDuration: 2,
   }
 }
-// —— 卡 23 晾衣杆：T=mgL/(2√(L²−d²))（物理独立：三力交汇正弦定理推导）——
-const P23_L = 2, P23_M = 2, P23_D = 0.8
-const p23T = (P23_M * 9.8 * P23_L) / (2 * Math.sqrt(P23_L * P23_L - P23_D * P23_D))
+// —— 卡 23 晾衣杆：双绳悬挂+中点挂重，对称静力学 T_side=(M+m)g/(2sinθ)、T_w=mg ——
+// P5a 批2-2 回填：双端绳 connectTo2 + 梁底中点锚分叉已可搭建——原申改（自由落体替代）作废
+// 几何：悬点 (±1.5,4.5)、梁 (0,2.5)（锚 ±0.5）、重物 (0,1.0)；侧绳 √5（sinθ=2/√5）、中点绳 0.5
+const P23_MB = 1, P23_MW = 2, P23_H = 2, P23_D = 1
+const p23Side = (P23_MB + P23_MW) * 9.8 * Math.sqrt(P23_D * P23_D + P23_H * P23_H) / (2 * P23_H)
+const p23Mid = P23_MW * 9.8
 function gkClothesline23(): GeoTemplate {
+  const ceilL = mk('anchor_point', -P23_D, 2.5 + P23_H); ceilL.id = 'ceil-L'
+  const ceilR = mk('anchor_point', P23_D, 2.5 + P23_H); ceilR.id = 'ceil-R'
+  const beam = mk('block', 0, 2.5, { m: P23_MB, mu: 0, v0: 0, fixRot: 0 }); beam.id = 'beam'
+  const weight = mk('sphere', 0, 1, { m: P23_MW, v0: 0 }); weight.id = 'weight'
+  const ropeL = mk('rope', 0, 4, { L: Math.sqrt(P23_D * P23_D + P23_H * P23_H), Tmax: 100 }, 0, [
+    { toId: 'ceil-L', kind: 'rope', anchorA: '左端', anchorB: '锚点' },
+    { toId: 'beam', kind: 'rope', anchorA: '右端', anchorB: '左' },
+  ]); ropeL.id = 'rope-L'
+  const ropeR = mk('rope', 0, 4, { L: Math.sqrt(P23_D * P23_D + P23_H * P23_H), Tmax: 100 }, 0, [
+    { toId: 'ceil-R', kind: 'rope', anchorA: '左端', anchorB: '锚点' },
+    { toId: 'beam', kind: 'rope', anchorA: '右端', anchorB: '右' },
+  ]); ropeR.id = 'rope-R'
+  const ropeW = mk('rope', 0, 2, { L: 0.5, Tmax: 100 }, 0, [
+    { toId: 'beam', kind: 'rope', anchorA: '左端', anchorB: '底' },
+    { toId: 'weight', kind: 'rope', anchorA: '右端', anchorB: '顶' },
+  ]); ropeW.id = 'rope-W'
   return {
     id: 'gk-clothesline', card: '23', group: '力学',
-    name: '晾衣杆（动态平衡张力）',
-    tags: ['动态平衡', '绳'],
-    // 申改（审查令）：原卡"晾衣杆双绳+中点挂重"builder 无法搭建（需双端绳+中点分叉）。
-    // 替代方案：弹簧竖直悬挂——静态平衡伸长 x=mg/k（胡克定律）
-    // 原卡 T=mgL/(2√(L²−d²)) 的物理（三力交汇正弦定理）见场景卡 gk-clothesline
-    // 申改（审查令）：原卡"晾衣杆双绳+中点挂重"builder 无法搭建——替代为自由落体验证
-    elements: [
-      ground(0),
-      mk('block', 0, P23_M + 1, { m: P23_M, mu: 0, v0: 0, fixRot: 1 }),
-    ],
+    name: '晾衣杆（双绳悬挂+中点挂重·对称张力）',
+    tags: ['静力学', '绳', '三力交汇'],
+    elements: [ceilL, ceilR, beam, weight, ropeL, ropeR, ropeW],
     criticalChecks: [
-      { label: '落地后静止 |vy|→0（教材规律·solver 收敛余量）', theory: 0, tol: 0.02, tolAbs: 0.8, from: { kind: 'final', subject: 0, pick: 'vy' } },
-      { label: '释放高度 maxY（教材规律·200ms 采样延迟≈½g·0.2²≈0.2m）', theory: P23_M + 1, tol: 0.08, from: { kind: 'max-y', subject: 0 } },
+      { label: '侧绳 T_side=(M+m)g/(2sinθ)（教材规律：对称三力交汇——sinθ=h/√(d²+h²)）', theory: p23Side, tol: 0.03, from: { kind: 'probe', key: 'Tavg_rope-L' } },
+      { label: '侧绳对称 T_R=T_L（教材规律：中点挂重对称构型）', theory: p23Side, tol: 0.03, from: { kind: 'probe', key: 'Tavg_rope-R' } },
+      { label: '中点绳 T_w=mg（教材规律：重物三力平衡）', theory: p23Mid, tol: 0.03, from: { kind: 'probe', key: 'Tavg_rope-W' } },
+      { label: '平衡静止 |vy|→0（重物悬停）', theory: 0, tol: 0.02, tolAbs: 0.1, from: { kind: 'final', subject: 1, pick: 'vy' } },
     ],
-    solutionId: 'gk-clothesline', maxDuration: 5,
+    solutionId: 'gk-clothesline', maxDuration: 3, substeps: 8,
   }
 }
 // —— 卡 25 多过程：v₀ 匀减速到停 x=v₀²/2μg（教材规律：运动学公式链）——

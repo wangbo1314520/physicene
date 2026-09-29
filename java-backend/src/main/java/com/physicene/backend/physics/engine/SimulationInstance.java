@@ -97,6 +97,10 @@ public class SimulationInstance {
     private final java.util.List<com.physicene.backend.physics.element.PulleyElement> pulleys = new java.util.ArrayList<>();
     /** D5 冲量式绳（断裂判定 + rope_break 事件） */
     private final java.util.List<com.physicene.backend.physics.element.RopeElement> ropes = new java.util.ArrayList<>();
+    /** P5a 批2：绳张力帧内累积 {sum, n}——冲刷均值进 couplingReadings（瞬时值在绷紧/松弛子步间脉动） */
+    private final java.util.Map<String, double[]> ropeTensionAccum = new java.util.LinkedHashMap<>();
+    /** P5a 批2：绳张力 EMA（Tavg_ 探针）——静力学断言数据源 */
+    private final java.util.Map<String, Double> ropeTensionEma = new java.util.LinkedHashMap<>();
     /** P2.1·耦合编排器（null=无耦合场景零开销） */
     private CouplingOrchestrator orchestrator = null;
     /** P5a：恒力装置持续时间 */
@@ -494,6 +498,10 @@ public class SimulationInstance {
             // D5 冲量式绳：约束冲量 + 张力超限断裂（每条绳独立判定）
             for (com.physicene.backend.physics.element.RopeElement rope : ropes) {
                 double tension = rope.applyImpulse(dt / substeps);
+                // P5a 批2：绳张力帧内累积（步末取均值上 probes）——冲量式约束稳态下张力在
+                // 绷紧/松弛子步间脉动（Baumgarte c≈0 摆动），瞬时值非承载力，均值才是
+                double[] acc = ropeTensionAccum.computeIfAbsent(rope.ownId(), k -> new double[2]);
+                acc[0] += tension; acc[1] += 1;
                 if (!rope.isBroken() && tension > rope.tMax()) {
                     rope.markBroken();
                     KeyEvent ev = new KeyEvent(t, "rope_break", "绳断裂（T=" + String.format("%.1f", tension)
@@ -504,6 +512,20 @@ public class SimulationInstance {
                 }
             }
             world.step(1);
+        }
+        // 步末冲刷：本步各绳张力均值 → probes 通道（T_<ropeId>）——晾衣杆静力学卡断言数据源。
+        // 冲量式约束+Baumgarte（γ=0.1）在精确平衡构型上维持微振荡（张力绕静态值 ±~15% 不衰减），
+        // 静力学断言用滑动均值 Tavg_<ropeId>（EMA α=0.06 ≈ 0.5s 窗）——时间平均=静态张力，非容差放大
+        for (var ent : ropeTensionAccum.entrySet()) {
+            if (ent.getValue()[1] > 0) {
+                double mean = ent.getValue()[0] / ent.getValue()[1];
+                couplingReadings.put("T_" + ent.getKey(), mean);
+                double prev = ropeTensionEma.getOrDefault(ent.getKey(), mean);
+                double ema = 0.94 * prev + 0.06 * mean;
+                ropeTensionEma.put(ent.getKey(), ema);
+                couplingReadings.put("Tavg_" + ent.getKey(), ema);
+                ent.getValue()[0] = 0; ent.getValue()[1] = 0;
+            }
         }
         t += dt;
         frameCount++;
