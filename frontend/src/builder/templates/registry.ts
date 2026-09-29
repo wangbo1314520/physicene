@@ -1009,18 +1009,19 @@ function gkSmallQuantity67(): GeoTemplate {
 // ════ P4·批 2：力学 2 + 电磁感应 3（68/69/14/38/39）════
 // 前置：rail_pair scale 100×0.2 修复（与 ground 同类 bug——wall 是支撑面不是边界）
 
-// —— 卡 68 非惯性系（电梯内平抛）：惯性力 −ma 等效重力 g'=g+a ——
-// 申改：builder 无电梯加速平台——替代为地面参考系平抛 + 竖直加速度 a 叠加
-// 原卡"电梯内抛体等效重力"见场景卡 gk-noninertial
-const P68_V0 = 6, P68_TH = 30
+// —— 卡 68 非惯性系（电梯内抛体）：惯性力 −ma 等效重力 g'=g+a ——
+// P5a 批2 回填：accelerating_platform（电梯参考系）落地——原申改（地面平抛替代）作废，恢复原卡物理
+const P68_V0 = 6, P68_TH = 30, P68_A = 2
 function gkNoninertial68(): GeoTemplate {
+  const vy = P68_V0 * Math.sin(P68_TH * Math.PI / 180)
   return {
     id: 'gk-noninertial', card: '68', group: '力学',
-    name: '非惯性系（电梯内平抛等效重力申改→地面平抛）',
-    tags: ['非惯性系', '平抛', '临时降级'],
-    elements: [ground(0), mk('particle', 0, 0.5, { m: 1, v0: P68_V0, ang: P68_TH })],
+    name: '非惯性系（电梯内抛体等效重力 g′=g+a）',
+    tags: ['非惯性系', '电梯', '等效重力'],
+    elements: [mk('accelerating_platform', 0, 0, { a: P68_A, L: 8 }), mk('particle', -2, 0.5, { m: 1, v0: P68_V0, ang: P68_TH })],
     criticalChecks: [
-      { label: '峰值 H=y₀+v₀²sin²θ/(2g)（教材规律·平抛竖直公式——申改卡）', theory: 0.5 + (P68_V0 * P68_V0 * Math.pow(Math.sin(P68_TH * Math.PI / 180), 2)) / (2 * 9.8), tol: 0.1, from: { kind: 'max-y', subject: 0 } },
+      { label: '峰值 H′=y₀+v₀ᵧ²/(2(g+a))（教材规律·电梯系等效重力——惯性力 −ma 与重力合成）', theory: 0.5 + (vy * vy) / (2 * (9.8 + P68_A)), tol: 0.03, from: { kind: 'max-y', subject: 0 } },
+      { label: '水平 vx 不变（电梯系内无水平力——等效重力只改竖直方向）', theory: P68_V0 * Math.cos(P68_TH * Math.PI / 180), tol: 0.01, from: { kind: 'final', subject: 0, pick: 'vx' } },
     ],
     maxDuration: 3, solutionId: 'gk-noninertial', substeps: 8,
   }

@@ -444,6 +444,17 @@ public class SimulationInstance {
                     }
                 }
             }
+// P5a 批2 回填：加速平台（_srcType=8）= 电梯参考系——全部自由体受惯性力 −m·a（画布=电梯系；
+// 平台=固定墙，dyn4j 接触约束自动给支撑物 N=m(g+a)）。抛体呈等效重力 g+a 轨迹（卡 68）
+            for (var apEl : scene.getElements()) {
+                if (apEl.getParams() != null && apEl.getParams().getOrDefault("_srcType", 0.0) == 8.0) {
+                    double pa = apEl.getParams().getOrDefault("a", 2.0);
+                    if (pa == 0) continue;
+                    for (Body db : dynamicBodies) {
+                        db.applyForce(new org.dyn4j.geometry.Vector2(0, -db.getMass().getMass() * pa));
+                    }
+                }
+            }
 
             // P2.1·耦合编排：EMF→电流→安培力 / 气室→压力→活塞力（每子步，方案 §3.9）
             if (orchestrator != null) {

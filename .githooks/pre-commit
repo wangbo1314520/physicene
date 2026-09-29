@@ -28,7 +28,8 @@ E:/Program/Python312/python scripts/check-param-chain.py || exit 1
 E:/Program/Python312/python scripts/check-java-consumption.py || exit 1
 # catalog 参数变更 ↔ 人工审计表 co-change 强制（2026-09-30 追问5：checklist 第2条机械化——
 # 改名映射/新参数语义只活在本里，跳过登记=人工表烂掉。v2/v3 抓不到改名，此规则补位）
-STAGED=$(git diff --cached --name-only)
+# 注：core.quotepath=false 必须——中文路径默认八进制转义，grep 匹配不到（首轮部署即被抓的钩子自 bug）
+STAGED=$(git -c core.quotepath=false diff --cached --name-only)
 if echo "$STAGED" | grep -qx 'frontend/src/builder/catalog.ts' && ! echo "$STAGED" | grep -q '参数链审计表'; then
   echo "❌ catalog.ts 变更但参数链审计表.md 未同步——新参数/SEL 须登记映射行（checklist 第2条，co-change 强制）"
   exit 1

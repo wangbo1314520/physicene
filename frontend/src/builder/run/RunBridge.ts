@@ -249,6 +249,11 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
         asBody({ type: 'wall', fixed: true, properties: {},
           params: { F: num(p.F, 4), duration: num(p.duration, 2), target: num(p.target, 0), _srcType: 7 } })
         break
+      case 'accelerating_platform':
+        // P5a 批2 回填：电梯参考系——平台=固定墙（电梯地板），Java 对全部自由体施惯性力 −ma（_srcType=8）
+        asBody({ type: 'wall', scale: { x: num(p.L, 8), y: 0.3 }, fixed: true, properties: { friction: 0 },
+          params: { a: num(p.a, 2), _srcType: 8 } })
+        break
       case 'capacitor_r':
         asBody({ type: 'wall', fixed: true, properties: {},
           params: { C: num(p.C, 0.1), V0c: num(p.V0, 0), _srcType: 5 } })
