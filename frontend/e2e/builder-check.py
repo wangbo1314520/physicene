@@ -179,20 +179,19 @@ def main() -> int:
             failures.append(f"页面错误 {errs[:2]}")
             print("页面错误:", errs[:3])
 
-        # ── 追问4：heater 显式拒绝 E2E（free-build 放置温度源 → 运行 → 阻断信息可见，不许静默）──
-        # heater 无 Java 加热路径（v3 修复前=幽灵气室）。任何卡不用它——用 free-build 行为验证
+        # ── notes 通道 E2E（2026-09-30 追问2/3）：未连接绳 + 物块 → 运行成功但 toast 提示"未连接"——
+        # pkg.notes 曾长期无人消费（heater 取证发现），现已经 lastNotes 上屏；heater 元件本身已删（僵尸，0 卡引用）
         page.evaluate("window.__builder.clear()")
-        page.locator(".palette .tabs button", has_text="热学").click()
-        page.locator(".palette .item", has_text="温度源").first.click()
+        page.locator(".palette .tabs button", has_text="力学").click()
+        page.locator(".palette .item", has_text="物块").first.click()
+        page.locator(".palette .item", has_text="轻绳").first.click()
         page.locator(".tools .primary").click()
-        page.wait_for_timeout(600)
+        page.wait_for_timeout(800)
         toast = page.evaluate("window.__builder.toast()")
-        sim_st = page.evaluate("window.__builder.simStatus()")
-        # 拒绝发生在 socket.run 之前：状态不得进入 running/connecting（clearAll 不重置 sim，允许 idle/ended 残留）
-        heater_ok = ("温度源" in (toast or "")) and "热学装置卡" in (toast or "") and sim_st in ("idle", "ended")
-        print(f"{'✅' if heater_ok else '❌'} heater 显式拒绝（追问4：toast 含指引={bool(toast)}, status={sim_st}）")
-        if not heater_ok:
-            failures.append("heater-reject")
+        notes_ok = "未连接" in (toast or "")
+        print(f"{'✅' if notes_ok else '❌'} notes 通道上屏（未连接绳 toast={'有' if toast else '无'}）")
+        if not notes_ok:
+            failures.append("notes-toast")
 
         b.close()
 

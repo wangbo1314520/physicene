@@ -69,7 +69,7 @@ describe('数字口径闸门', () => {
     const { PLAN_COUNT, CATALOG } = await import('../catalog')
     const { TEMPLATES } = await import('./registry')
     expect(PLAN_COUNT).toBe(CATALOG.length)
-    expect(PLAN_COUNT).toBe(70)   // 69 + P5a 批2 accelerating_platform（电梯参考系）  // 变更须同步数字口径审计
+    expect(PLAN_COUNT).toBe(69)   // 70 − heater（2026-09-30 删除僵尸元件，0 卡引用）  // 变更须同步数字口径审计
     expect(TEMPLATES.length).toBe(62)   // 17 几何 + 装置 28（批1-4 全量）
   })
 })

@@ -124,13 +124,6 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
         asBody({ type: 'wall', fixed: true, properties: { friction: 0 }, params: { area: num(p.S, 0.01) } })
         break
       }
-      case 'heater':
-        // v3 发现（2026-09-29）：heater 曾并入 gas_cell 合并 case → 幽灵气室（gasEls.get(0) 可能取到
-        // heater 的默认参数）+ T2 无 Java 消费静默丢失。Java 无 _srcType=4 加热路径，
-        // 升温卡由 TS 热学装置引擎承载（u_tube 自带 T1/T2）。
-        // 显式拒绝（2026-09-30 追问3）：物理未实现的元件不许静默跳过——进 skipped 阻断运行+提示
-        skipped.push('温度源(heater)——刚体场景暂不支持加热（加热实验请用热学装置卡）')
-        continue
       case 'gas_cell': {
         // P2.1·耦合接入：_srcType=3 标记（Java GasCell 耦合读 p0/V0/T0/gamma）
         asBody({ type: 'wall', fixed: true, properties: {},
