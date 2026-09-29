@@ -4,8 +4,8 @@
 import re, sys
 from pathlib import Path
 ROOT = Path(__file__).parent.parent
-catalog = (ROOT / 'frontend/src/builder/catalog.ts').read_text(encoding='utf-8')
-audit = (ROOT / 'docs/参数链审计表.md').read_text(encoding='utf-8')
+catalog = (ROOT / 'src/builder/catalog.ts').read_text(encoding='utf-8')
+audit = (ROOT / '../docs/参数链审计表.md').read_text(encoding='utf-8')
 cat_params = set(re.findall(r"P\('(\w+)'", catalog))
 audit_params = set(re.findall(r'(\w+)', audit))  # 粗匹配——改进方向
 missing = cat_params - audit_params - {'dir','mat','mode'}  # SEL 排除
