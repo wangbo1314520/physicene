@@ -919,20 +919,21 @@ function gkIsochrone22(): GeoTemplate {
 }
 // —— 卡 23 晾衣杆：双绳悬挂+中点挂重，对称静力学 T_side=(M+m)g/(2sinθ)、T_w=mg ——
 // P5a 批2-2 回填：双端绳 connectTo2 + 梁底中点锚分叉已可搭建——原申改（自由落体替代）作废
-// 几何：悬点 (±1.5,4.5)、梁 (0,2.5)（锚 ±0.5）、重物 (0,1.0)；侧绳 √5（sinθ=2/√5）、中点绳 0.5
-const P23_MB = 1, P23_MW = 2, P23_H = 2, P23_D = 1
-const p23Side = (P23_MB + P23_MW) * 9.8 * Math.sqrt(P23_D * P23_D + P23_H * P23_H) / (2 * P23_H)
+// 几何（P23_DX=绳水平跨度，非天花板偏距——梁端在 ±0.5，故悬点 x=±(0.5+DX)）：
+//   悬点 (±1.5,4.5)、梁 (0,2.5)（锚 ±0.5）、重物 (0,1.0)；侧绳 L=√(DX²+H²)=√5（sinθ=H/L）、中点绳 0.5
+const P23_MB = 1, P23_MW = 2, P23_H = 2, P23_DX = 1
+const p23Side = (P23_MB + P23_MW) * 9.8 * Math.sqrt(P23_DX * P23_DX + P23_H * P23_H) / (2 * P23_H)
 const p23Mid = P23_MW * 9.8
 function gkClothesline23(): GeoTemplate {
-  const ceilL = mk('anchor_point', -P23_D, 2.5 + P23_H); ceilL.id = 'ceil-L'
-  const ceilR = mk('anchor_point', P23_D, 2.5 + P23_H); ceilR.id = 'ceil-R'
+  const ceilL = mk('anchor_point', -(0.5 + P23_DX), 2.5 + P23_H); ceilL.id = 'ceil-L'
+  const ceilR = mk('anchor_point', 0.5 + P23_DX, 2.5 + P23_H); ceilR.id = 'ceil-R'
   const beam = mk('block', 0, 2.5, { m: P23_MB, mu: 0, v0: 0, fixRot: 0 }); beam.id = 'beam'
   const weight = mk('sphere', 0, 1, { m: P23_MW, v0: 0 }); weight.id = 'weight'
-  const ropeL = mk('rope', 0, 4, { L: Math.sqrt(P23_D * P23_D + P23_H * P23_H), Tmax: 100 }, 0, [
+  const ropeL = mk('rope', 0, 4, { L: Math.sqrt(P23_DX * P23_DX + P23_H * P23_H), Tmax: 100 }, 0, [
     { toId: 'ceil-L', kind: 'rope', anchorA: '左端', anchorB: '锚点' },
     { toId: 'beam', kind: 'rope', anchorA: '右端', anchorB: '左' },
   ]); ropeL.id = 'rope-L'
-  const ropeR = mk('rope', 0, 4, { L: Math.sqrt(P23_D * P23_D + P23_H * P23_H), Tmax: 100 }, 0, [
+  const ropeR = mk('rope', 0, 4, { L: Math.sqrt(P23_DX * P23_DX + P23_H * P23_H), Tmax: 100 }, 0, [
     { toId: 'ceil-R', kind: 'rope', anchorA: '左端', anchorB: '锚点' },
     { toId: 'beam', kind: 'rope', anchorA: '右端', anchorB: '右' },
   ]); ropeR.id = 'rope-R'
