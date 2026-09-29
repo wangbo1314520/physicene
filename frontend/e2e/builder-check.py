@@ -57,6 +57,7 @@ def env_gate() -> bool:
 def main() -> int:
     if not env_gate():
         return 1
+    _init_pid, _, _ = __import__("_env").java_proc()
     ap = argparse.ArgumentParser()
     ap.add_argument("--ids", default="", help="逗号分隔模板 id（默认全部）")
     ap.add_argument("--shot-dir", default=r"E:\Program\physicene\frontend\e2e\shots\templates")
@@ -177,6 +178,14 @@ def main() -> int:
 
     passed = len(want) - len([f for f in failures if f in [t["id"] for t in want]])
     print(f"\n结果: {passed}/{len(want)} 通过" + (" ✅" if not failures else f" ❌ 失败: {failures}"))
+    # P5a after-test：PID 一致性（E2E 中途重启→结果不可信）
+    _now_pid, _, _ = __import__("_env").java_proc()
+    if _init_pid and _now_pid != _init_pid:
+        print(f"❌ after-test: backend PID 变化 ({_init_pid}→{_now_pid})——E2E 中途重启，结果不可信")
+        failures.append("after-test PID changed")
+    else:
+        print(f"✅ after-test: PID 一致 ({_init_pid})")
+
     return 0 if not failures else 1
 
 if __name__ == "__main__":
