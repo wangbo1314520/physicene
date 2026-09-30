@@ -319,6 +319,12 @@ public class SimulationInstance {
             var rail = scene.getElements().stream().filter(e -> "wall".equals(e.getType())
                     && e.getParams() != null && e.getParams().containsKey("railL")).findFirst();
             if (rail.isPresent()) l = rail.get().getParams().get("railL");
+            // P5b-1：多杆共轨拓扑——单杆=孤立回路（src.0—R.0 + src.1—R.1 闭合）；双杆及以上=
+            // 共享导轨：各杆内部 src.0—R.0，后续杆 src.1→首杆 src.1（轨B）、R.1→首杆 R.1（轨T）。
+            // 首杆不加桥线（加了=两轨短接）；轨由第二杆连线闭合 → 单环串两源两阻，
+            // MNA 解出两 R 支路电流自动反号 → 既有 F=−B·L·i 对两杆反向 → 动量守恒；
+            // 稳态 I_ss=F/(B·L)、Δv_ss=I_ss·(ΣR)/(B·L)（经典双杆结论——卡 40 断言源）
+            String firstSrcId = null, firstResId = null;
             for (var rod : rodEls) {
                 Body rodBody = bodies.get(rod.getId());
                 if (rodBody == null) continue;
@@ -335,7 +341,17 @@ public class SimulationInstance {
                 bat.props.put("r", 0.001);
                 circuit.components.add(bat);
                 circuit.wires.add(new CircuitEngine.Wire(new CircuitEngine.PinRef(bat.id, 0), new CircuitEngine.PinRef(res.id, 0)));
-                circuit.wires.add(new CircuitEngine.Wire(new CircuitEngine.PinRef(bat.id, 1), new CircuitEngine.PinRef(res.id, 1)));
+                if (rodEls.size() >= 2) {
+                    if (firstSrcId == null) {
+                        firstSrcId = bat.id;
+                        firstResId = res.id;
+                    } else {
+                        circuit.wires.add(new CircuitEngine.Wire(new CircuitEngine.PinRef(bat.id, 1), new CircuitEngine.PinRef(firstSrcId, 1)));
+                        circuit.wires.add(new CircuitEngine.Wire(new CircuitEngine.PinRef(res.id, 1), new CircuitEngine.PinRef(firstResId, 1)));
+                    }
+                } else {
+                    circuit.wires.add(new CircuitEngine.Wire(new CircuitEngine.PinRef(bat.id, 1), new CircuitEngine.PinRef(res.id, 1)));
+                }
                 orch.addRodLink(new CouplingOrchestrator.RodBarLink(rod.getId(), rodBody, "R_" + rod.getId(), b, l));
             }
         }

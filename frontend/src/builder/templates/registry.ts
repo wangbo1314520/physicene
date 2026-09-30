@@ -1128,24 +1128,31 @@ function gkRodForce39(): GeoTemplate {
 // ════ P4·批 3 第 1 步：EM 感应族 6 卡（40/41/42/43/44/70）════
 // 全部走 CouplingOrchestrator（Java 耦合）；42 线框走 CoilLink（位置感知）
 
-// —— 卡 40 双杆：动量守恒 m₁v₁=m₂v₂（共速后匀速）——
-const P40_M1 = 1, P40_V0 = 4, P40_M2 = 2
+// —— 卡 40 双杆共轨：动量定理 m(v₁+v₂)=F·t + 稳态 I_ss=F/(2BL)、Δv_ss=F·ΣR/(2B²L²) ——
+// P5b-1 回填：多杆共轨拓扑落地（两轨两节点、各杆一支路，MNA 解出反向支路电流→安培力内力相消）
+// ——原申改（单杆等效）作废。杆距 6m、4s 闭合 ~2m 不碰撞
+const P40_M = 1, P40_R = 1, P40_B = 1, P40_L = 1, P40_F = 0.5, P40_T = 4
+const p40Sum = (P40_F * P40_T) / P40_M                       // v₁+v₂ = F·t/m（动量定理，等质量）
+const p40Dv = (P40_F * (P40_R + P40_R)) / (2 * P40_B * P40_B * P40_L * P40_L)  // Δv_ss（t=4s 已 ≥98% 趋稳）
 function gkDoubleRod40(): GeoTemplate {
+  const rod1 = mk('rod_bar', 0, 0, { m: P40_M, R: P40_R, v0: 0, F: P40_F }); rod1.id = 'rod1'
+  const rod2 = mk('rod_bar', 6, 0, { m: P40_M, R: P40_R, v0: 0, F: 0 }); rod2.id = 'rod2'
   return {
     id: 'gk-double-rod', card: '40', group: '电磁',
-    name: '双杆（动量守恒+稳定电流）',
-    tags: ['双杆', '动量守恒'],
-    // 申改：双杆需同轨电磁交互——当前 Orchestrator 每杆独立电路，不建模杆间耦合
-    // 简化：单杆 v₀ 衰减到零（动量被电磁阻尼"吸收"——等效于双杆共速后继续衰减）
+    name: '双杆共轨（动量定理+稳态电流）',
+    tags: ['双杆', '共轨', '动量守恒'],
     elements: [
-      mk('rail_pair', 0, -0.5, { L: 1 }),
-      mk('rod_bar', 0, 0, { m: P40_M1 + P40_M2, R: 1, v0: P40_V0 * P40_M1 / (P40_M1 + P40_M2), F: 0 }),
-      mk('b_region', 0, 2, { B: 1, dir: 0 }),
+      mk('rail_pair', 0, -0.5, { L: P40_L }),
+      rod1,
+      rod2,
+      mk('b_region', 3, 2, { B: P40_B, dir: 0 }),  // 默认场 12×12（中心 3 → 覆盖 −3..9，双杆全程在场内
     ],
     criticalChecks: [
-      { label: "共速 v先=m₁v₀/(m₁+m₂)=4/3=1.333（教材规律：动量守恒）", theory: ((P40_M1 * P40_V0) / (P40_M1 + P40_M2)) * Math.exp(-8 / ((P40_M1 + P40_M2) * 1 / 1)), tol: 0.1, from: { kind: 'final', subject: 0, pick: 'vx' } },
+      { label: 'v₁=(F·t/m+Δv_ss)/2（教材规律：动量定理 m(v₁+v₂)=F·t 与稳态 Δv 联立——安培力为内力）', theory: (p40Sum + p40Dv) / 2, tol: 0.03, from: { kind: 'final', subject: 0, pick: 'vx' } },
+      { label: 'v₂=(F·t/m−Δv_ss)/2（教材规律：被动杆被感应电流驱动——双杆共轨相互作用）', theory: (p40Sum - p40Dv) / 2, tol: 0.03, from: { kind: 'final', subject: 1, pick: 'vx' } },
+      { label: '稳态电流 I_ss=F/(2BL)=0.25A（教材规律：a₁=a₂ 时 F−BL·I=BL·I）', theory: P40_F / (2 * P40_B * P40_L), tol: 0.05, from: { kind: 'probe', key: 'I_R_rod1' } },
     ],
-    maxDuration: 8, substeps: 4, solutionId: 'gk-double-rod',
+    maxDuration: P40_T, substeps: 4, solutionId: 'gk-double-rod',
   }
 }
 // —— 卡 41 含容单杆：RC 充电 τ=RC → 稳态电容电压 ——
