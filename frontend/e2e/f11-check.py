@@ -28,7 +28,7 @@ def main() -> int:
         pg.screenshot(path=str(OUT / "f11-tab-lab.png"))
         # 2) 切自由搭建
         pg.locator(".tabbar .tab", has_text="自由搭建").click()
-        pg.wait_for_selector(".builder .palette .item", timeout=15000)
+        pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=15000)
         assert not pg.locator(".lab > .topbar").is_visible(), "自由搭建页不应显示实验台顶栏（v-if 隔离）"
         pg.screenshot(path=str(OUT / "f11-tab-free.png"))
         # 2.5) 模板下拉分组断言（UI 分类 bug 补强——标题不再写死"力学"，按 group 分组渲染）
