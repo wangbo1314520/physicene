@@ -65,8 +65,10 @@ def main() -> int:
         auth = login()
         pg.add_init_script(f"localStorage.setItem('ps_token', {json.dumps(auth['token'])});"
                            f"localStorage.setItem('ps_user', {json.dumps(json.dumps(auth['user']))});")
-        pg.goto(f"{BASE}/exp")
-        pg.wait_for_selector('.builder .palette .item', timeout=15000)
+        pg.goto(f"{BASE}/lab")
+        pg.wait_for_selector(".canvas-wrap canvas", timeout=15000)
+        pg.locator(".tabbar .tab", has_text="自由搭建").click()
+        pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=15000)
         r = pg.evaluate(JS)
         print(f"[reconnect] 断线前帧={r['f1']} 重连后帧={r['f2']} 事件={r['ev2']} 乱序={r['ooo']} 末帧t={r['lastT']:.1f}s")
         # 断言：①重连帧流动（≥100：150 重播+live）②末帧 t > 断线时长（=跳到当前非卡在 2s）
