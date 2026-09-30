@@ -1170,17 +1170,22 @@ function gkRodCapacitor41(): GeoTemplate {
 // —— 卡 42 线框进出磁场：完全在内 EMF=0（位置感知）——
 const P42_B = 1, P42_W = 1, P42_R = 1, P42_V0 = 2
 function gkFrameThroughB42(): GeoTemplate {
+  const coil = mk('coil_frame', 5, 0, { v0: P42_V0, w: P42_W, h: 1, R: P42_R }); coil.id = 'coil42'
   return {
     id: 'gk-frame-through-b', card: '42', group: '电磁',
     name: '线框进出磁场（位置感知 EMF）',
     tags: ['线框', '楞次'],
     elements: [
       mk('rail_pair', 0, -0.5, { L: 1 }),
-      mk('coil_frame', 5, 0, { v0: P42_V0, w: P42_W, h: 1, R: P42_R }),
+      coil,
       mk('b_region', 0, 2, { B: P42_B, dir: 0 }),  // 窄场 12×12 默认——线圈在场中心
     ],
     criticalChecks: [
       { label: '离场末速 v=v₀−w/τ=2−1=1（物理独立：离场距离 w 内指数衰减闭式解）', theory: P42_V0 - P42_W / 1, tol: 0.05, from: { kind: 'final', subject: 0, pick: 'vx' } },
+      // 通道存在性断言（五轮追问4）：probe 键到达浏览器=probes 通道端到端通（服务端填了≠通道通）。
+      // 末态完全出场 → I/EMF=0（值平凡，但键缺失时 got=None 即红——证明 sendFrame→WS→前端全链）
+      { label: 'I_coil 探针通道存在（末态出场景 I=0——键缺失即红）', theory: 0, tol: 0.02, tolAbs: 0.01, from: { kind: 'probe', key: 'I_coil_coil42' } },
+      { label: 'EMF 探针通道存在（末态出场景 EMF=0——键缺失即红）', theory: 0, tol: 0.02, tolAbs: 0.01, from: { kind: 'probe', key: 'EMF_coil42' } },
     ],
     maxDuration: 3, substeps: 4, solutionId: 'gk-frame-through-b',
   }
