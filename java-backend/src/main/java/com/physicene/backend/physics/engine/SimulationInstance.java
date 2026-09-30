@@ -402,21 +402,26 @@ public class SimulationInstance {
                 // 场域边界（B 场 scale 12×12 默认，中心=场元件位置）
                 double fieldCx = bEls.get(0).getPosition().x();
                 double fieldHalf = bEls.get(0).getScale() != null ? bEls.get(0).getScale().x() / 2.0 : 6.0;
-                orch.addCoilLink(new CouplingOrchestrator.CoilLink(coilEl.getId(), coilBody, "R_coil", bCoil, wCoil,
+                // P5a 批2-4·电路合成：支路 id 按 coilId 命名（与 rod 同形式）。原硬编码 "R_coil"/"src_coil"
+                // 与 orchestrator 的 src_<coilId> EMF 写入错位 → EMF 进的是断路新组件、从未驱动 R 支路，
+                // 旧直算公式不读电流故未暴露；力改电路电流后立现（单测 v=2.0 证伪驱动修复）
+                String coilBranch = "R_" + coilEl.getId();
+                String coilSrcId = "src_" + coilEl.getId();
+                orch.addCoilLink(new CouplingOrchestrator.CoilLink(coilEl.getId(), coilBody, coilBranch, bCoil, wCoil,
                     fieldCx - fieldHalf, fieldCx + fieldHalf));
                 var coilRes = new CircuitEngine.Comp();
-                coilRes.id = "R_coil";
+                coilRes.id = coilBranch;
                 coilRes.kind = "resistor";
                 coilRes.props.put("R", rCoil);
                 circuit.components.add(coilRes);
                 var coilSrc = new CircuitEngine.Comp();
-                coilSrc.id = "src_coil";
+                coilSrc.id = coilSrcId;
                 coilSrc.kind = "battery";
                 coilSrc.props.put("emf", 0.0);
                 coilSrc.props.put("r", 0.001);
                 circuit.components.add(coilSrc);
-                circuit.wires.add(new CircuitEngine.Wire(new CircuitEngine.PinRef("src_coil", 0), new CircuitEngine.PinRef("R_coil", 0)));
-                circuit.wires.add(new CircuitEngine.Wire(new CircuitEngine.PinRef("src_coil", 1), new CircuitEngine.PinRef("R_coil", 1)));
+                circuit.wires.add(new CircuitEngine.Wire(new CircuitEngine.PinRef(coilSrcId, 0), new CircuitEngine.PinRef(coilBranch, 0)));
+                circuit.wires.add(new CircuitEngine.Wire(new CircuitEngine.PinRef(coilSrcId, 1), new CircuitEngine.PinRef(coilBranch, 1)));
             }
         }
 
@@ -468,6 +473,8 @@ public class SimulationInstance {
                         couplingReadings.put("I_" + entry.getKey(), entry.getValue().i());
                     }
                 }
+                // P5a 批2-4：coil 支路 EMF/电流读数上 probes（I_coil_<id> / EMF_<id>）
+                couplingReadings.putAll(orchestrator.coilReadings());
                 // rod_bar 外力 F（恒力推/拉——_srcType=1 标记的 cube = RunBridge 映射的 rod_bar）
                 for (var rodEl : scene.getElements()) {
                     if (rodEl.getParams() != null && rodEl.getParams().getOrDefault("_srcType", 0.0) == 1.0) {
@@ -512,16 +519,18 @@ public class SimulationInstance {
                 }
             }
             world.step(1);
-        }
-        // P5a 批2-3：单摆半周期事件——悬点绳连体相继过平衡位置（ eventType 按绳 id 区分多摆场景）
-        for (com.physicene.backend.physics.element.RopeElement rope : ropes) {
-            Double hp = rope.pendulumCross(t);
-            if (hp != null) {
-                KeyEvent ev = new KeyEvent(t, "pendulum_pass_" + rope.ownId(),
-                    "单摆过平衡位置（半周期）", frameCount,
-                    Map.<String, Object>of("halfPeriod", hp, "ropeId", rope.ownId()));
-                keyEvents.add(ev);
-                keyEventListeners.forEach(l -> l.accept(ev));
+            // P5a 批2-3（追问3 升级）：单摆过零检测在子步级做（1/480s 而非帧级 1/60s）——
+            // 事件时间量化从 ~2% 降到 ~0.2%，卡 67 容差随之收紧 3%→1%
+            double tSub = t + (i + 1) * (dt / substeps);
+            for (com.physicene.backend.physics.element.RopeElement rope : ropes) {
+                Double hp = rope.pendulumCross(tSub);
+                if (hp != null) {
+                    KeyEvent ev = new KeyEvent(tSub, "pendulum_pass_" + rope.ownId(),
+                        "单摆过平衡位置（半周期）", frameCount,
+                        Map.<String, Object>of("halfPeriod", hp, "ropeId", rope.ownId()));
+                    keyEvents.add(ev);
+                    keyEventListeners.forEach(l -> l.accept(ev));
+                }
             }
         }
         // 步末冲刷：本步各绳张力均值 → probes 通道（T_<ropeId>）——晾衣杆静力学卡断言数据源。

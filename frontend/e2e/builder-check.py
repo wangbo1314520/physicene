@@ -99,8 +99,10 @@ def main() -> int:
               // 状态残留防污染：上一模板的 ended/runstate 会残留——Java 须先见 running/connecting
               // 再等 ended；TS 须 runstate 相对初始值发生变化且含"已结束"
               let started = false, tsStarted = false;
-              for (let i = 0; i < 90; i++) {
-                await wait(200);
+              // 采样 50ms（2026-09-30 追问2 根因修复）：原 200ms 轮询相位随机错过抛体峰值
+              // （δ≈0.1s → ½gδ²≈0.05m，吃掉 5% 容差 73%——卡26/noninertial 两轮"偶发"同根因）
+              for (let i = 0; i < 360; i++) {
+                await wait(50);
                 const st = B.simStatus();
                 const rs = document.querySelector('.free-build-tab .runstate')?.textContent || '';
                 if (st === 'running' || st === 'connecting' || st === 'paused') started = true;

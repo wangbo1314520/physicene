@@ -59,6 +59,10 @@ public class CouplingOrchestrator {
         coilLinks.put(link.coilId(), link);
     }
 
+    /** P5a 批2-4：coil 支路读数（EMF_<coilId> / I_coil_<coilId>）——probes 通道数据源 */
+    private final Map<String, Double> lastCoilReadings = new LinkedHashMap<>();
+    public Map<String, Double> coilReadings() { return lastCoilReadings; }
+
     public void addPiston(PistonCoupling pc) {
         pistons.put(pc.getCell().hashCode() + "", pc);
     }
@@ -123,6 +127,7 @@ public class CouplingOrchestrator {
                     nc.props.put("r", 0.001);
                     circuit.components.add(nc);
                 }
+                lastCoilReadings.put("EMF_" + cl.coilId(), emf);
             }
             // 2. 电路求解（迭代内只解算——速度要到 world.step 才变，循环内施力只会
                 //    在 dyn4j 力累加器里叠 N 份，终速被压成 1/N；力统一移到收敛后施加一次）
@@ -152,20 +157,15 @@ public class CouplingOrchestrator {
                 double f = -link.b() * link.l() * i;
                 link.rodBody().applyForce(new org.dyn4j.geometry.Vector2(f, 0));
             }
-            // P4 批3：coil 楞次力——直接计算（绕过电路：F = -B²w²v/R 位置感知）
+            // P5a 批2-4·电路合成：coil 楞次力改用电路电流 F = -B·w·I（与 rod 同形式）——
+            // 原 P4 直算 F=-B²w²v/R 在纯电阻孤立回路下数学等价，但外接元件（R/C）时 I≠EMF/R_int，
+            // 直算即错。EMF 位置感知已在上方写进 src_<coilId>：完全在内/在外 → emf=0 → I=0 → F=0 自动成立
             for (var cl : coilLinks.values()) {
-                double v = cl.coilBody().getLinearVelocity().x;
-                double f;
-                if (cl.fullyInside() || cl.fullyOutside()) {
-                    f = 0;  // dΦ/dt = 0 → 无感应电流 → 无力
-                } else {
-                    // EMF = B·w·v；I = EMF/R_internal；F = -B·I·w = -B²w²v/R
-                    // R_internal 从电路组件读取（若找不到用默认 1Ω）
-                    var rComp = circuit.components.stream().filter(c -> c.id.equals("R_" + cl.coilId())).findFirst();
-                    double rInt = 1.0; if (rComp.isPresent()) { Object raw = rComp.get().props.get("R"); Double rv = raw instanceof Number ? ((Number)raw).doubleValue() : null; if (rv != null) rInt = rv; }
-                    f = -(cl.b() * cl.b() * cl.w() * cl.w() * v) / rInt;
-                }
+                CircuitEngine.ElementResult er = sol.elements.get("R_" + cl.coilId());
+                double i = er != null ? er.i() : 0;
+                double f = -cl.b() * cl.w() * i;
                 cl.coilBody().applyForce(new org.dyn4j.geometry.Vector2(f, 0));
+                lastCoilReadings.put("I_coil_" + cl.coilId(), i);
             }
         }
         

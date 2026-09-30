@@ -1003,7 +1003,7 @@ function gkImpulseMicro31(): GeoTemplate {
 // —— 卡 67 小量近似：单摆周期对照 T=2π√(L/g)（sinθ≈θ），L×2 → T×√2 ——
 // P5a 批2-3 回填：悬点绳+摆球可搭建（pendulum_pass 事件 halfPeriod=T/2）——原申改（弹跳能量守恒）作废
 // 构型等价（非近似）：摆球 fixRot+绳锚球顶 → 中心速度=锚点速度、高度差恒定 → 摆长=绳长的单摆
-// φ₀=10°（大量修正 +0.19%）；E2E 事件采样量化 1/60s×2 ≈ 2-3% —— tol 3% 为采样物理所迫，非放水
+// φ₀=10°（大量修正 +0.19%）；E2E 事件子步级采样（1/480s，四轮追问3 升级）—— tol 1% = 大量修正 0.19% + 子步量化 0.2% + solver 余量
 const P67_L1 = 1, P67_L2 = 2, P67_PHI = 10
 function gkSmallQuantity67(): GeoTemplate {
   const rad = P67_PHI * Math.PI / 180
@@ -1029,8 +1029,8 @@ function gkSmallQuantity67(): GeoTemplate {
     tags: ['小量近似', '单摆', '周期对照'],
     elements: [pivot1, pivot2, bob1, bob2, rope1, rope2],
     criticalChecks: [
-      { label: 'T₁/2=π√(L₁/g)（教材规律：单摆周期公式 sinθ≈θ——首次过零事件半周期）', theory: Math.PI * Math.sqrt(P67_L1 / 9.8), tol: 0.03, from: { kind: 'event', eventType: 'pendulum_pass_pend1', payloadKey: 'halfPeriod' } },
-      { label: 'T₂/2=π√(L₂/g)（教材规律：摆长×2 → 周期×√2 对照）', theory: Math.PI * Math.sqrt(P67_L2 / 9.8), tol: 0.03, from: { kind: 'event', eventType: 'pendulum_pass_pend2', payloadKey: 'halfPeriod' } },
+      { label: 'T₁/2=π√(L₁/g)（教材规律：单摆周期公式 sinθ≈θ——首次过零事件半周期）', theory: Math.PI * Math.sqrt(P67_L1 / 9.8), tol: 0.01, from: { kind: 'event', eventType: 'pendulum_pass_pend1', payloadKey: 'halfPeriod' } },
+      { label: 'T₂/2=π√(L₂/g)（教材规律：摆长×2 → 周期×√2 对照）', theory: Math.PI * Math.sqrt(P67_L2 / 9.8), tol: 0.01, from: { kind: 'event', eventType: 'pendulum_pass_pend2', payloadKey: 'halfPeriod' } },
     ],
     maxDuration: 5, substeps: 8, solutionId: 'gk-small-quantity',
   }
