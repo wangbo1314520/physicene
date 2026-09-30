@@ -513,6 +513,17 @@ public class SimulationInstance {
             }
             world.step(1);
         }
+        // P5a 批2-3：单摆半周期事件——悬点绳连体相继过平衡位置（ eventType 按绳 id 区分多摆场景）
+        for (com.physicene.backend.physics.element.RopeElement rope : ropes) {
+            Double hp = rope.pendulumCross(t);
+            if (hp != null) {
+                KeyEvent ev = new KeyEvent(t, "pendulum_pass_" + rope.ownId(),
+                    "单摆过平衡位置（半周期）", frameCount,
+                    Map.<String, Object>of("halfPeriod", hp, "ropeId", rope.ownId()));
+                keyEvents.add(ev);
+                keyEventListeners.forEach(l -> l.accept(ev));
+            }
+        }
         // 步末冲刷：本步各绳张力均值 → probes 通道（T_<ropeId>）——晾衣杆静力学卡断言数据源。
         // 冲量式约束+Baumgarte（γ=0.1）在精确平衡构型上维持微振荡（张力绕静态值 ±~15% 不衰减），
         // 静力学断言用滑动均值 Tavg_<ropeId>（EMA α=0.06 ≈ 0.5s 窗）——时间平均=静态张力，非容差放大

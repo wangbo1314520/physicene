@@ -1000,24 +1000,39 @@ function gkImpulseMicro31(): GeoTemplate {
     solutionId: 'gk-impulse-micro', maxDuration: 5,
   }
 }
-// —— 卡 67 小量近似：单摆周期对照（方法独立：精确解 vs sinθ≈θ 近似）——
-const P67_L = 1
-const p67T0 = 2 * Math.PI * Math.sqrt(P67_L / 9.8)   // sinθ≈θ 近似
+// —— 卡 67 小量近似：单摆周期对照 T=2π√(L/g)（sinθ≈θ），L×2 → T×√2 ——
+// P5a 批2-3 回填：悬点绳+摆球可搭建（pendulum_pass 事件 halfPeriod=T/2）——原申改（弹跳能量守恒）作废
+// 构型等价（非近似）：摆球 fixRot+绳锚球顶 → 中心速度=锚点速度、高度差恒定 → 摆长=绳长的单摆
+// φ₀=10°（大量修正 +0.19%）；E2E 事件采样量化 1/60s×2 ≈ 2-3% —— tol 3% 为采样物理所迫，非放水
+const P67_L1 = 1, P67_L2 = 2, P67_PHI = 10
 function gkSmallQuantity67(): GeoTemplate {
+  const rad = P67_PHI * Math.PI / 180
+  const bobOf = (pivotX: number, L: number) => ({
+    x: pivotX + L * Math.sin(rad), y: 5 - L * Math.cos(rad) - 0.5,
+  })
+  const b1 = bobOf(-2, P67_L1), b2 = bobOf(2, P67_L2)
+  const pivot1 = mk('anchor_point', -2, 5); pivot1.id = 'pend1-pivot'
+  const pivot2 = mk('anchor_point', 2, 5); pivot2.id = 'pend2-pivot'
+  const bob1 = mk('sphere', b1.x, b1.y, { m: 1, v0: 0, fixRot: 1 }); bob1.id = 'pend1-bob'
+  const bob2 = mk('sphere', b2.x, b2.y, { m: 1, v0: 0, fixRot: 1 }); bob2.id = 'pend2-bob'
+  const rope1 = mk('rope', -2, 5, { L: P67_L1, Tmax: 100 }, 0, [
+    { toId: 'pend1-pivot', kind: 'rope', anchorA: '左端', anchorB: '锚点' },
+    { toId: 'pend1-bob', kind: 'rope', anchorA: '右端', anchorB: '顶' },
+  ]); rope1.id = 'pend1'
+  const rope2 = mk('rope', 2, 5, { L: P67_L2, Tmax: 100 }, 0, [
+    { toId: 'pend2-pivot', kind: 'rope', anchorA: '左端', anchorB: '锚点' },
+    { toId: 'pend2-bob', kind: 'rope', anchorA: '右端', anchorB: '顶' },
+  ]); rope2.id = 'pend2'
   return {
     id: 'gk-small-quantity', card: '67', group: '力学',
-    name: '小量近似（单摆 sinθ≈θ）',
-    tags: ['小量近似', '单摆'],
-    // 申改：原卡"单摆周期对照"builder 需绳+挂点（连接复杂）——替代为弹跳高度能量守恒
-    elements: [
-      ground(0),
-      mk('sphere', 0, P67_L + 1, { m: 0.5, e: 1, mus: 0, v0: 0 }),
-    ],
+    name: '小量近似（单摆周期对照 sinθ≈θ）',
+    tags: ['小量近似', '单摆', '周期对照'],
+    elements: [pivot1, pivot2, bob1, bob2, rope1, rope2],
     criticalChecks: [
-      { label: '弹性碰撞回跳高度=释放高度（物理独立：e=1 能量守恒）', theory: P67_L + 1, tol: 0.1, from: { kind: 'max-y', subject: 0 } },
+      { label: 'T₁/2=π√(L₁/g)（教材规律：单摆周期公式 sinθ≈θ——首次过零事件半周期）', theory: Math.PI * Math.sqrt(P67_L1 / 9.8), tol: 0.03, from: { kind: 'event', eventType: 'pendulum_pass_pend1', payloadKey: 'halfPeriod' } },
+      { label: 'T₂/2=π√(L₂/g)（教材规律：摆长×2 → 周期×√2 对照）', theory: Math.PI * Math.sqrt(P67_L2 / 9.8), tol: 0.03, from: { kind: 'event', eventType: 'pendulum_pass_pend2', payloadKey: 'halfPeriod' } },
     ],
-    maxDuration: 5,
-    solutionId: 'gk-small-quantity',
+    maxDuration: 5, substeps: 8, solutionId: 'gk-small-quantity',
   }
 }
 

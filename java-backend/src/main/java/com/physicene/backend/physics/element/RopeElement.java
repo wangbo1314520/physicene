@@ -29,6 +29,11 @@ public class RopeElement implements ElementBehavior, JointBehavior {
     private Body bodyA;
     private Body bodyB;
     private boolean broken;
+    /** P5a 批2-3：单摆过零检测状态（悬点绳连体相继过平衡位置 → halfPeriod=T/2） */
+    private boolean pendInit = false;
+    private boolean pendPrevPositive = false;
+    private boolean pendFirstCrossDone = false;
+    private double pendLastCrossT = 0;
 
     public RopeElement(PhysicsElement data) {
         this.data = data;
@@ -148,8 +153,29 @@ public class RopeElement implements ElementBehavior, JointBehavior {
         return -lambda / h;  // 张力（N）
     }
 
-    private static double[] anchorVelocity(Body body, Vector2D anchor) {
-        double ang = body.getTransform().getRotationAngle();
+    /**
+     * P5a 批2-3：单摆平衡位置穿越检测（SimulationInstance 每步调用）。
+     * 仅悬点模式（connectTo2==null 且 position≠0）：连体 x 相对悬点变号 = 过平衡位置。
+     * 第 2 次变号起返回 halfPeriod=Δt（相继过零间隔 = T/2；首次过零在 T/4 会偏短故跳过）。
+     * 有效性前提（卡 67 构型已满足）：摆角小量、摆球 fixRot（中心速度=锚点速度）——
+     * 此时动力学恰为摆长=绳长的单摆（KE=½mL²θ̇²，PE=−mgL·cosθ+const）。
+     */
+    public Double pendulumCross(double t) {
+        if (broken || bodyA == null || data.getConnectTo2() != null || data.getPosition() == null) {
+            return null;
+        }
+        double rel = bodyA.getTransform().getTranslationX() - data.getPosition().x();
+        boolean positive = rel >= 0;
+        if (!pendInit) { pendInit = true; pendPrevPositive = positive; return null; }
+        if (positive == pendPrevPositive) return null;
+        pendPrevPositive = positive;
+        if (!pendFirstCrossDone) { pendFirstCrossDone = true; pendLastCrossT = t; return null; }
+        double halfPeriod = t - pendLastCrossT;
+        pendLastCrossT = t;
+        return halfPeriod;
+    }
+
+    private static double[] anchorVelocity(Body body, Vector2D anchor) {        double ang = body.getTransform().getRotationAngle();
         double c = Math.cos(ang), s = Math.sin(ang);
         double ax = anchor == null ? 0 : anchor.x(), ay = anchor == null ? 0 : anchor.y();
         double rx = c * ax - s * ay, ry = s * ax + c * ay;   // 锚偏移（世界系）
