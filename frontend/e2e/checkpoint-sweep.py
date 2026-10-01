@@ -13,6 +13,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 # 巡检清单：日常矩阵外的全部浏览器/checkpoint 脚本（args: 脚本名 → 附加参数）
 SWEEP = {
+    "free-build-elements-check.py": [],  # P5b-3：器材级 E2E（pulley/检测器/显示）——每次测点跑
     "p0-redirect-check.py": [],
     "builder-smoke.py": [],
     "builder-payload-check.py": [],

@@ -63,3 +63,19 @@ describe('P2 耦合元件映射', () => {
     expect(list.length).toBeGreaterThanOrEqual(3)
   })
 })
+
+  it('检测器三件 → 无体元件 + connectTo（P5b-3 接线：此前被 NO_BODY 静默丢弃）', () => {
+    const blk = mk('block', { m: 1 })
+    blk.id = 'blk1'
+    const sen: GeoElement = { ...mk('speed_sensor'), id: 'spd1', links: [{ toId: 'blk1', kind: 'rope', anchorA: '探头', anchorB: '顶' }] }
+    const { list } = toPhysicsElements([blk, sen])
+    const s = list.find((e) => e.id === 'spd1')
+    expect(s?.type).toBe('speed_sensor')
+    expect(s?.connectTo).toBe('blk1')
+  })
+
+  it('未绑定目标的检测器 → note（显式提示，不静默）', () => {
+    const { list, notes } = toPhysicsElements([mk('speed_sensor')])
+    expect(list.find((e) => e.type === 'speed_sensor')).toBeUndefined()
+    expect(notes.join()).toContain('未绑定目标')
+  })

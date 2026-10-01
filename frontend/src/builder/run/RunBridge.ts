@@ -34,7 +34,10 @@ const TS_ENGINE_TYPES = new Set(['light_source', 'prism', 'optic_screen', 'photo
   ...WAVE_DEVICE_TYPES, ...MISC_DEVICE_TYPES])
 /** 不建刚体的显示/检测类（静默跳过）；bracket/pole = 理想固定端（无碰撞体，绳/弹簧连接端折算固定悬点） */
 const NO_BODY = new Set(['photogate', 'force_sensor', 'trail', 'energy_meter', 'timeline', 'anchor_point', 'vector_arrow', 'graph_tag',
-  'accel_sensor', 'speed_sensor', 'range_finder', 'bracket', 'pole'])
+  'bracket', 'pole'])
+// P5b-3：Java SensorElement 已实现的 3 检测器——发射为无体元件（connectTo=绑定目标，读数走 probes 通道）；
+// photogate/force_sensor/energy_meter 无 Java 实现（目录虚设，EngineAnalyzer 放置即警告）——仍在 NO_BODY 静默跳过
+const SENSOR_TYPES = new Set(['accel_sensor', 'speed_sensor', 'range_finder'])
 
 export interface RunPose { x: number; y: number; angle?: number }
 
@@ -70,6 +73,13 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
 
   for (const e of els) {
     if (PHASE4.has(e.type)) { skipped.push(e.type); continue }
+    if (SENSOR_TYPES.has(e.type)) {
+      // P5b-3 接线：检测器无刚体、connectTo=links[0] 目标（此前在 NO_BODY 被静默丢弃——SensorElement 从未收到数据）
+      if (!e.links.length) { notes.push(`检测器「${e.id}」未绑定目标（用连线连接到物体），已跳过`); continue }
+      list.push({ id: e.id, type: e.type, position: { x: e.position.x, y: e.position.y }, angle: e.angle,
+        properties: {}, params: {}, connectTo: e.links[0].toId })
+      continue
+    }
     if (NO_BODY.has(e.type)) continue
     const p = e.params
     const base: PhysicsElementInput = {

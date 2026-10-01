@@ -128,6 +128,11 @@ export function analyze(elements: GeoElement[]): Analysis {
   if ((has('e_region') || has('b_region')) && !has('point_charge')) warnings.push('有场区无带电粒子：场区不会产生运动')
   if (byEngine.get('rigid') && !elements.some((e) => byType.get(e.type)?.role === 'body')) warnings.push('只有约束/轨道没有运动体')
   if (has('rail_pair') && has('rod_bar')) warnings.push('导轨-棒电路闭合性由运行时校验（需形成回路）')
+  // P5b-3：虚设检测器显式告知（不许静默）——目录有、Java 无实现（photogate/force_sensor/energy_meter）
+  for (const e of elements) {
+    if (['photogate', 'force_sensor', 'energy_meter'].includes(e.type))
+      warnings.push(`${byType.get(e.type)?.label ?? e.type}「${e.id}」当前版本不参与模拟（未实现读数）——可用的检测器：加速度/速度/位移传感器`)
+  }
   // P5b-2 限制显式告知（八轮追问3：不许静默）——地面系平台不携静置物
   const gfPlat = elements.find((e) => e.type === 'accelerating_platform' && e.params.frame === 1)
   if (gfPlat) {

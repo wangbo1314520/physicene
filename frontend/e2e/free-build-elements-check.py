@@ -1,0 +1,189 @@
+# -*- coding: utf-8 -*-
+"""P5b-3·free-build 器材 E2E（14 元件缺口清偿）：不经模板、直接搭场景断言器材行为。
+场景一 pulley 阿特伍德：a=(m₂−m₁)g/(m₁+m₂)，t=1s 采样 |v₁|=|v₂|=a·t（绳约束+牛顿）
+场景二 检测器三件：μ 滑块 v0=4 → t=0.5s 速度 v0−μgt、停距 x=v₀²/(2μg)（range_finder 末值）
+场景三 显示 4 件 smoke：放置+运行无页面错误、元件仍在
+场景四（单测覆盖）虚设检测器警告——vitest 侧 EngineAnalyzer 断言
+用法：python e2e/free-build-elements-check.py（需 Vite+Java 已起）"""
+import _env; _env.banner()
+import json, sys, time, urllib.request
+from playwright.sync_api import sync_playwright
+
+BASE = "http://localhost:5173"
+API = "http://localhost:8080"
+ok_all, fails = [], []
+
+def check(name, ok, detail=""):
+    print(f"  {'✓' if ok else '✗'} {name} {detail}")
+    (ok_all if ok else fails).append(name)
+
+def login_api():
+    req = urllib.request.Request(f"{API}/api/auth/login", method="POST",
+        data=json.dumps({"username": "demo", "password": "demo1234"}).encode(),
+        headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        return json.loads(r.read().decode())["data"]
+
+VIEW_W, VIEW_H = 24.0, 14.0  # 与 walkthrough 同口径（画布世界窗）
+
+class W:
+    def __init__(self, page):
+        box = page.evaluate("""() => { const c = document.querySelector('.free-build-tab .builder canvas'); const r = c.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height } }""")
+        self.cx, self.cy = box["x"] + box["w"] / 2, box["y"] + box["h"] / 2  # 页面绝对坐标（鼠标需要）
+        self.ppm = box["h"] / VIEW_H
+    def to_screen(self, wx, wy):
+        return (self.cx + wx * self.ppm, self.cy - wy * self.ppm)
+
+def drag(page, w, fx, fy, tx, ty, steps=10):
+    sx0, sy0 = w.to_screen(fx, fy)
+    sx1, sy1 = w.to_screen(tx, ty)
+    page.mouse.move(sx0, sy0)
+    page.mouse.down()
+    for i in range(1, steps + 1):
+        page.mouse.move(sx0 + (sx1 - sx0) * i / steps, sy0 + (sy1 - sy0) * i / steps)
+    page.mouse.up()
+    page.wait_for_timeout(120)
+
+def place_at(page, w, label, target):
+    """面板放置（默认位）→ 拖拽到世界坐标 target（精确文本匹配见 place）"""
+    place(page, label)
+    page.wait_for_timeout(120)
+    els = page.evaluate("window.__builder.elements()")
+    e = els[-1]
+    drag(page, w, e["position"]["x"], e["position"]["y"], target[0], target[1])
+    return e["id"]
+
+def domain(page, label):
+    page.locator(".palette .tabs button", has_text=label).click()
+    page.wait_for_timeout(120)
+
+def place(page, label):
+    # 精确文本匹配（has_text 是子串匹配——"速度传感器"会撞上"加速度传感器"）
+    page.evaluate("(l) => { const it = [...document.querySelectorAll('.palette .item')]"
+                  ".find(e => e.querySelector('.lb')?.textContent.trim() === l); it && it.click() }", label)
+    page.wait_for_timeout(120)
+    els = page.evaluate("window.__builder.elements()")
+    return els[-1]["id"]
+
+def sample_at(page, t_target, need_probes=False):
+    """轮询采样：返回 t≈t_target 的 {status,t,subjects,probes}。need_probes=True 时只收带 probes 的帧
+    （probes 隔帧上值；无传感器场景传 False，否则 best 永空退化到 ended 帧）"""
+    best = None
+    t0 = time.time()
+    while time.time() - t0 < 25:
+        st = page.evaluate("() => ({ status: window.__builder.simStatus(), t: window.__builder.simT(),"
+                           " s: window.__builder.subjects(), p: window.__builder.probes() ?? {} })")
+        ok = abs(st["t"] - t_target) < 0.12 and ((not need_probes) or st["p"])
+        if st["status"] in ("running",) and ok and best is None:
+            best = st
+        if st["status"] == "ended":
+            return best or st
+        if best and st["t"] > t_target + 0.3:
+            return best
+        page.wait_for_timeout(30)
+    return best
+
+def main() -> int:
+    auth = login_api()
+    with sync_playwright() as p:
+        b = p.chromium.launch(headless=True)
+        ctx = b.new_context(viewport={"width": 1560, "height": 980})
+        ctx.add_init_script(f"localStorage.setItem('ps_token', {json.dumps(auth['token'])});"
+                            f"localStorage.setItem('ps_user', {json.dumps(json.dumps(auth['user']))});")
+        page = ctx.new_page()
+        errs = []
+        page.on("pageerror", lambda e: errs.append(str(e)))
+        page.goto(f"{BASE}/lab")
+        page.wait_for_selector(".canvas-wrap canvas", timeout=12000)
+        page.locator(".tabbar .tab", has_text="自由搭建").click()
+        page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
+
+        # ═══ 场景一：pulley 阿特伍德 ═══
+        print("场景一：滑轮阿特伍德")
+        page.evaluate("window.__builder.clear()")
+        domain(page, "力学")
+        w = W(page)
+        pul = place_at(page, w, "滑轮", (0, 4.5))
+        b1 = place_at(page, w, "物块", (-1, 3))
+        b2 = place_at(page, w, "物块", (1, 3))
+        page.evaluate("(m) => { const B = window.__builder; B.setParams(m.b1, { m: 1.9, v0: 0, mu: 0, fixRot: 1 });"
+                      " B.setParams(m.b2, { m: 2.1, v0: 0, mu: 0, fixRot: 1 }) }", {"b1": b1, "b2": b2})
+        # 位置：滑轮 (0,4)，块 (−1,3)/(1,3)（place 后拖到目标——用 setParams 无位置 API，改用 elements 直改？用 drag）
+        page.evaluate("(m) => { const B = window.__builder; B.link(m.pul, '悬挂点', m.b1, '顶', 'pulley-rope');"
+                      " B.link(m.pul, '悬挂点', m.b2, '顶', 'pulley-rope') }", {"pul": pul, "b1": b1, "b2": b2})
+        page.locator(".tools .primary").click()
+        st = sample_at(page, 1.0, need_probes=False)
+        a_th = (2.1 - 1.9) * 9.8 / (2.1 + 1.9)
+        v_th = a_th * (st["t"] if st else 1.0)
+        if st and len(st["s"]) >= 2:
+            v1, v2 = st["s"][0]["vy"], st["s"][1]["vy"]
+            check("阿特伍德 |v|=a·t（重物）", abs(abs(v2) - v_th) / v_th < 0.12,
+                  f"v2={v2:.3f} theory={v_th:.3f}")
+            check("绳约束 |v₁|=|v₂|（轻绳不可伸长）", abs(abs(v1) - abs(v2)) < 0.05, f"|v1|={abs(v1):.3f} |v2|={abs(v2):.3f}")
+            check("方向相反（绳传递）", v1 * v2 < 0, f"v1={v1:.3f} v2={v2:.3f}")
+        else:
+            check("阿特伍德采样", False, "无 subjects")
+        while page.evaluate("window.__builder.simStatus()") != "ended":
+            page.wait_for_timeout(200)
+
+        # ═══ 场景二：检测器三件（μ 滑块 + speed/accel/range）═══
+        print("场景二：检测器读数")
+        page.evaluate("window.__builder.clear()")
+        domain(page, "力学")
+        w = W(page)
+        place_at(page, w, "地面", (0, -0.5))
+        blk = place_at(page, w, "物块", (0, 0.1))
+        page.evaluate("(m) => window.__builder.setParams(m.b, { m: 1, v0: 4, mu: 0.1, fixRot: 1 })", {"b": blk})
+        page.evaluate("() => { const g = window.__builder.elements().find(e => e.type === 'ground'); if (g) window.__builder.setParams(g.id, { mu: 0.1 }) }")
+        domain(page, "通用")
+        w = W(page)
+        for label, tgt in (("加速度传感器", (-2, 1)), ("速度传感器", (-2, 0.5)), ("距离传感器", (0, 1))):
+            sid = place_at(page, w, label, tgt)
+            page.evaluate("(m) => window.__builder.link(m.s, '探头', m.b, '顶', 'rope')", {"s": sid, "b": blk})
+        page.locator(".tools .primary").click()
+        st = sample_at(page, 0.5, need_probes=True)
+        t_s = st["t"] if st else 0.5
+        v_th = 4 - 0.1 * 9.8 * t_s
+        spd = next((st["p"][k] for k in st["p"] if "speed_sensor" in k), None) if st else None
+        check("速度传感器 t=0.5s 读数 v0−μgt", spd is not None and abs(spd[1] - v_th) / v_th < 0.1,
+              f"got={spd[1] if spd else None} theory={v_th:.3f}")
+        acc = next((st["p"][k] for k in st["p"] if "accel_sensor" in k), None) if st else None
+        check("加速度传感器读数 −μg（滑动摩擦减速）", acc is not None and abs(acc[1] + 0.98) < 0.25,
+              f"got={acc[1] if acc else None} theory=−0.98")
+        while page.evaluate("window.__builder.simStatus()") != "ended":
+            page.wait_for_timeout(200)
+        end = page.evaluate("() => ({ p: window.__builder.probes() ?? {}, s: window.__builder.subjects() })")
+        x_th = 4 * 4 / (2 * 0.1 * 9.8)
+        rng = next((end["p"][k] for k in end["p"] if "range" in k or "距离" in k), None)
+        check("位移传感器末值 x=v₀²/(2μg)", rng is not None and abs(rng[1] - x_th) / x_th < 0.08,
+              f"got={rng[1] if rng else None} theory={x_th:.3f}")
+
+        # ═══ 场景三：显示 4 件 smoke ═══
+        print("场景三：显示元件 smoke")
+        page.evaluate("window.__builder.clear()")
+        domain(page, "力学")
+        w = W(page)
+        place_at(page, w, "地面", (0, -0.5))
+        blk3 = place_at(page, w, "物块", (0, 0.1))
+        page.evaluate("(m) => window.__builder.setParams(m.b, { v0: 3, mu: 0, fixRot: 1 })", {"b": blk3})
+        domain(page, "通用")
+        w = W(page)
+        for label, tgt in (("轨迹追踪", (-3, 2)), ("时间轴", (3, 2)), ("矢量箭头", (-3, -1)), ("图上标签", (3, -1))):
+            place_at(page, w, label, tgt)
+        page.locator(".tools .primary").click()
+        page.wait_for_timeout(1500)
+        n_els = page.evaluate("window.__builder.count()")
+        check("显示 4 件放置+运行无页面错误", not errs and n_els >= 5, f"elements={n_els} errs={len(errs)}")
+        while page.evaluate("window.__builder.simStatus()") != "ended":
+            page.wait_for_timeout(200)
+        b.close()
+
+    print()
+    if fails:
+        print(f"❌ free-build 器材 E2E 失败：{fails}")
+        return 1
+    print(f"✅ free-build 器材 E2E 全过（{len(ok_all)} 项）")
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
