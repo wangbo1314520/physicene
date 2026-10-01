@@ -101,6 +101,8 @@ public class SimulationInstance {
     private final java.util.Map<String, double[]> ropeTensionAccum = new java.util.LinkedHashMap<>();
     /** P5a 批2：绳张力 EMA（Tavg_ 探针）——静力学断言数据源 */
     private final java.util.Map<String, Double> ropeTensionEma = new java.util.LinkedHashMap<>();
+    /** P5b-2：地面系平台速度（运动学积分 v+=a·h） */
+    private double platV = 0;
     /** P2.1·耦合编排器（null=无耦合场景零开销） */
     private CouplingOrchestrator orchestrator = null;
     /** P5a：恒力装置持续时间 */
@@ -469,14 +471,31 @@ public class SimulationInstance {
                     }
                 }
             }
-// P5a 批2 回填：加速平台（_srcType=8）= 电梯参考系——全部自由体受惯性力 −m·a（画布=电梯系；
-// 平台=固定墙，dyn4j 接触约束自动给支撑物 N=m(g+a)）。抛体呈等效重力 g+a 轨迹（卡 68）
+// P5a 批2 回填：加速平台（_srcType=8）。frame=0 电梯参考系（卡 68）：全部自由体受惯性力 −m·a，
+// 平台=固定墙，dyn4j 接触约束自动给支撑物 N=m(g+a)，抛体呈等效重力 g+a 轨迹。
+// P5b-2 frame=1 地面系双视角：无惯性力（普通抛体 g）+平台按 ½at² 运动学平移（每子步 translate），
+// relY_<bodyId> 探针=物体相对平台高度——两系相对峰值同为 v₀ᵧ²/(2(g+a))（参考系不变性断言）。
+// 限制：frame=1 下静置承载不传速（静态体平移不携物），仅适用抛体辨析场景
             for (var apEl : scene.getElements()) {
                 if (apEl.getParams() != null && apEl.getParams().getOrDefault("_srcType", 0.0) == 8.0) {
                     double pa = apEl.getParams().getOrDefault("a", 2.0);
+                    boolean groundFrame = apEl.getParams().getOrDefault("frame", 0.0) == 1.0;
                     if (pa == 0) continue;
-                    for (Body db : dynamicBodies) {
-                        db.applyForce(new org.dyn4j.geometry.Vector2(0, -db.getMass().getMass() * pa));
+                    if (groundFrame) {
+                        Body platBody = bodies.get(apEl.getId());
+                        if (platBody != null) {
+                            platV += pa * (dt / substeps);
+                            platBody.translate(0, platV * (dt / substeps));
+                        }
+                        for (Body db : dynamicBodies) {
+                            double relY = db.getTransform().getTranslationY()
+                                - (platBody != null ? platBody.getTransform().getTranslationY() : 0);
+                            couplingReadings.put("relY_" + db.getUserData(), relY);
+                        }
+                    } else {
+                        for (Body db : dynamicBodies) {
+                            db.applyForce(new org.dyn4j.geometry.Vector2(0, -db.getMass().getMass() * pa));
+                        }
                     }
                 }
             }

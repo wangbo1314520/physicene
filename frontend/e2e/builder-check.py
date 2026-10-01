@@ -196,6 +196,28 @@ def main() -> int:
         if not notes_ok:
             failures.append("notes-toast")
 
+        # ── P5b-2 地面系双视角全栈 E2E：platform frame=1 + 质点 → relY 探针键到达浏览器 ──
+        # （值断言在 GroundFrameTest：absPeak=普通抛体 0.28%、relPeak=参考系不变性 0.46%）
+        page.evaluate("window.__builder.clear()")
+        page.locator(".palette .item", has_text="加速平台").first.click()
+        page.locator(".palette .item", has_text="质点").first.click()
+        els2 = page.evaluate("window.__builder.elements()")
+        plat_id = next(e["id"] for e in els2 if e["type"] == "accelerating_platform")
+        par_id = next(e["id"] for e in els2 if e["type"] == "particle")
+        page.evaluate("(m) => window.__builder.setParams(m.p, { a: 2, frame: 1 })", {"p": plat_id})
+        page.evaluate("(m) => window.__builder.setParams(m.p, { v0: 6, ang: 30 })", {"p": par_id})
+        page.locator(".tools .primary").click()
+        for _ in range(80):
+            page.wait_for_timeout(200)
+            if page.evaluate("window.__builder.simStatus()") == "ended":
+                break
+        probes = page.evaluate("window.__builder.probes()") or {}
+        rel_keys = [k for k in probes if k.startswith("relY_")]
+        gf_ok = len(rel_keys) > 0
+        print(f"{'✅' if gf_ok else '❌'} 地面系 relY 探针全栈（catalog frame 参数→RunBridge→Java→浏览器，键={rel_keys[:1]}）")
+        if not gf_ok:
+            failures.append("ground-frame-relY")
+
         b.close()
 
     passed = len(want) - len([f for f in failures if f in [t["id"] for t in want]])
