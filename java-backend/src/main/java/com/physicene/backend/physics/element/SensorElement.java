@@ -61,10 +61,34 @@ public class SensorElement implements ElementBehavior {
                 // postSolve 力方向 bug 见交接文档（已知限制，调试后可能替代本方案）
                 return new double[]{t, lastAx, lastAy};
             }
+            case "force_sensor": {
+                // 接触力模（postSolve 累积、每子步冲刷——静置 N=mg、斜面 N=mg·cosθ）
+                return new double[]{t, Math.hypot(contactFx, contactFy)};
+            }
+            case "energy_meter": {
+                // 机械能 E=½mv²+mg(y−y_ref)，零势能面=传感器放置高度（教材口径）
+                double m = target.getMass().getMass();
+                double v = target.getLinearVelocity().getMagnitude();
+                double yRef = data.getPosition() == null ? 0 : data.getPosition().y();
+                return new double[]{t, 0.5 * m * v * v + m * 9.8 * (target.getTransform().getTranslationY() - yRef)};
+            }
+            case "photogate": {
+                // 光电门：目标 x 跨越门线（传感器 x）记时刻；首次过门前无读数（null）
+                double x = target.getTransform().getTranslationX();
+                double gx = data.getPosition() == null ? 0 : data.getPosition().x();
+                if (prevX != null && Math.signum(x - gx) != Math.signum(prevX - gx) && Math.abs(x - gx) > 1e-9) {
+                    lastCrossT = t;
+                }
+                prevX = x;
+                return lastCrossT >= 0 ? new double[]{t, lastCrossT} : null;
+            }
             default:
                 return null;
         }
     }
+
+    private Double prevX = null;
+    private double lastCrossT = -1;
 
     public Body getTarget() { return target; }
 

@@ -158,6 +158,58 @@ def main() -> int:
         check("位移传感器末值 x=v₀²/(2μg)", rng is not None and abs(rng[1] - x_th) / x_th < 0.08,
               f"got={rng[1] if rng else None} theory={x_th:.3f}")
 
+        # ═══ 场景三b：photogate/force/energy（2026-10-01 十轮追问3——原列 P6 提前落地）═══
+        print("场景三b：光电门/力/能量")
+        page.evaluate("window.__builder.clear()")
+        domain(page, "力学")
+        w = W(page)
+        place_at(page, w, "地面", (0, -0.5))
+        ball = place_at(page, w, "小球", (2, 3.05))   # 静置于地面：force N=mg=9.8、energy≈0（y_ref=传感器高度）
+        page.evaluate("(m) => window.__builder.setParams(m.b, { m: 1, v0: 0, mus: 0, e: 0 })", {"b": ball})
+        domain(page, "通用")
+        w = W(page)
+        fs = place_at(page, w, "力传感器", (-2, 1))
+        em = place_at(page, w, "能量条", (-2, 0.5))
+        for sid in (fs, em):
+            page.evaluate("(m) => window.__builder.link(m.s, '探头', m.b, '顶', 'rope')", {"s": sid, "b": ball})
+        # 光电门：自由落体小球从 h 落下，门线在传感器 x——独立场景跑（同场景跑两个球会互相干扰）
+        page.locator(".tools .primary").click()
+        for _ in range(90):
+            page.wait_for_timeout(200)
+            if page.evaluate("window.__builder.simStatus()") == "ended":
+                break
+        end = page.evaluate("() => window.__builder.probes() ?? {}")
+        fv = next((end[k] for k in end if "force_sensor" in k), None)
+        check("力传感器静置 N=mg=9.8N", fv is not None and abs(fv[1] - 9.8) < 0.35,
+              f"got={fv[1] if fv else None} theory=9.8")
+        ev = next((end[k] for k in end if "energy_meter" in k), None)
+        e_th = 9.8 * (0.1 - 0.5)  # 球从 3.05 落至地面静置（球心 0.1，半径 0.5 顶地面 −0.4+0.5）；
+        # y_ref=传感器放置高度 0.5 → 末态 Ep=mg(0.1−0.5)。落地弹跳耗散后 v=0
+        check("能量条末态 E=mg(y_end−y_ref)", ev is not None and abs(ev[1] - e_th) < 0.35,
+              f"got={ev[1] if ev else None} theory={e_th:.2f}")
+        # 光电门：竖直上抛小球越过门线（球起始 x=2 下落——门线放 x=2 竖直下方不触发穿越；
+        # 改水平放置：小球 v0=0 从 x=2 自由落体，门在 (2, 1.5)——x 不变不穿越。正确测法：门线 x=2.2，
+        # 给球 vx？自由落体无 vx……光电门测竖直下落需门线水平。当前门线=x 竖直线——用水平初速球：
+        # 平抛小球 v0=3 从 (0,3) → 越过 x=1.5 门线于 t=0.5s（y 同时下落，门只记 x 穿越）
+        page.evaluate("window.__builder.clear()")
+        domain(page, "力学")
+        w = W(page)
+        ball2 = place_at(page, w, "小球", (0, 3))
+        page.evaluate("(m) => window.__builder.setParams(m.b, { m: 1, v0: 3, ang: 0, mus: 0, e: 0 })", {"b": ball2})
+        domain(page, "通用")
+        w = W(page)
+        pg2 = place_at(page, w, "光电门", (1.5, 2))
+        page.evaluate("(m) => window.__builder.link(m.s, '探头', m.b, '顶', 'rope')", {"s": pg2, "b": ball2})
+        page.locator(".tools .primary").click()
+        for _ in range(90):
+            page.wait_for_timeout(200)
+            if page.evaluate("window.__builder.simStatus()") == "ended":
+                break
+        end = page.evaluate("() => window.__builder.probes() ?? {}")
+        pv = next((end[k] for k in end if "photogate" in k), None)
+        check("光电门平抛过门 t=x/v₀=1.5/3=0.5s", pv is not None and abs(pv[1] - 0.5) < 0.05,
+              f"got={pv[1] if pv else None} theory=0.5")
+
         # ═══ 场景三：显示 4 件 smoke ═══
         print("场景三：显示元件 smoke")
         page.evaluate("window.__builder.clear()")

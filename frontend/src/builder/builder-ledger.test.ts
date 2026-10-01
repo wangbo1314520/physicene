@@ -37,7 +37,7 @@ describe('engineOfSpec（domain/role 数据驱动）', () => {
     ['gas_cell', 'thermal'], ['piston', 'thermal'],
     ['light_source', 'optics'], ['prism', 'optics'],
     ['photo_tube', 'modern'], ['h_atom', 'modern'],
-    ['trail', null], ['energy_meter', null],
+    ['trail', null], ['energy_meter', 'rigid'],  // 十轮追问3：display→detector（probes 读数）
   ])('%s → %s', (type, want) => {
     const spec = byType.get(type as string)!
     expect(engineOfSpec(spec)).toBe(want)

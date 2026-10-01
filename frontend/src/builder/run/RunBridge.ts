@@ -33,11 +33,14 @@ const TS_ENGINE_TYPES = new Set(['light_source', 'prism', 'optic_screen', 'photo
   // 批4：波3 + 杂项装置
   ...WAVE_DEVICE_TYPES, ...MISC_DEVICE_TYPES])
 /** 不建刚体的显示/检测类（静默跳过）；bracket/pole = 理想固定端（无碰撞体，绳/弹簧连接端折算固定悬点） */
-const NO_BODY = new Set(['photogate', 'force_sensor', 'trail', 'energy_meter', 'timeline', 'anchor_point', 'vector_arrow', 'graph_tag',
-  'bracket', 'pole'])
-// P5b-3：Java SensorElement 已实现的 3 检测器——发射为无体元件（connectTo=绑定目标，读数走 probes 通道）；
-// photogate/force_sensor/energy_meter 无 Java 实现（目录虚设，EngineAnalyzer 放置即警告）——仍在 NO_BODY 静默跳过
-const SENSOR_TYPES = new Set(['accel_sensor', 'speed_sensor', 'range_finder'])
+// NO_BODY 分类制度（十轮追问2——防第 4 次静默丢弃）：不建刚体的元件必须属于下方三类之一，
+// v2 CI 校验 NO_BODY ⊆ 三类并集（新成员未分类即红——被迫做归类决策）
+const FIXED_ANCHOR_TYPES = new Set(['bracket', 'pole', 'anchor_point'])   // 固定端：绳/弹簧悬点（rope 分支消费）
+const DISPLAY_TYPES = new Set(['trail', 'timeline', 'vector_arrow', 'graph_tag'])  // 纯显示：前端渲染即全部功能
+const NO_BODY = new Set([...FIXED_ANCHOR_TYPES, ...DISPLAY_TYPES])
+// 检测器（Java SensorElement 消费——发射为无体元件，connectTo=绑定目标，读数走 probes 通道）。
+// P5b-3 接线 3 件；photogate/force_sensor/energy_meter 于 2026-10-01（十轮追问3，原列 P6 提前）补齐
+const SENSOR_TYPES = new Set(['accel_sensor', 'speed_sensor', 'range_finder', 'photogate', 'force_sensor', 'energy_meter'])
 
 export interface RunPose { x: number; y: number; angle?: number }
 

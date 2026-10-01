@@ -74,6 +74,24 @@ def main() -> int:
     if bad_combined:
         print(f"❌ 未登记的合并 case：{bad_combined}——默认禁止（heater 幽灵气室前科）；须登记参数链审计表③节+分流证明")
         return 1
+    # NO_BODY 分类 CI（2026-10-01 十轮追问2——防第 4 次静默丢弃）：不建刚体元件必须显式归类
+    m_nb = re.search(r"const NO_BODY = new Set\(\[(.*?)\]\)", bridge_text, re.DOTALL)
+    m_classes = re.findall(r"const (FIXED_ANCHOR_TYPES|DISPLAY_TYPES) = new Set\(\[(.*?)\]\)", bridge_text, re.DOTALL)
+    if m_nb:
+        nb_body = m_nb.group(1)
+        nb_lit = set(re.findall(r"'(\w+)'", nb_body))
+        nb_spreads = set(re.findall(r"\.\.\.(\w+)", nb_body))
+        class_names = {name for name, _ in m_classes}
+        declared = set()
+        for _, c in m_classes:
+            declared |= set(re.findall(r"'(\w+)'", c))
+        # spread 引用必须是已声明分类常量；字面成员必须在分类并集内（双路——spread 写法不空转）
+        bad_spread = nb_spreads - class_names
+        unclassified = nb_lit - declared
+        if bad_spread or unclassified:
+            print(f"❌ NO_BODY 分类违规：未分类字面={sorted(unclassified)} 非法 spread={sorted(bad_spread)}")
+            print("   必须归入 FIXED_ANCHOR_TYPES/DISPLAY_TYPES（或 SENSOR_TYPES 接线）——新成员不做归类决策即红")
+            return 1
     # 反向检查（2026-10-01 七轮追问2 制度化——region L/W 半虚报驱动）：RunBridge case 内读取的
     # p.X 必须是 catalog 该元件的参数（或白名单：pickWireParams 的 bullet/fixRot 经 e.params 不在此列）
     REVERSE_ALLOW = {"bullet", "fixRot", "id", "type"}

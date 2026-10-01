@@ -15,13 +15,11 @@ CATALOG = ROOT / "src" / "builder" / "catalog.ts"
 BRIDGE = ROOT / "src" / "builder" / "run" / "RunBridge.ts"
 JAVA_DIR = ROOT / ".." / "java-backend" / "src" / "main" / "java"
 
-ALLOWLIST: dict[str, str] = {
-    # 签字记录（diff 可见=放行单）：Java 侧 getOrDefault 按 key 全局匹配会撞同名异元件
-    "piston.dampingRatio: RunBridge fb=0.5 vs Java=[0.05]":
-        "Java 0.05 是 spring.dampingRatio 的默认（同名异元件）；piston 路径用 containsKey 无默认——非真不一致",
-}
-# 治理（九轮追问3）：①理由非空 ②上限 5 条——达限即 exit 1 强制全量复查（防"提交时加一条没人看"）；
-# ③条目数恒打印。当前 1 条。审核=提交评审（白名单行出现在 diff 即放行单）+测点对账
+ALLOWLIST: dict[str, str] = {}  # 当前 0 条（原 dampingRatio 条目已用更优机制消除：多元件共享 key 的 check② 跳过）
+# 治理（九轮追问3+十轮追问4）：①理由非空 ②上限 5 条——达限即 exit 1 强制全量复查；
+# ③条目数恒打印。上限依据：经验启发式（当前 0 条 + 预留同类签字空间），非推导值——
+# 达限动作：执行方逐条给"能否修掉/重构消歧"结论，评审确认后删条或重构，不许原地续满。
+# 审核链：放行单=diff 中白名单行 → 提交评审逐条审 → 测点对账（输出 vs 审计表快照）
 ALLOWLIST_CAP = 5
 
 
@@ -101,8 +99,16 @@ def main() -> int:
             key = f"{etype}.{param}: RunBridge fb={fb} vs catalog={cval}"
             if key not in ALLOWLIST:
                 issues.append(key)
-    # ② RunBridge ↔ Java（同 key；Java 不分区——取该 key 的全部默认值，都不同才报）
+    # ② RunBridge ↔ Java（同 key；Java 不分区——取该 key 的全部默认值，都不同才报）。
+    # 多元件共享 key 跳过（十轮追问4：Java 全局键匹配对共享 key 天然歧义——如 dampingRatio
+    # 同时是 piston(fb 0.5)与 spring(fb 0.05)的参数，静态无法归属 Java 侧读数属于谁——非真不一致）
+    key_owners: dict[str, set[str]] = {}
+    for m in re.finditer(r"case '(\w+)':(.*?)(?=case '|$)", BRIDGE.read_text(encoding="utf-8"), re.DOTALL):
+        for n in re.finditer(r"(\w+):\s*num\(p\.\w+,\s*-?[\d.eE+]+\)", m.group(2)):
+            key_owners.setdefault(n.group(1), set()).add(m.group(1))
     for (etype, param), fb in sorted(br.items()):
+        if len(key_owners.get(param, {etype})) >= 2:
+            continue
         jvals = jd.get(param)
         if jvals and not any(abs(j - fb) < 1e-9 for j in jvals):
             key = f"{etype}.{param}: RunBridge fb={fb} vs Java={sorted(jvals)}"
