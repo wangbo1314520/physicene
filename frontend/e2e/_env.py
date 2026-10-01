@@ -74,3 +74,12 @@ def banner() -> None:
     print(f"PY   : {py} (py{ver}){' [WindowsApps别名-勿用!]' if bad_py else ''}")
     print(f"WPBW : {pw}")
     print("═════════════════════")
+
+
+def pick_item(page, label: str):
+    """精确文本点选 palette 元件（2026-10-01 九轮追问4 制度化：has_text 是子串匹配，
+    '速度传感器'会撞中'加速度传感器'——第 4 次测试问题后 E2E 规范：文本匹配必须精确）。
+    适用于页面级常用操作；返回是否找到。"""
+    return page.evaluate(
+        "(l) => { const it = [...document.querySelectorAll('.palette .item')]"
+        ".find(e => e.querySelector('.lb')?.textContent.trim() === l); if (it) { it.click(); return true } return false }", label)

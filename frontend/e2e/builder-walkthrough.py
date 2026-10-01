@@ -44,7 +44,7 @@ def drag(page, w, fx, fy, tx, ty, steps=12):
 
 def place(page, w, label, target):
     """面板点击放置（新增在默认位），再拖拽到目标世界坐标"""
-    page.locator(".palette .item", has_text=label).first.click()
+    page.evaluate("(l) => { const it = [...document.querySelectorAll('.palette .item')].find(e => e.querySelector('.lb')?.textContent.trim() === l); it && it.click() }", label)
     page.wait_for_timeout(120)
     els = page.evaluate("window.__builder.elements()")
     eid = els[-1]["id"]

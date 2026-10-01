@@ -186,8 +186,8 @@ def main() -> int:
         # pkg.notes 曾长期无人消费（heater 取证发现），现已经 lastNotes 上屏；heater 元件本身已删（僵尸，0 卡引用）
         page.evaluate("window.__builder.clear()")
         page.locator(".palette .tabs button", has_text="力学").click()
-        page.locator(".palette .item", has_text="物块").first.click()
-        page.locator(".palette .item", has_text="轻绳").first.click()
+        ok1 = page.evaluate("(l) => { const it = [...document.querySelectorAll('.palette .item')].find(e => e.querySelector('.lb')?.textContent.trim() === l); it && it.click() }", "物块")
+        page.evaluate("(l) => { const it = [...document.querySelectorAll('.palette .item')].find(e => e.querySelector('.lb')?.textContent.trim() === l); it && it.click() }", "轻绳")
         page.locator(".tools .primary").click()
         page.wait_for_timeout(800)
         toast = page.evaluate("window.__builder.toast()")
@@ -199,8 +199,8 @@ def main() -> int:
         # ── P5b-2 地面系双视角全栈 E2E：platform frame=1 + 质点 → relY 探针键到达浏览器 ──
         # （值断言在 GroundFrameTest：absPeak=普通抛体 0.28%、relPeak=参考系不变性 0.46%）
         page.evaluate("window.__builder.clear()")
-        page.locator(".palette .item", has_text="加速平台").first.click()
-        page.locator(".palette .item", has_text="质点").first.click()
+        page.evaluate("(l) => { const it = [...document.querySelectorAll('.palette .item')].find(e => e.querySelector('.lb')?.textContent.trim() === l); it && it.click() }", "加速平台")
+        page.evaluate("(l) => { const it = [...document.querySelectorAll('.palette .item')].find(e => e.querySelector('.lb')?.textContent.trim() === l); it && it.click() }", "质点")
         els2 = page.evaluate("window.__builder.elements()")
         plat_id = next(e["id"] for e in els2 if e["type"] == "accelerating_platform")
         par_id = next(e["id"] for e in els2 if e["type"] == "particle")

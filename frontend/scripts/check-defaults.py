@@ -16,10 +16,13 @@ BRIDGE = ROOT / "src" / "builder" / "run" / "RunBridge.ts"
 JAVA_DIR = ROOT / ".." / "java-backend" / "src" / "main" / "java"
 
 ALLOWLIST: dict[str, str] = {
-    # 签字记录（diff 可见）：Java 侧 getOrDefault 按 key 全局匹配会撞同名异元件
+    # 签字记录（diff 可见=放行单）：Java 侧 getOrDefault 按 key 全局匹配会撞同名异元件
     "piston.dampingRatio: RunBridge fb=0.5 vs Java=[0.05]":
         "Java 0.05 是 spring.dampingRatio 的默认（同名异元件）；piston 路径用 containsKey 无默认——非真不一致",
 }
+# 治理（九轮追问3）：①理由非空 ②上限 5 条——达限即 exit 1 强制全量复查（防"提交时加一条没人看"）；
+# ③条目数恒打印。当前 1 条。审核=提交评审（白名单行出现在 diff 即放行单）+测点对账
+ALLOWLIST_CAP = 5
 
 
 def split_top_args(s: str) -> list[str]:
@@ -87,7 +90,9 @@ def main() -> int:
     br = bridge_fallbacks(BRIDGE.read_text(encoding="utf-8"))
     jd = java_defaults()
 
-    print(f"catalog 默认值 {len(cat)} 项 · RunBridge fallback {len(br)} 项 · Java getOrDefault key {len(jd)} 个")
+    print(f"catalog 默认值 {len(cat)} 项 · RunBridge fallback {len(br)} 项 · Java getOrDefault key {len(jd)} 个 · ALLOWLIST {len(ALLOWLIST)}/{ALLOWLIST_CAP} 条")
+    assert all(v.strip() for v in ALLOWLIST.values()), "ALLOWLIST 条目必须带非空理由"
+    assert len(ALLOWLIST) <= ALLOWLIST_CAP, f"ALLOWLIST 达上限 {ALLOWLIST_CAP}——强制全量复查（防静默膨胀）"
     issues = []
     # ① catalog ↔ RunBridge（同元件同参数）
     for (etype, param), fb in sorted(br.items()):

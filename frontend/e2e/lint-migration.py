@@ -8,6 +8,9 @@
         首页(.picker)的选择器本就以各自页面根类作用域。未来任何页面迁移须同步本规则的根类表。
 规则 3：goto 目标必须在活路由清单 ROUTES 内（含 /exp/{id} 模式）——路由改名时本清单即迁移
         checklist：改路由必须同步此处，静态暴露所有 stale goto
+规则 4（九轮追问4：第 4 次测试问题后制度化）：.palette .item 定位禁止 has_text（子串匹配会撞名
+        ——'速度传感器'撞中'加速度传感器'）；必须精确文本匹配（_env.pick_item 模式）。
+        Tab 按钮等无撞名风险处暂豁免（撞名即新增规则）
 用法：python e2e/lint-migration.py（发现违规 exit 1；接入测点/批收尾矩阵）"""
 import re
 import sys
@@ -34,6 +37,10 @@ for f in sorted(E2E.glob("*.py")):
         elif not (tail == "" or tail in ("lab", "sandbox", "login")
                   or tail.startswith("exp/")):  # exp/ 后接 f-string 变量（{cid} 等）=实验运行路由
             violations.append(f"{f.name}:{line} goto 非清单路由 /{tail}（路由清单 ROUTES 或脚本有误）")
+    # 规则 4：palette item + has_text（子串撞名）
+    for m in re.finditer(r'\.palette \.item.{0,80}has_text=', txt):
+        line = txt.count("\n", 0, m.start()) + 1
+        violations.append(f"{f.name}:{line} palette item 用 has_text 子串匹配（撞名风险——须精确文本匹配）")
     # 规则 2：builder 裸选择器
     for m in re.finditer(r'wait_for_selector\(\s*[\'"](\.builder[^\s\'"]*|\.palette[^\s\'"]*)', txt):
         sel = m.group(1)
@@ -47,4 +54,4 @@ if violations:
     for v in violations:
         print("  " + v)
     sys.exit(1)
-print("✅ 迁移 lint 通过（无旧 /exp 路由、无 builder 裸选择器、goto 全在活路由清单）")
+print("✅ 迁移 lint 通过（无旧 /exp 路由、无 builder 裸选择器、goto 全在活路由清单、无 palette has_text 撞名）")

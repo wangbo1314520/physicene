@@ -228,7 +228,7 @@ def main() -> int:
             pg.mouse.up(); pg.wait_for_timeout(150)
 
         def place(pg, w, label, target):
-            pg.locator(".palette .item", has_text=label).first.click()
+            pg.evaluate("(l) => { const it = [...document.querySelectorAll('.palette .item')].find(e => e.querySelector('.lb')?.textContent.trim() === l); it && it.click() }", label)
             pg.wait_for_timeout(150)
             els = pg.evaluate("window.__builder.elements()")
             e = els[-1]
@@ -279,13 +279,13 @@ def main() -> int:
                 break
             pg.wait_for_timeout(300)
         pg.evaluate("window.__builder.clear()")
-        pg.locator(".palette .item", has_text="斜面").first.click()
+        pg.evaluate("() => { const it = [...document.querySelectorAll('.palette .item')].find(e => e.querySelector('.lb')?.textContent.trim() === '斜面'); it && it.click() }")
         pg.wait_for_timeout(150)
         els2 = pg.evaluate("window.__builder.elements()")
         lp2 = els2[-1]
         drag(pg, w, lp2["position"]["x"], lp2["position"]["y"], -4, -2.5)
         pg.evaluate(f"window.__builder.setParams({lp2['id']!r}, {{th: 30, mu: 0, L: 6}})")
-        pg.locator(".palette .item", has_text="物块").first.click()
+        pg.evaluate("() => { const it = [...document.querySelectorAll('.palette .item')].find(e => e.querySelector('.lb')?.textContent.trim() === '物块'); it && it.click() }")
         pg.wait_for_timeout(150)
         els2 = pg.evaluate("window.__builder.elements()")
         blkel = els2[-1]
@@ -313,7 +313,7 @@ def main() -> int:
 
         # 探针D（bracket/pole 批：旋转斜面 + 真实拖放吸附——resolveAnchors E2E 级验证）
         pg.evaluate("window.__builder.clear()")
-        pg.locator(".palette .item", has_text="斜面").first.click()
+        pg.evaluate("() => { const it = [...document.querySelectorAll('.palette .item')].find(e => e.querySelector('.lb')?.textContent.trim() === '斜面'); it && it.click() }")
         pg.wait_for_timeout(150)
         els2 = pg.evaluate("window.__builder.elements()")
         slp = els2[-1]
@@ -323,7 +323,7 @@ def main() -> int:
         sl = next(e for e in pg.evaluate("window.__builder.elements()") if e["id"] == slp["id"])
         topx = sl["position"]["x"] - 6 * math.tan(math.radians(30))  # R(90°)·(0,h) = (−h, 0)
         topy = sl["position"]["y"]
-        pg.locator(".palette .item", has_text="物块").first.click()
+        pg.evaluate("() => { const it = [...document.querySelectorAll('.palette .item')].find(e => e.querySelector('.lb')?.textContent.trim() === '物块'); it && it.click() }")
         pg.wait_for_timeout(150)
         els2 = pg.evaluate("window.__builder.elements()")
         blkd = els2[-1]
