@@ -24,6 +24,27 @@ def check_combined_cases(bridge_text: str) -> list[str]:
         pairs.append((m.group(1), m.group(3)))
     return [f"{a}+{b}" for a, b in pairs if frozenset((a, b)) not in COMBINED_CASE_ALLOW]
 
+def extract_case_reads(bridge_text: str) -> dict[str, set[str]]:
+    """每个 case 内读取的 p.xxx（反向检查数据源：RunBridge 读的参数必须在 catalog 该元件参数表里）"""
+    reads: dict[str, set[str]] = {}
+    for m in re.finditer(r"case '(\w+)':(.*?)(?=case '|$)", bridge_text, re.DOTALL):
+        reads[m.group(1)] = set(re.findall(r"p\.(\w+)", m.group(2)))
+    return reads
+
+def catalog_params_by_type(cat_text: str) -> dict[str, set[str]]:
+    """每个元件类型的 catalog 参数名集合——段=el(' 到下一个 el('；参数宏（const MASS=P('m'…）先解析"""
+    consts = dict(re.findall(r"(\w+)\s*=\s*(?:P|SEL)\('(\w+)'", cat_text))  # 含链式：const A=P(), B=P()
+    out: dict[str, set[str]] = {}
+    for m in re.finditer(r"el\('(\w+)'", cat_text):
+        nxt = cat_text.find("el('", m.end())
+        seg = cat_text[m.end(): nxt if nxt > 0 else len(cat_text)]
+        params = set(re.findall(r"(?:P|SEL)\('(\w+)'", seg))
+        for c in re.findall(r"\b([A-Z][A-Z_0-9]{1,})\b", seg):
+            if c in consts:
+                params.add(consts[c])
+        out[m.group(1)] = params
+    return out
+
 def main() -> int:
     cat_text = CATALOG.read_text(encoding="utf-8")
     bridge_text = BRIDGE.read_text(encoding="utf-8")
@@ -53,7 +74,23 @@ def main() -> int:
     if bad_combined:
         print(f"❌ 未登记的合并 case：{bad_combined}——默认禁止（heater 幽灵气室前科）；须登记参数链审计表③节+分流证明")
         return 1
-    print(f"✅ {len(cat_params)} 个 catalog 参数全有消费点（RunBridge {len(bridge_consumed)} + TS {len(ts_consumed)}）；合并 case 仅白名单 {sorted('|'.join(s) for s in COMBINED_CASE_ALLOW)}")
+    # 反向检查（2026-10-01 七轮追问2 制度化——region L/W 半虚报驱动）：RunBridge case 内读取的
+    # p.X 必须是 catalog 该元件的参数（或白名单：pickWireParams 的 bullet/fixRot 经 e.params 不在此列）
+    REVERSE_ALLOW = {"bullet", "fixRot", "id", "type"}
+    cat_by_type = catalog_params_by_type(cat_text)
+    bad_reads = []
+    combined_types = set().union(*COMBINED_CASE_ALLOW) if COMBINED_CASE_ALLOW else set()
+    for etype, reads in extract_case_reads(bridge_text).items():
+        if etype in combined_types:
+            continue  # 合并 case 体共享，reads 无法按类型归属（白名单已在③节登记分流证明）
+        declared = cat_by_type.get(etype, set())
+        for r in sorted(reads - declared - REVERSE_ALLOW):
+            bad_reads.append(f"{etype}.{r}")
+    if bad_reads:
+        print(f"❌ RunBridge 读取了 catalog 未声明的参数（学生改不了=半参数化）：{bad_reads}")
+        print("   补 catalog P()/SEL() 或停止读取（先例：region L/W 提交信息声称'加参数'但目录未落——v2 正向检查盲区）")
+        return 1
+    print(f"✅ {len(cat_params)} 个 catalog 参数全有消费点（RunBridge {len(bridge_consumed)} + TS {len(ts_consumed)}）；合并 case 仅白名单 {sorted('|'.join(s) for s in COMBINED_CASE_ALLOW)}；反向检查 RunBridge 读⊆catalog 声明 全通")
     return 0
 
 if __name__ == "__main__":

@@ -116,10 +116,16 @@ with sync_playwright() as p:
     page.evaluate("(a) => window.__builder.setParams(a.id, a.p)", {"id": block, "p": {"m": 1, "v0": 0, "mu": 0}})
     page.wait_for_timeout(400)
     els = {e["id"]: e for e in page.evaluate("window.__builder.elements()")}
-    # 吸附断言：块底锚点 (0,-0.5) 世界 == 斜面顶端 (-4, 0.96)
+    # 吸附断言（2026-10-01 修正）：斜面吸附含"自动平行对齐"——块转 θ=30°、中心按补偿公式移动，
+    # 底锚世界位保持不变。旧断言用未旋转偏移 by−0.5 → 误报 ~0.25m；实测 (−4.24,1.38) 与设计
+    # 补偿 (−4.25,1.397) 精确吻合——吸附算法/锚点/提交路径全部正确，是断言停在特性之前
     bx, by = els[block]["position"]["x"], els[block]["position"]["y"]
-    check("斜面-物块吸附（底锚点距顶端 <0.05m）", abs(bx - -4) < 0.05 and abs((by - 0.5) - 0.96) < 0.05,
-          f"block=({bx:.2f},{by:.2f})")
+    bang = els[block]["angle"]
+    ax = bx - math.sin(bang) * -0.5   # 底锚局部 (0,−0.5) 的旋转投影
+    ay = by + math.cos(bang) * -0.5
+    check("斜面-物块吸附+自动对齐（旋转后底锚==顶端，块角=θ）",
+          abs(ax - -4) < 0.05 and abs(ay - 0.96) < 0.05 and abs(math.degrees(bang) - 30) < 2,
+          f"block=({bx:.2f},{by:.2f}) ang={math.degrees(bang):.0f}° 底锚=({ax:.2f},{ay:.2f})")
     # 吸附演示完成后，把物块拖到斜面中段（顶端吸附点恰为薄端顶点，静力平衡不下滑——教学上应放面中段）
     drag(page, w, bx, by, -0.75, -0.34)
     page.wait_for_timeout(200)
