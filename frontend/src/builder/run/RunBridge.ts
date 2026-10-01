@@ -146,7 +146,7 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
       }
       case 'ground':
         asBody({ type: 'wall', scale: { x: 100, y: 0.2 }, fixed: true,
-          properties: { friction: num(p.mu, 0.3) } })
+          properties: { friction: num(p.mu, 0.2) } })  // fb 0.3→0.2 对齐 catalog MU 默认（v4 抓获）
         break
       case 'vwall': // 竖直墙面（整改1）：wall 旋转 90°，高度 H
         asBody({ type: 'wall', scale: { x: num(p.H, 6), y: 0.2 }, fixed: true, angle: e.angle + Math.PI / 2,
@@ -235,7 +235,7 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
       }
       case 'e_region':
         asBody({ type: 'e_field', scale: { x: num(p.L, 12), y: num(p.W, 6) }, fixed: true,
-          properties: { eFieldX: num(p.Ex, 0), eFieldY: num(p.Ey, 9.8) } })
+          properties: { eFieldX: num(p.Ex, 0), eFieldY: num(p.Ey, 0) } })  // fb 9.8→0 对齐 catalog 默认（空场区；v4 抓获）
         break
       case 'constant_force':
         // P5a 回填：恒力装置——通过 Orchestrator 对目标体施力

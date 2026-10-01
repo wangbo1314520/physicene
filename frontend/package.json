@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify": "vue-tsc --noEmit && vitest run src/builder && E:/Program/Python312/python scripts/check-param-chain.py && E:/Program/Python312/python scripts/check-java-consumption.py"
+    "verify": "vue-tsc --noEmit && vitest run src/builder && E:/Program/Python312/python scripts/check-param-chain.py && E:/Program/Python312/python scripts/check-java-consumption.py && E:/Program/Python312/python scripts/check-defaults.py"
   },
   "dependencies": {
     "axios": "^1.20.0",

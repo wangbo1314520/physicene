@@ -128,6 +128,15 @@ export function analyze(elements: GeoElement[]): Analysis {
   if ((has('e_region') || has('b_region')) && !has('point_charge')) warnings.push('有场区无带电粒子：场区不会产生运动')
   if (byEngine.get('rigid') && !elements.some((e) => byType.get(e.type)?.role === 'body')) warnings.push('只有约束/轨道没有运动体')
   if (has('rail_pair') && has('rod_bar')) warnings.push('导轨-棒电路闭合性由运行时校验（需形成回路）')
+  // P5b-2 限制显式告知（八轮追问3：不许静默）——地面系平台不携静置物
+  const gfPlat = elements.find((e) => e.type === 'accelerating_platform' && e.params.frame === 1)
+  if (gfPlat) {
+    const half = (gfPlat.params.L ?? 8) / 2
+    const resting = elements.some((e) => byType.get(e.type)?.role === 'body' && e.type !== 'accelerating_platform'
+      && !(e.params.v0 > 0) && Math.abs(e.position.x - gfPlat.position.x) < half
+      && Math.abs(e.position.y - gfPlat.position.y) < 1.2)
+    if (resting) warnings.push('地面系参考下平台上的静置物体不会随平台移动（运动学平移不携物）——辨析场景建议用抛体；如需物体随平台运动请切回电梯系（frame=0）')
+  }
 
   const runnerSet = new Set(engines.map((e) => e.runner))
   const path: Analysis['path'] = engines.length === 0 ? 'none' : runnerSet.has('java') ? 'java' : 'ts'
