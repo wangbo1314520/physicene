@@ -1,3 +1,7 @@
+-- 【已退役 2026-10-02（P6 Flyway）】本文件不再用于建库——权威 schema/种子移至
+-- java-backend/src/main/resources/db/migration/（V1 基线=本文件同名 14 表快照、V2=种子）。
+-- 新部署：直接启动后端（JDBC createDatabaseIfNotExist + Flyway 自动迁移）；演进：加 V3__xxx.sql。
+-- 保留本文件作历史参照（P5a 批1 手动 DDL 次生事故的物证）。
 -- =====================================================
 -- PhysiScene 数据库初始化（SRS v3.4.1 §5.2 / 数据库设计 ER+DDL）
 -- 13 张表：user / experiment_scenario / experiment_record / report /

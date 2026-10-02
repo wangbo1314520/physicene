@@ -124,7 +124,7 @@ def main() -> int:
         out = subprocess.run(["mysql", "-h127.0.0.1", "-uroot", "-p123456", "-N", "-e",
                               "SELECT VERSION(); SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='physicene';"],
                              capture_output=True, text=True, timeout=10).stdout.split()
-        chk("数据库可探（ddl-auto=validate，无迁移工具——漂移不可检测，列遗留）",
+        chk("数据库可探（Flyway 已接管：V1 基线+V2 种子，漂移由迁移版本约束）",
             len(out) >= 2, f"MySQL {out[0] if out else '?'} 表数 {out[1] if len(out) > 1 else '?'} ddl={ddl}")
     except Exception as e:
         chk("数据库可探", False, str(e)[:80])
