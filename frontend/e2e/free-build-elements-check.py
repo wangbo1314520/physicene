@@ -239,8 +239,8 @@ def main() -> int:
                 break
             if stx["sb"]:
                 s0 = stx["sb"][0]
-                if y0 is None and stx["s"] == "running":
-                    y0 = s0["y"]   # 起滑高度=首运行帧（落座完成后）
+                if y0 is None and stx["s"] == "running" and abs(s0["vx"]) > 0.1:
+                    y0 = s0["y"]   # 起滑高度=已开始滑动的首帧（落座/吸附弹跳完成——首帧直读会引入弹跳高度漂移）
                 if y0 is not None and 0.0 < s0["x"] < 0.5 and abs(s0["vx"]) > 0.5:
                     vv = next((stx["p"][k] for k in stx["p"] if "speed_sensor" in k), None)
                     if vv:
@@ -269,6 +269,28 @@ def main() -> int:
         check("显示 4 件放置+运行无页面错误", not errs and n_els >= 5, f"elements={n_els} errs={len(errs)}")
         while page.evaluate("window.__builder.simStatus()") != "ended":
             page.wait_for_timeout(200)
+
+        # ═══ 场景五：Tab 切换画布恢复（手测 Bug6·方案 D 验证）═══
+        print("场景五：Tab 切换画布恢复")
+        page.goto(f"{BASE}/lab")   # 实验台默认
+        page.wait_for_selector(".workspace canvas", timeout=10000)
+        page.wait_for_timeout(600)
+        sz0 = page.evaluate("() => { const c = document.querySelector('.workspace canvas'); return c.width + 'x' + c.height }")
+        page.locator(".tabbar .tab", has_text="自由搭建").click()
+        page.wait_for_selector(".free-build-tab canvas", timeout=8000)
+        page.wait_for_timeout(400)
+        page.locator(".tabbar .tab", has_text="实验台").click()
+        page.wait_for_timeout(600)
+        info = page.evaluate("() => { const c = document.querySelector('.workspace canvas'); if (!c) return null; return { w: c.width, h: c.height } }")
+        check("Tab 切回后 canvas 尺寸恢复（非 300×150 默认）",
+              info is not None and info["w"] > 500 and info["h"] > 300,
+              f"切前={sz0} 切回={info['w']}x{info['h']}" if info else "canvas 不存在")
+        # 渲染有效性：截图非纯色（空白画布=单一背景色）
+        page.locator(".canvas-wrap canvas").screenshot(path="/tmp/tabswitch-canvas.png")
+        import os
+        png_size = os.path.getsize("/tmp/tabswitch-canvas.png")
+        check("Tab 切回后 canvas 有渲染内容（截图非空白）", png_size > 5000, f"png={png_size}B")
+
         b.close()
 
     print()

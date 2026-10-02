@@ -783,8 +783,8 @@ onUnmounted(() => {
       <button @click="snap = null">保持原位</button>
     </div>
 
-    <section v-if="activeTab === 'lab'" class="workspace">
-      <aside class="left">
+    <section v-show="activeTab === 'lab'" class="workspace">  <!-- Bug6 方案 D：v-if→v-show（canvas 常驻）-->
+      <aside class="left" v-if="activeTab === 'lab'">
         <h3>元件库 <span class="dimtag">{{ DIM_INFO[dim].label }}</span></h3>
         <p class="dimhint">{{ dimHint }}</p>
         <div v-for="p in palette" :key="p.type" class="palette-item" draggable="true" :title="p.desc"
