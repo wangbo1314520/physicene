@@ -164,8 +164,8 @@ async function confirmOcrPreview() {
     try {
       await loadScene(created.id)
       toast.value = `拍照建场景完成 #${created.id}，可直接运行实验`
-    } catch {
-      toast.value = `场景 #${created.id} 已创建，请到「我的场景」打开`
+    } catch (e) {
+      toast.value = `场景 #${created.id} 已创建，但载入失败（${String(e).replace('Error: ', '')}）——请到「我的场景」打开`
     }
   } catch (e) {
     toast.value = '确认失败：' + String(e).replace('Error: ', '')
@@ -672,6 +672,18 @@ onMounted(async () => {
   // 手测 Bug1（2026-10-02）：导航「搭建台」=/lab?tab=free 直开自由搭建——/exp 重定向在已处 /lab 时无路由变化
   if (route.query.tab === 'free') activeTab.value = 'free'
   watch(() => route.query.tab, (t) => { if (t === 'free') activeTab.value = 'free' })
+  // 自查 1.3+1.6（中）：切 Tab 回实验台后 echarts resize + renderer 状态恢复
+  watch(activeTab, (t) => {
+    if (t === 'lab') {
+      nextTick(() => {
+        chart?.resize()
+        renderer?.resetView()
+        renderer?.setDimension(dim.value)  // 1.6：维度可能与自由搭建期间不一致
+        renderer?.setGhost([])             // 1.6：OCR 预览幽灵元素可能残留
+        syncRenderer()                     // 元素位置可能被修改
+      })
+    }
+  })
   if (import.meta.env.DEV) (window as unknown as { __lab?: unknown }).__lab = { scene, checkSnap, applySnap, snap, setDim, applyDimTemplate, templates: TEMPLATES }
   if (canvasRef.value) {
     renderer = createSimRenderer(canvasRef.value)
@@ -696,7 +708,9 @@ onMounted(async () => {
       }
       if (els.length && !els.some((x) => x.type === 'wall')) els.push(defaultElement('wall', 0, -0.1))
       if (els.length) { scene.name = j.name; scene.elements = els; toast.value = `已从自由搭建接入 ${els.length} 个元件，按 ▶ 运行`; nextTick(() => syncRenderer()) }
-    } catch { /* 交接数据损坏则忽略 */ }
+    } catch (e) {
+      toast.value = '交接数据损坏，已忽略（' + String(e).replace('Error: ', '') + '）'
+    }
   }
   if (chartRef.value) {
     chart = echarts.init(chartRef.value)

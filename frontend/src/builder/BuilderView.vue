@@ -4,7 +4,7 @@
  * 顶栏 | 元件面板 · three.js 画布（锚点吸附） · 属性面板 | 运行条 | 数据面板 + AI 助手
  * 运行桥（阶段三⑤ RunBridge）与分析卡（⑥ EngineAnalyzer）本版为占位。
  */
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { CATALOG, DOMAINS, byType, defaultsOf, type Dim, type Domain, type GeoElement } from './catalog'
 import { findSnap, applySnap } from './model/snap'
 import { resolveAnchorById } from './model/anchors'
@@ -68,6 +68,46 @@ const sim = bridge.socket.state
 const currentTemplateId = ref<string | null>(null)
 /** 手测 Bug3/Bug4：观看视角（2D 构建 | 2.5D 等距 | 3D 环绕=右键拖转）——物理恒为 2D（x-y 平面） */
 const viewMode = ref<'2D' | '2.5D' | '3D'>('2D')
+
+// ── 自查 1.5/5.5（高）：切 Tab 丢场景——v-if 卸载重挂导致 elements/undo/redo 全部清零。
+// 修复：localStorage 持久化（Tab 切换时保存+恢复）+ beforeunload 提示（关页/刷新前警告）
+const WORKSPACE_KEY = 'ps_builder_workspace'
+function persistWorkspace() {
+  if (!elements.length) { localStorage.removeItem(WORKSPACE_KEY); return }
+  try {
+    localStorage.setItem(WORKSPACE_KEY, JSON.stringify({
+      elements, sceneName: sceneName.value, templateId: currentTemplateId.value,
+      undo: undo.slice(-30), redo: redo.slice(-10),  // 有界持久化（undo 全量可能大）
+    }))
+  } catch { /* 存储满等极端场景不阻断 */ }
+}
+function restoreWorkspace() {
+  try {
+    const raw = localStorage.getItem(WORKSPACE_KEY)
+    if (!raw) return
+    const j = JSON.parse(raw) as {
+      elements: GeoElement[]; sceneName: string; templateId: string | null;
+      undo: string[]; redo: string[]
+    }
+    if (!j.elements?.length) return
+    elements.splice(0, elements.length, ...j.elements)
+    sceneName.value = j.sceneName ?? '未命名场景'
+    currentTemplateId.value = j.templateId
+    undo.push(...(j.undo ?? [])); redo.push(...(j.redo ?? []))
+  } catch { /* 损坏数据静默丢弃 */ }
+}
+restoreWorkspace()
+let beforeUnloadHandler: ((e: BeforeUnloadEvent) => void) | null = null
+if (typeof window !== 'undefined') {
+  beforeUnloadHandler = (e: BeforeUnloadEvent) => {
+    if (elements.length) { e.preventDefault(); e.returnValue = '' }
+  }
+  window.addEventListener('beforeunload', beforeUnloadHandler)
+}
+onBeforeUnmount(() => {
+  persistWorkspace()
+  if (beforeUnloadHandler) window.removeEventListener('beforeunload', beforeUnloadHandler)
+})
 async function doRun() {
   const t = currentTemplateId.value ? templateById(currentTemplateId.value) : null
   const err = await bridge.run(elements, analysis.value, t?.maxDuration ?? 12, t?.gravityY ?? -9.8, t?.substeps)

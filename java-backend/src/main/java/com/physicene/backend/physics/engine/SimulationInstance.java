@@ -46,6 +46,7 @@ import java.util.function.Consumer;
  * 仿真线程（SimulationRunner）独占调用 step()；控制与查询经 synchronized 方法。
  */
 public class SimulationInstance {
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(SimulationInstance.class);
 
     private static final Logger log = LoggerFactory.getLogger(SimulationInstance.class);
 
@@ -459,7 +460,7 @@ public class SimulationInstance {
 // P5a 回填：恒力装置（_srcType=7）对目标体施加恒力 F·Δt（duration 后停止）
             for (var cfEl : scene.getElements()) {
                 if (cfEl.getParams() != null && cfEl.getParams().getOrDefault("_srcType", 0.0) == 7.0) {
-                    double fVal = cfEl.getParams().getOrDefault("F", 4.0);
+                    double fVal = cfEl.getParams().getOrDefault("F", 0.0);
                     double fDur = cfEl.getParams().getOrDefault("duration", 2.0);
                     if (t >= fDur) continue;
                     int targetIdx = (int)(double) cfEl.getParams().getOrDefault("target", 0.0);
@@ -612,7 +613,7 @@ public class SimulationInstance {
 
         if (simId.startsWith("t-atwood") && frameCount % 15 == 0 && !pulleys.isEmpty()) {
             var pe = pulleys.get(0);
-            System.out.println("[pul] f=" + frameCount + " t=" + String.format("%.2f", t)
+            LOGGER.debug("[pul] f=" + frameCount + " t=" + String.format("%.2f", t)
                     + " L=" + String.format("%.4f", pe.getCurrentLength()) + " L0=" + String.format("%.4f", pe.getRestLength())
                     + " v1=" + String.format("%.3f", dynamicBodies.get(0).getLinearVelocity().y)
                     + " v2=" + String.format("%.3f", dynamicBodies.get(1).getLinearVelocity().y));
@@ -648,7 +649,7 @@ public class SimulationInstance {
         UnifiedDetectors.detectFrameEvents(this);
         if (simId.startsWith("t-pend") && (frameCount == 1 || frameCount % 30 == 0) && !dynamicBodies.isEmpty()) {
             Body b0 = dynamicBodies.get(0);
-            System.out.println("[pend] f=" + frameCount + " t=" + String.format("%.3f", t)
+            LOGGER.debug("[pend] f=" + frameCount + " t=" + String.format("%.3f", t)
                     + " x=" + String.format("%.3f", b0.getTransform().getTranslationX())
                     + " y=" + String.format("%.3f", b0.getTransform().getTranslationY())
                     + " vx=" + String.format("%.3f", b0.getLinearVelocity().x)
@@ -656,7 +657,7 @@ public class SimulationInstance {
                     + " joints=" + world.getJointCount());
         }
         if (simId.startsWith("t-atwood") && frameCount % 15 == 0 && dynamicBodies.size() == 2) {
-            System.out.println("[atw] f=" + frameCount + " t=" + String.format("%.2f", t)
+            LOGGER.debug("[atw] f=" + frameCount + " t=" + String.format("%.2f", t)
                     + " v1y=" + String.format("%.3f", dynamicBodies.get(0).getLinearVelocity().y)
                     + " v2y=" + String.format("%.3f", dynamicBodies.get(1).getLinearVelocity().y)
                     + " y1=" + String.format("%.2f", dynamicBodies.get(0).getTransform().getTranslationY())
@@ -664,7 +665,7 @@ public class SimulationInstance {
         }
         if (simId.startsWith("t-loop") && frameCount % 15 == 0 && !dynamicBodies.isEmpty()) {
             Body b0 = dynamicBodies.get(0);
-            System.out.println("[loop] f=" + frameCount + " t=" + String.format("%.2f", t)
+            LOGGER.debug("[loop] f=" + frameCount + " t=" + String.format("%.2f", t)
                     + " x=" + String.format("%.2f", b0.getTransform().getTranslationX())
                     + " y=" + String.format("%.2f", b0.getTransform().getTranslationY())
                     + " v=" + String.format("%.2f", b0.getLinearVelocity().getMagnitude())
@@ -672,7 +673,7 @@ public class SimulationInstance {
         }
         if (simId.startsWith("t-belt") && frameCount % 30 == 0 && !dynamicBodies.isEmpty()) {
             Body b0 = dynamicBodies.get(0);
-            System.out.println("[belt] f=" + frameCount + " t=" + String.format("%.3f", t)
+            LOGGER.debug("[belt] f=" + frameCount + " t=" + String.format("%.3f", t)
                     + " x=" + String.format("%.3f", b0.getTransform().getTranslationX())
                     + " y=" + String.format("%.3f", b0.getTransform().getTranslationY())
                     + " vx=" + String.format("%.3f", b0.getLinearVelocity().x)

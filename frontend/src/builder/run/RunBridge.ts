@@ -253,7 +253,7 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
       case 'constant_force':
         // P5a 回填：恒力装置——通过 Orchestrator 对目标体施力
         asBody({ type: 'wall', fixed: true, properties: {},
-          params: { F: num(p.F, 4), duration: num(p.duration, 2), target: num(p.target, 0), _srcType: 7 } })
+          params: { F: num(p.F, 0), duration: num(p.duration, 2), target: num(p.target, 0), _srcType: 7 } })
         break
       case 'accelerating_platform':
         // P5a 批2 回填：电梯参考系——平台=固定墙（电梯地板），Java 对全部自由体施惯性力 −ma（_srcType=8）
