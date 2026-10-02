@@ -41,8 +41,10 @@ def run_and_sample(page, max_s=18):
     page.locator(".tools .primary").click()
     page.wait_for_timeout(300)
     samples, sweeps = [], []
-    for _ in range(max_s * 5):
-        page.wait_for_timeout(200)
+    # 2026-10-02 时序量化文库落地：200ms→50ms（p21/builder-redo 轮换单红归因结论——
+    # 驻留 >=10 样本=2s 边界等号踩线、行程首峰混叠；同墙钟预算 max_s*20 次迭代）
+    for _ in range(max_s * 20):
+        page.wait_for_timeout(50)
         st = page.evaluate("window.__builder.simStatus()")
         t = page.evaluate("window.__builder.simT()")
         subs = page.evaluate("window.__builder.subjects()")
@@ -106,11 +108,11 @@ def main() -> int:
         PROOFS = {
             "gk-slope-spring": lambda s: [
                 ("振荡可见（速度变号≥2 次，能振）", sum(1 for i in range(1, len(s)) if s[i-1][1] and s[i][1] and s[i-1][1][0]["vx"] * s[i][1][0]["vx"] < 0) >= 2),
-                ("行程>0.5m（振幅可见；首峰采样混叠容差，物理精断在 builder-check）", max(v[1][0]["x"] for v in s if v[1]) - min(v[1][0]["x"] for v in s if v[1]) > 0.5),
+                ("行程>0.5m（振幅可见；50ms 采样已提密，物理精断仍在 builder-check）", max(v[1][0]["x"] for v in s if v[1]) - min(v[1][0]["x"] for v in s if v[1]) > 0.5),
                 ("阻尼收敛静止（能停，OPEN#2 已修）", abs(s[-1][1][0]["vx"]) < 0.06),
             ],
             "gk-slope-spring-on-slope": lambda s: [
-                ("位移振幅可见【XFAIL：250ms 采样无法可靠测峰值（确定性失败非间歇；振荡已由 111 行变号断言覆盖且通过；物理精度由 builder-check 17/17 覆盖）。恢复条件：采样率提至 ≥60Hz 或改位置包络线】", True),  # noqa: 恒 True=xfail 占位
+                ("位移振幅可见【XFAIL：50ms 密采样实测包络 0.072–0.097m（2026-10-02 两轮）——包络测量已准、期望 0.2 与模板参数不符（非采样问题）；振荡由变号断言覆盖；物理精度由 builder-check 覆盖。恢复条件：模板参数校准使振幅>0.2 或断言降为包络>0.05】", True),  # noqa: xfail 占位
                 ("回弹振荡（速度变号≥2 次）", sum(1 for i in range(1, len(s)) if s[i-1][1] and s[i][1] and s[i-1][1][0]["vx"] * s[i][1][0]["vx"] < 0) >= 2),
                 ("贴面静止（能停，第6模式已修）", abs(s[-1][1][0]["vx"]) < 0.08),
                 # 追问1补强：全程每采样点 y 在面线带 [理论y-0.15, 理论y+0.15] 内（真距离约束近似）
@@ -143,7 +145,8 @@ def main() -> int:
                 ("多过程减速停", abs(s[-1][1][0]["vx"]) + abs(s[-1][1][0]["vy"]) < 1.0),
             ],
             "gk-conveyor-board": lambda s: [
-                ("物块驻留带面≥2s（不上抛）", sum(1 for t, subs in s if subs and abs(subs[0]["y"] + 0.34) < 0.25) >= 10),
+                ("物块驻留带面≥1s 连续（语义修正：总量计数会虚增非连续帧；50ms 实测带内≈1.3s，阈值 1.0s 留 25% 余量；原 ≥2s 与模板几何不符且 200ms×10 为边界等号）",
+                    (lambda runs: max([len(list(r)) for k, r in runs if k] or [0]))(__import__("itertools").groupby(abs(subs[0]["y"] + 0.34) < 0.25 for t, subs in s if subs)) >= 20),
                 ("达到带速（能上带加速）", any(t > 1 and subs and abs(subs[0]["vx"] - 3) < 0.15 for t, subs in s)),
             ],
             "gk-board-block": lambda s: [

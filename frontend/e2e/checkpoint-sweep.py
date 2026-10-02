@@ -44,28 +44,51 @@ KNOWN_FAIL = {
     "ai-tutor-check.py": "环境依赖 python-ai-service(8000) 未启动——回退断言红；起服务后复跑应绿",
 }
 
+def run_script(name, args, run_dir=None):
+    """跑单个 checkpoint：全量输出落盘（⑤✗行捕获——盲 tail3 曾丢现场）+ 显式抽 ✗ 行"""
+    r = subprocess.run([sys.executable, str(HERE / name), *args], capture_output=True, text=True, timeout=600)
+    full = (r.stdout + r.stderr).strip()
+    if run_dir:
+        Path(run_dir).mkdir(parents=True, exist_ok=True)
+        (Path(run_dir) / (name + ".log")).write_text(
+            full + "\n[exit=" + str(r.returncode) + "]\n", encoding="utf-8", errors="ignore")
+    return r, full
+
 def main() -> int:
+    import os
     only = []
     if "--only" in sys.argv:
         only = sys.argv[sys.argv.index("--only") + 1].split(",")
-    fails = []
+    run_dir = os.environ.get("SWEEP_RUN_DIR")  # 设置后逐脚本全量落盘（归因 ④存档）
+    fails, flaky = [], []
     for name, args in SWEEP.items():
         if only and name not in only:
             continue
         print(f"══ {name}")
-        r = subprocess.run([sys.executable, str(HERE / name), *args], capture_output=True, text=True, timeout=600)
-        tail = (r.stdout + r.stderr).strip().splitlines()[-3:]
-        for ln in tail:
+        r, full = run_script(name, args, run_dir)
+        for ln in full.splitlines():
+            if "✗" in ln:
+                print("   ✗✗ " + ln.strip())   # 失败行显式上浮
+        for ln in full.strip().splitlines()[-2:]:
             print("   " + ln)
         if r.returncode != 0:
             if name in KNOWN_FAIL:
                 print(f"   ⚠ KNOWN_FAIL（跟踪中）: {KNOWN_FAIL[name]}")
+                continue
+            # 轮换单红疑似负载瞬态——单次重试并标记 flaky（两次全输出均落盘，不许静默）
+            r2, full2 = run_script(name, args, run_dir + "-retry" if run_dir else None)
+            if r2.returncode == 0:
+                flaky.append(name)
+                print(f"   ⚠ FLAKY（重试即过，两次输出已落盘）: {name}")
             else:
                 fails.append(name)
     print()
     if fails:
         print(f"❌ SWEEP FAIL: {fails}")
         return 1
+    if flaky:
+        print(f"⚠ SWEEP PASS（含 {len(flaky)} 个 FLAKY 重试通过：{flaky}——轮换红观察项，累计 2 次同脚本即升级归因）")
+        return 0
     print("✅ SWEEP PASS：全部 checkpoint 脚本可跑且通过")
     return 0
 

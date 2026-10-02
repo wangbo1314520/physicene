@@ -1,13 +1,13 @@
 shot_id	entry	state	assertion_ref	file	captured_at	viewport	note
-01	E1	default-load	F1.3-E1-LOAD-01	shots/01.png	20261002-160247	1500x950	
-02	E1	template-loaded	F1.3-E1-INT-02	shots/02.png	20261002-160247	1500x950	
-03	E1	run-ended	F1.3-E1-RUN-01	shots/03.png	20261002-160247	1500x950	
-04	E1	switched-to-E2	F1.3-E1-OUT-01	shots/04.png	20261002-160247	1500x950	
-05	E2	default-load	F1.3-E2-LOAD-01	shots/05.png	20261002-160247	1500x950	
-06	E2	palette-domains	F1.3-E2-INT-02	shots/06.png	20261002-160247	1500x950	
-07	E2	run-ended	F1.3-E2-RUN-01	shots/07.png	20261002-160247	1500x950	
-08	E2	switch-back-E1	F1.3-E2-OUT-01	shots/08.png	20261002-160247	1500x950	
-09	E3(过渡)	/exp-direct	F1.3-E3-LOAD-01	shots/09.png	20261002-160247	1500x950	过渡入口——redirect 后移除
-10	E3(过渡)	run-ended	F1.3-E3-RUN-02	shots/10.png	20261002-160247	1500x950	过渡入口
-11	E3(过渡)	route-to-E1	F1.3-E3-OUT-01	shots/11.png	20261002-160247	1500x950	路由级降级断言（非真实切回）
-12	ALL	zero-errors	F1.3-GLOBAL-01	shots/12.png	20261002-160247	1500x950	
+01	E1	default-load	F1.3-E1-LOAD-01	shots/01.png	20261002-203936	1500x950	
+02	E1	template-loaded	F1.3-E1-INT-02	shots/02.png	20261002-203936	1500x950	
+03	E1	run-ended	F1.3-E1-RUN-01	shots/03.png	20261002-203936	1500x950	
+04	E1	switched-to-E2	F1.3-E1-OUT-01	shots/04.png	20261002-203936	1500x950	
+05	E2	default-load	F1.3-E2-LOAD-01	shots/05.png	20261002-203936	1500x950	
+06	E2	palette-domains	F1.3-E2-INT-02	shots/06.png	20261002-203936	1500x950	
+07	E2	run-ended	F1.3-E2-RUN-01	shots/07.png	20261002-203936	1500x950	
+08	E2	switch-back-E1	F1.3-E2-OUT-01	shots/08.png	20261002-203936	1500x950	
+09	E3(过渡)	/exp-direct	F1.3-E3-LOAD-01	shots/09.png	20261002-203936	1500x950	过渡入口——redirect 后移除
+10	E3(过渡)	run-ended	F1.3-E3-RUN-02	shots/10.png	20261002-203936	1500x950	过渡入口
+11	E3(过渡)	route-to-E1	F1.3-E3-OUT-01	shots/11.png	20261002-203936	1500x950	路由级降级断言（非真实切回）
+12	ALL	zero-errors	F1.3-GLOBAL-01	shots/12.png	20261002-203936	1500x950	
