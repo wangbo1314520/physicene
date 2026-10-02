@@ -279,6 +279,8 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
       case 'point_charge': {
         const m = num(p.m, 1)
         asBody({ type: 'point_charge', properties: { mass: m, charge: num(p.qm, 1) * m, friction: 0, restitution: 0 },
+          // grav：0=不计重力（默认，E/B 场教材口径）/1=计（复合场 qE=mg 平衡类）——Java 侧补偿判定
+          params: { grav: num(p.grav, 0) },
           initialState: v0State(p) })
         break
       }

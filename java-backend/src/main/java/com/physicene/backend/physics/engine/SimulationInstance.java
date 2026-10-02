@@ -471,10 +471,12 @@ public class SimulationInstance {
                     }
                 }
             }
-// 手测 Bug5（2026-10-02）：点电荷不计重力（教材口径——带电粒子在电/磁场问题中忽略重力；
-            // 场景未配重力时电荷自由下落=误导）。补偿力 +m·(−g_world) 逐子步施加于 point_charge 体
+// 手测 Bug5（2026-10-02，卡16 冲突后修正为 opt-in）：点电荷默认不计重力（教材口径——
+            // E/B 场问题忽略重力，场景未配重力时电荷自由下落=误导）；grav=1 计重力（复合场
+            // qE=mg 平衡类，卡 16 显式设置）。补偿力 +m·(−g_world) 逐子步施加于 grav==0 的 point_charge 体
             for (var pcEl : scene.getElements()) {
-                if ("point_charge".equals(pcEl.getType())) {
+                if ("point_charge".equals(pcEl.getType())
+                        && pcEl.getParams().getOrDefault("grav", 0.0) == 0.0) {
                     Body pcb = bodies.get(pcEl.getId());
                     if (pcb != null) {
                         double gy = scene.getConfig().getGravity().y();

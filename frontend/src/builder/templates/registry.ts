@@ -288,7 +288,7 @@ const gkCompositeField = (): GeoTemplate => ({
   tags: ['电场', '带电粒子'],
   elements: [
     mk('e_region', 0, 0, { Ex: 0, Ey: 9.8 }),
-    mk('point_charge', 0, 0, { qm: 1, v0: 0 }),
+    mk('point_charge', 0, 0, { qm: 1, v0: 0, grav: 1 }),  // grav=1 计重力（qE=mg 平衡的前提）
   ],
   criticalChecks: [
     { label: '悬浮：qE=mg，final x=0', theory: 0, tol: 0.02, tolAbs: 0.03, from: { kind: 'final', subject: 0, pick: 'x' } },
