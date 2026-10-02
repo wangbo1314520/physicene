@@ -6,7 +6,7 @@
 场景四（单测覆盖）虚设检测器警告——vitest 侧 EngineAnalyzer 断言
 用法：python e2e/free-build-elements-check.py（需 Vite+Java 已起）"""
 import _env; _env.banner()
-import json, sys, time, urllib.request
+import json, math, sys, time, urllib.request
 from playwright.sync_api import sync_playwright
 
 BASE = "http://localhost:5173"
@@ -209,6 +209,47 @@ def main() -> int:
         pv = next((end[k] for k in end if "photogate" in k), None)
         check("光电门平抛过门 t=x/v₀=1.5/3=0.5s", pv is not None and abs(pv[1] - 0.5) < 0.05,
               f"got={pv[1] if pv else None} theory=0.5")
+
+        # ═══ 场景三c：lead_in 切线导入段（2026-10-02 十一轮定夺：保留+补 E2E）═══
+        # 斜置导入段（θ=30°，L=2，μ=0）滑块：自洽断言 v=√(2g(y₀−y_now))——任意采样帧
+        # 无摩擦机械能守恒（教材规律；理论用同帧实测 y，与放置几何解耦）
+        print("场景三c：切线导入段")
+        page.evaluate("window.__builder.clear()")
+        domain(page, "力学")
+        w = W(page)
+        ramp = place_at(page, w, "切线导入段", (0, 1))
+        page.evaluate("(m) => window.__builder.setAngle(m.r, m.a)", {"r": ramp, "a": -math.pi / 6})
+        page.evaluate("(m) => window.__builder.setParams(m.r, { L: 2 })", {"r": ramp})
+        # 放置注记：块须整体在段内（跨上端点=压尖端微抖不滑——诊断实证；段中 x=−0.3 表面 1.17+法向 0.43）
+        blk4 = place_at(page, w, "物块", (-0.3, 1.66))
+        page.evaluate("(m) => window.__builder.setParams(m.b, { m: 1, v0: 0, mu: 0, fixRot: 1 })", {"b": blk4})
+        # y0 从首帧实测取（放置高度≠起滑高度：落座/对齐会降 ~0.1m——首版理论用放置高度即因此偏差）
+        domain(page, "通用")
+        w = W(page)
+        sp4 = place_at(page, w, "速度传感器", (-2, 1))
+        page.evaluate("(m) => window.__builder.link(m.s, '探头', m.b, '顶', 'rope')", {"s": sp4, "b": blk4})
+        page.locator(".tools .primary").click()
+        got4 = None
+        y0 = None
+        for _ in range(300):
+            page.wait_for_timeout(60)
+            stx = page.evaluate("() => ({ s: window.__builder.simStatus(), t: window.__builder.simT(),"
+                                " sb: window.__builder.subjects(), p: window.__builder.probes() ?? {} })")
+            if stx["s"] == "ended":
+                break
+            if stx["sb"]:
+                s0 = stx["sb"][0]
+                if y0 is None and stx["s"] == "running":
+                    y0 = s0["y"]   # 起滑高度=首运行帧（落座完成后）
+                if y0 is not None and 0.0 < s0["x"] < 0.5 and abs(s0["vx"]) > 0.5:
+                    vv = next((stx["p"][k] for k in stx["p"] if "speed_sensor" in k), None)
+                    if vv:
+                        v_th4 = (2 * 9.8 * max(0.02, y0 - s0["y"])) ** 0.5
+                        got4 = (vv[1], v_th4)
+                        break
+        check("导入段无摩擦下滑 v=√(2g(y₀−y))（自洽）",
+              got4 is not None and abs(got4[0] - got4[1]) / got4[1] < 0.08,
+              f"got={got4[0]:.3f} theory={got4[1]:.3f}" if got4 else "未采样到滑动帧")
 
         # ═══ 场景三：显示 4 件 smoke ═══
         print("场景三：显示元件 smoke")
