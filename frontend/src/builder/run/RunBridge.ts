@@ -104,7 +104,7 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
           params: { k: num(p.k, 0.5) } })
         break
       case 'sphere':
-        asBody({ type: 'sphere', properties: { mass: num(p.m, 1), friction: num(p.mus, 0), restitution: num(p.e, 1) },
+        asBody({ type: 'sphere', properties: { mass: num(p.m, 1), friction: num(p.mus, 0.05), restitution: num(p.e, 0.8) },
           initialState: v0State(p) })
         break
       case 'particle': {

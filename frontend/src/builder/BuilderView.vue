@@ -371,7 +371,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
       <span v-if="viewMode !== '2D'" class="dimnote" title="dyn4j 为二维物理引擎：物理计算与构建恒在 x-y 平面内（方案 B7 同口径）——2.5D/3D 仅是观看方式，不改变物理">⚠ 物理是 2D（x-y 平面）·当前为{{ viewMode === '3D' ? '环绕' : '等距' }}观看方式</span>
       <span class="sub">统一搭建台 · 元件拖入画布、锚点自动吸附、连线成题、一键运行（方案 v1.0）</span>
       <span class="spacer"></span>
-      <button class="ghost" @click="saveScene">💾 保存</button>
+      <button class="ghost" @click="saveScene" title="保存到「我的场景」——刷新/切Tab后不自动恢复，可到「我的场景」页查看">💾 保存</button>
       <button class="ghost" @click="exportJson">⇩ JSON</button>
       <label class="ghost file">⇧ 导入<input type="file" accept="application/json" @change="importJson"></label>
       <span v-if="toast" class="toast">{{ toast }}</span>
