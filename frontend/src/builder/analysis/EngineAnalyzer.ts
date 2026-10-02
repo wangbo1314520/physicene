@@ -128,6 +128,22 @@ export function analyze(elements: GeoElement[]): Analysis {
   if ((has('e_region') || has('b_region')) && !has('point_charge')) warnings.push('有场区无带电粒子：场区不会产生运动')
   if (byEngine.get('rigid') && !elements.some((e) => byType.get(e.type)?.role === 'body')) warnings.push('只有约束/轨道没有运动体')
   if (has('rail_pair') && has('rod_bar')) warnings.push('导轨-棒电路闭合性由运行时校验（需形成回路）')
+  // 十三轮裁定 b：物块跨导入段端点显式提示（实验定性：端点接触微抖 ~2s 后自止——
+  // 有界非死锁，但静默=heater 同类教训："用户不该那样放"不是不提示的理由）
+  for (const li of elements) {
+    if (li.type !== 'lead_in') continue
+    const L = li.params.L ?? 2, c = Math.cos(li.angle), sn = Math.sin(li.angle)
+    const ends = [[li.position.x - (L / 2) * c, li.position.y - (L / 2) * sn],
+                  [li.position.x + (L / 2) * c, li.position.y + (L / 2) * sn]]
+    for (const b of elements) {
+      if (byType.get(b.type)?.role !== 'body' || b.type === 'lead_in') continue
+      for (const [ex, ey] of ends) {
+        if (Math.abs(b.position.x - ex) < 0.45 && Math.abs(b.position.y - ey - 0.5) < 0.35) {
+          warnings.push(`物块「${b.id}」跨在导入段「${li.id}」端点上——端点接触会抖动后静止，请整体置于段内`)
+        }
+      }
+    }
+  }
   // P5b-2 限制显式告知（八轮追问3：不许静默）——地面系平台不携静置物
   const gfPlat = elements.find((e) => e.type === 'accelerating_platform' && e.params.frame === 1)
   if (gfPlat) {
