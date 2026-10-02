@@ -471,6 +471,19 @@ public class SimulationInstance {
                     }
                 }
             }
+// 手测 Bug5（2026-10-02）：点电荷不计重力（教材口径——带电粒子在电/磁场问题中忽略重力；
+            // 场景未配重力时电荷自由下落=误导）。补偿力 +m·(−g_world) 逐子步施加于 point_charge 体
+            for (var pcEl : scene.getElements()) {
+                if ("point_charge".equals(pcEl.getType())) {
+                    Body pcb = bodies.get(pcEl.getId());
+                    if (pcb != null) {
+                        double gy = scene.getConfig().getGravity().y();
+                        if (gy != 0) {
+                            pcb.applyForce(new org.dyn4j.geometry.Vector2(0, -gy * pcb.getMass().getMass()));
+                        }
+                    }
+                }
+            }
 // P5a 批2 回填：加速平台（_srcType=8）。frame=0 电梯参考系（卡 68）：全部自由体受惯性力 −m·a，
 // 平台=固定墙，dyn4j 接触约束自动给支撑物 N=m(g+a)，抛体呈等效重力 g+a 轨迹。
 // P5b-2 frame=1 地面系双视角：无惯性力（普通抛体 g）+平台按 ½at² 运动学平移（每子步 translate），

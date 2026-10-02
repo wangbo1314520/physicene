@@ -66,6 +66,8 @@ const engineHint = computed(() => analysis.value.title)
 const bridge = useRunBridge()
 const sim = bridge.socket.state
 const currentTemplateId = ref<string | null>(null)
+/** 手测 Bug3/Bug4：观看视角（2D 构建 | 2.5D 等距 | 3D 环绕=右键拖转）——物理恒为 2D（x-y 平面） */
+const viewMode = ref<'2D' | '2.5D' | '3D'>('2D')
 async function doRun() {
   const t = currentTemplateId.value ? templateById(currentTemplateId.value) : null
   const err = await bridge.run(elements, analysis.value, t?.maxDuration ?? 12, t?.gravityY ?? -9.8, t?.substeps)
@@ -322,8 +324,11 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
   <main class="builder">
     <header class="top">
       <input v-model="sceneName" class="name" title="场景名">
-      <span class="badge" :class="dim === '3D' ? 'b3' : dim === '2.5D' ? 'b25' : 'b2'">{{ dim }}</span>
-      <span v-if="dim === '3D'" class="dimnote" title="dyn4j 为二维物理引擎：3D 是观看视角（三维渲染与场线画法），物体仍在 x-y 平面内运动（方案 B7 同口径）">视觉 3D·物理 2D 平面</span>
+      <span class="badge" :class="dim === '3D' ? 'b3' : dim === '2.5D' ? 'b25' : 'b2'">元件维度 {{ dim }}</span>
+      <span class="viewswitch" role="group" aria-label="观看视角">
+        <button v-for="m in (['2D', '2.5D', '3D'] as const)" :key="m" :class="{ on: viewMode === m }" @click="viewMode = m" :title="m === '3D' ? '可旋转视角（画布内右键拖动环绕）' : m === '2.5D' ? '等距立体观感' : '正交平面（构建默认）'">视角 {{ m }}</button>
+      </span>
+      <span v-if="viewMode !== '2D'" class="dimnote" title="dyn4j 为二维物理引擎：物理计算与构建恒在 x-y 平面内（方案 B7 同口径）——2.5D/3D 仅是观看方式，不改变物理">⚠ 物理是 2D（x-y 平面）·当前为{{ viewMode === '3D' ? '环绕' : '等距' }}观看方式</span>
       <span class="sub">统一搭建台 · 元件拖入画布、锚点自动吸附、连线成题、一键运行（方案 v1.0）</span>
       <span class="spacer"></span>
       <button class="ghost" @click="saveScene">💾 保存</button>
@@ -381,7 +386,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
               </button>
             </template>
           </div>
-          <BuilderCanvas ref="canvasRef" :elements="elements" :selected-id="selectedId" :link-mode="linkMode" :link-from="linkFrom" :run-states="bridge.runStates.value" :broken-ropes="brokenRopes" :subjects="sim.subjects" :ts-rays="bridge.tsRun.value.rays"
+          <BuilderCanvas ref="canvasRef" :elements="elements" :selected-id="selectedId" :link-mode="linkMode" :link-from="linkFrom" :run-states="bridge.runStates.value" :broken-ropes="brokenRopes" :subjects="sim.subjects" :ts-rays="bridge.tsRun.value.rays" :view-mode="viewMode"
             @select="selectedId = $event" @dragging="onDragging" @drop="onDrop" @anchor-pick="onAnchorPick" @add-at="(t, x, y) => addElement(t, x, y)" />
           <p v-if="!elements.length" class="empty">从左侧拖入元件（米制世界坐标，滚轮缩放）。例：斜面 + 物块 → 传送带 + 物块 → 竖直圆轨道 + 小球</p>
         </div>

@@ -184,7 +184,7 @@ const DIMS: SimDimension[] = ['2D', '2.5D', '3D']
 const DIM_INFO: Record<SimDimension, { label: string; hint: string }> = {
   '2D': { label: '2D 平面', hint: '正交平面图（课本插图视角）：平面力学 + 平面电磁，磁场用 ⊗/⊙ 表示垂直纸面' },
   '2.5D': { label: '2.5D 立体', hint: '等距立体观感，物理仍在竖直平面内：力学实验（斜面、碰撞、抛体）' },
-  '3D': { label: '3D 空间', hint: '可旋转视角、空间场线带箭头：点电荷电场线、匀强电场/磁场中的带电粒子' },
+  '3D': { label: '3D 空间', hint: '可旋转视角、空间场线带箭头：点电荷电场线、匀强电场/磁场中的带电粒子——物理计算仍在 x-y 平面（3D 仅观看方式）' },
 }
 const dim = ref<SimDimension>(
   (localStorage.getItem('ps_dim') as SimDimension) || (localStorage.getItem('ps_view') === 'iso' ? '2.5D' : '2D'))
@@ -479,12 +479,12 @@ function newCanvas() {
   toast.value = '已新建空白画布，开始搭下一个实验吧（原场景在「我的场景」里）'
 }
 
-async function saveScene() {
+async function saveScene(silent = false) {
   try {
     const body = { elements: scene.elements, config: scene.config }
     if (scene.sceneId) {
       await http.put(`/scenarios/${scene.sceneId}`, body)
-      toast.value = `场景已更新 #${scene.sceneId}`
+      if (!silent) toast.value = `场景已更新 #${scene.sceneId}`
     } else {
       const created = (await http.post('/scenarios', { ...body, source: 'manual' })) as { id: number }
       scene.sceneId = created.id
@@ -525,7 +525,10 @@ async function startRun() {
     toast.value = '先从左侧元件库拖入元件'
     return
   }
-  if (!scene.sceneId) await saveScene()
+  // 手测 Bug2（2026-10-02）：run(sceneId) 让后端回放库中场景——曾有 id 就跳过保存导致
+  // 本地拖动/改参不生效（物理永远是第一次保存的）。改为运行前必存（PUT 更新），
+  // toast 只在用户手动保存时弹（saveScene 加静默参）
+  await saveScene(true)
   if (!scene.sceneId) return
   resetReplay()
   // 只清 series 保留坐标轴（chart.clear() 会连轴一起清掉，后续增量 setOption 报 xAxis not found）
@@ -666,6 +669,9 @@ watch(() => state.status, (status) => {
 })
 
 onMounted(async () => {
+  // 手测 Bug1（2026-10-02）：导航「搭建台」=/lab?tab=free 直开自由搭建——/exp 重定向在已处 /lab 时无路由变化
+  if (route.query.tab === 'free') activeTab.value = 'free'
+  watch(() => route.query.tab, (t) => { if (t === 'free') activeTab.value = 'free' })
   if (import.meta.env.DEV) (window as unknown as { __lab?: unknown }).__lab = { scene, checkSnap, applySnap, snap, setDim, applyDimTemplate, templates: TEMPLATES }
   if (canvasRef.value) {
     renderer = createSimRenderer(canvasRef.value)
@@ -749,7 +755,7 @@ onUnmounted(() => {
         <option value="template_collision">小车碰撞</option>
         <option value="template_projectile">斜抛运动</option>
       </select>
-      <button :disabled="busy" @click="saveScene">💾 保存</button>
+      <button :disabled="busy" @click="saveScene()">💾 保存</button>
       <button :disabled="busy" @click="newCanvas" title="清空画布开始新实验（原场景仍在我的场景里）">🗑 新建画布</button>
       <button class="primary" :disabled="busy" @click="startRun">▶ 运行实验</button>
       <button :disabled="busy" @click="pickImage">📷 拍照识题</button>

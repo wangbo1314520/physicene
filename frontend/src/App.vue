@@ -4,7 +4,7 @@
 <template>
   <nav class="topbar">
     <router-link to="/" class="brand">PhysiScene</router-link>
-    <router-link to="/exp">搭建台</router-link>
+    <router-link :class="{ forced: $route.query.tab === 'free' && $route.path === '/lab' }" :to="{ path: '/lab', query: { tab: 'free' } }">搭建台</router-link>
     <router-link to="/lab">刚体实验台</router-link>
     <router-link to="/scenes">我的场景</router-link>
     <router-link to="/library">实验库</router-link>

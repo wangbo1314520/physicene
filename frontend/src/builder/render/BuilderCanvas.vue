@@ -29,6 +29,9 @@ const props = defineProps<{
   tsRays?: { x0: number; y0: number; x1: number; y1: number; kind: string; medium?: string }[]
   /** 运行态主体读数（vector_arrow 跟随的速度/加速度数据源） */
   subjects?: { id: string; x: number; y: number; vx: number; vy: number; angle?: number }[] | null
+  /** 手测 Bug3：观看视角（'2D'|'2.5D'|'3D'）——物理/构建恒在 x-y 平面，切换仅改相机；
+      toWorld/hit 走射线对任意相机成立，拖拽/吸附/连线不受影响 */
+  viewMode?: '2D' | '2.5D' | '3D'
 }>()
 const emit = defineEmits<{
   (e: 'select', id: string | null): void
@@ -42,6 +45,36 @@ const rootEl = ref<HTMLDivElement | null>(null)
 let renderer: THREE.WebGLRenderer | null = null
 let scene: THREE.Scene
 let camera: THREE.OrthographicCamera
+// Bug3：透视相机（2.5D/3D 观看）——orbitAzim/orbitPolar/dist 仅 3D 可调（右键拖转）
+let pCamera: THREE.PerspectiveCamera | null = null
+let activeCamera: THREE.Camera
+const orbit = { azim: Math.PI / 4, polar: Math.PI / 3.4, dist: 26 }
+let viewModeNow: '2D' | '2.5D' | '3D' = '2D'
+
+function placePerspective() {
+  if (!pCamera) return
+  const y = orbit.dist * Math.cos(orbit.polar)
+  const r = orbit.dist * Math.sin(orbit.polar)
+  pCamera.position.set(r * Math.cos(orbit.azim), y, r * Math.sin(orbit.azim))
+  pCamera.lookAt(0, 1, 0)
+}
+function applyViewMode(mode: '2D' | '2.5D' | '3D') {
+  if (mode === viewModeNow || !renderer) return
+  viewModeNow = mode
+  if (mode === '2D') {
+    activeCamera = camera
+  } else {
+    if (!pCamera) {
+      pCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 300)
+    }
+    if (mode === '2.5D') { orbit.azim = Math.PI / 4; orbit.polar = Math.PI / 3.4; orbit.dist = 26 }
+    if (mode === '3D') { orbit.azim = Math.PI / 2.6; orbit.polar = Math.PI / 4.2; orbit.dist = 24 }  // 初始角异于 2.5D（可辨识），右键可继续环绕
+    placePerspective()
+    activeCamera = pCamera
+  }
+  resize()
+}
+watch(() => props.viewMode, (m) => applyViewMode(m ?? '2D'))
 let rafId = 0
 let disposed = false
 
@@ -72,6 +105,7 @@ function setup() {
   camera = new THREE.OrthographicCamera(-10, 10, VIEW_H / 2, -VIEW_H / 2, 0.1, 100)
   camera.position.set(0, 0, 30)
   camera.lookAt(0, 0, 0)
+  activeCamera = camera
 
   scene.add(new THREE.AmbientLight(0xffffff, 0.75))
   const dir = new THREE.DirectionalLight(0xffffff, 1.1)
@@ -100,6 +134,7 @@ function resize() {
   camera.top = VIEW_H / 2
   camera.bottom = -VIEW_H / 2
   camera.updateProjectionMatrix()
+  if (pCamera) { pCamera.aspect = aspect; pCamera.updateProjectionMatrix() }
 }
 
 let resizeObs: ResizeObserver | null = null
@@ -109,7 +144,7 @@ function toWorld(clientX: number, clientY: number): { x: number; y: number } {
   const el = rootEl.value!
   const r = el.getBoundingClientRect()
   ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1)
-  raycaster.setFromCamera(ndc, camera)
+  raycaster.setFromCamera(ndc, activeCamera)
   raycaster.ray.intersectPlane(planeZ0, worldPt)
   return { x: worldPt.x, y: worldPt.y }
 }
@@ -119,7 +154,7 @@ function hitElement(clientX: number, clientY: number): string | null {
   const el = rootEl.value!
   const r = el.getBoundingClientRect()
   ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1)
-  raycaster.setFromCamera(ndc, camera)
+  raycaster.setFromCamera(ndc, activeCamera)
   for (const [id, entry] of meshMap) {
     const hits = raycaster.intersectObject(entry.obj, true)
     if (hits.length) return id
@@ -141,7 +176,7 @@ function hitAnchor(clientX: number, clientY: number): { id: string; anchorId: st
   const el = rootEl.value!
   const r = el.getBoundingClientRect()
   ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1)
-  raycaster.setFromCamera(ndc, camera)
+  raycaster.setFromCamera(ndc, activeCamera)
   const hits = raycaster.intersectObjects(anchorGroup.children, false)
   for (const h of hits) {
     const u = h.object.userData as { anchorOf?: string; anchorId?: string }
@@ -402,9 +437,32 @@ function onPointerUp(ev: PointerEvent) {
 }
 function onWheel(ev: WheelEvent) {
   ev.preventDefault()
-  camera.zoom = THREE.MathUtils.clamp(camera.zoom * (ev.deltaY < 0 ? 1.12 : 0.89), 0.4, 4)
-  camera.updateProjectionMatrix()
+  if (viewModeNow !== '2D') {
+    orbit.dist = THREE.MathUtils.clamp(orbit.dist * (ev.deltaY < 0 ? 0.9 : 1.11), 8, 80)
+    placePerspective()
+  } else {
+    camera.zoom = THREE.MathUtils.clamp(camera.zoom * (ev.deltaY < 0 ? 1.12 : 0.89), 0.4, 4)
+    camera.updateProjectionMatrix()
+  }
 }
+
+// Bug3·3D 环绕：右键拖转视角（左键仍是元件拖拽——button===2 独立通道，contextmenu 屏蔽）
+let orbiting = false, lastOx = 0, lastOy = 0
+function onOrbitDown(ev: PointerEvent) {
+  if (viewModeNow === '3D' && ev.button === 2) { orbiting = true; lastOx = ev.clientX; lastOy = ev.clientY }
+}
+function onOrbitMove(ev: PointerEvent) {
+  if (!orbiting || !pCamera) return
+  orbit.azim -= (ev.clientX - lastOx) * 0.008
+  orbit.polar = THREE.MathUtils.clamp(orbit.polar - (ev.clientY - lastOy) * 0.006, 0.25, Math.PI / 2 - 0.05)
+  lastOx = ev.clientX; lastOy = ev.clientY
+  placePerspective()
+}
+function onOrbitUp() { orbiting = false }
+// 合并入口：Bug3 修复过程中模板重复 @pointerdown 致 SFC 编译 500（/lab 懒加载整链中止）——单一入口分流
+function onDownAll(ev: PointerEvent) { onOrbitDown(ev); if (!orbiting) onPointerDown(ev) }
+function onMoveAll(ev: PointerEvent) { if (orbiting) onOrbitMove(ev); else onPointerMove(ev) }
+function onUpAll(ev: PointerEvent) { onOrbitUp(); onPointerUp(ev) }
 
 // ── HTML5 拖放（面板 → 画布） ──
 function onDragOver(ev: DragEvent) { ev.preventDefault() }
@@ -483,7 +541,7 @@ function loop(t: number) {
   drawSnapPreview()
   syncTsRays()
   if (selectionBox) selectionBox.update()
-  renderer!.render(scene, camera)
+  renderer!.render(scene, activeCamera)
 }
 
 onMounted(() => {
@@ -516,13 +574,14 @@ defineExpose({
   <div
     ref="rootEl"
     class="bcanvas"
-    @pointerdown="onPointerDown"
-    @pointermove="onPointerMove"
-    @pointerup="onPointerUp"
-    @pointercancel="onPointerUp"
+    @pointerdown="onDownAll"
+    @pointermove="onMoveAll"
+    @pointerup="onUpAll"
+    @pointercancel="onUpAll"
     @wheel="onWheel"
     @dragover="onDragOver"
     @drop="onDrop"
+    @contextmenu.prevent
   ></div>
 </template>
 
