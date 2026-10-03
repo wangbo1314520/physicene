@@ -512,8 +512,8 @@ onUnmounted(() => {
         <option value="template_projectile">斜抛运动</option>
       </select>
       <button :disabled="busy" @click="saveScene()">💾 保存</button>
-      <button :disabled="busy" @click="newCanvas" title="清空画布开始新实验（原场景仍在我的场景里）">🗑 新建画布</button>
-      <button class="primary" :disabled="busy" @click="startRun">▶ 运行实验</button>
+      <span v-if="state.status === 'idle'" class="status hint">搭建并运行请切到「🧱 自由搭建」Tab</span>
+      <!-- 方案 B Step 2：运行入口在 Tab 2（自由搭建）；此处显示共享运行状态 -->
       <button :disabled="busy" @click="pickImage">📷 拍照识题</button>
       <input ref="fileInput" type="file" accept="image/jpeg,image/png" style="display:none" @change="onImageChosen">
       <template v-if="ocr.previewing">
@@ -524,7 +524,7 @@ onUnmounted(() => {
       <button :disabled="state.status !== 'paused'" @click="play">▶</button>
       <button :disabled="state.status !== 'paused'" @click="step">⏭</button>
       <button :disabled="state.status === 'ended' || state.status === 'idle'" @click="end">■</button>
-      <span class="status">{{ state.status === 'running' ? `运行中 t=${state.currentT.toFixed(2)}s` : state.status }}</span>
+      <span class="status" :class="{ ok: state.status === 'ended' }">{{ state.status === 'running' ? `▶ 运行中 t=${state.currentT.toFixed(2)}s` : state.status === 'ended' ? `⏹ 已结束 t=${state.currentT.toFixed(2)}s（${state.keyEvents.length} 事件）` : state.status }}</span>
       <div class="dims" :title="dimHint">
         <button v-for="d in DIMS" :key="d" class="dim" :class="{ on: dim === d }" @click="setDim(d)">{{ DIM_INFO[d].label }}</button>
       </div>

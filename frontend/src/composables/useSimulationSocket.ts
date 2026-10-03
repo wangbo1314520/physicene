@@ -56,25 +56,32 @@ export interface SimState {
 /**
  * 仿真 WebSocket（第二周）：/ws/simulation/{simId}。
  * 处理 frame(30fps)/keyEvent/paused/resumed/ended/sync/kicked 消息与六类控制 action。
+ * 方案 B Step 2（2026-10-04）：state 提升为模块级单例——Tab 1（实验运行）与
+ * Tab 2（自由搭建 RunBridge）共享同一份运行状态，Tab 2 运行后切 Tab 1 即可看曲线/回放。
  */
+// ── 模块级共享状态（所有 useSimulationSocket() 调用方看到同一份）──
+const sharedState = reactive<SimState>({
+  simId: null,
+  recordId: null,
+  status: 'idle',
+  currentT: 0,
+  subjects: [],
+  keyEvents: [],
+  vSeries: [],
+  vIds: [],
+  ekSeries: [],
+  pSeries: [],
+  probes: {},
+  endInfo: null,
+  frameCount: 0,
+})
+const sharedError = ref('')
+let sharedWs: WebSocket | null = null
+
 export function useSimulationSocket() {
-  const state = reactive<SimState>({
-    simId: null,
-    recordId: null,
-    status: 'idle',
-    currentT: 0,
-    subjects: [],
-    keyEvents: [],
-    vSeries: [],
-    vIds: [],
-    ekSeries: [],
-    pSeries: [],
-    probes: {},
-    endInfo: null,
-    frameCount: 0,
-  })
-  const error = ref('')
-  let ws: WebSocket | null = null
+  const state = sharedState
+  const error = sharedError
+  let ws = sharedWs
 
   async function run(elements: PhysicsElementInput[], config: Record<string, unknown>,
                      sceneId?: string | null) {
