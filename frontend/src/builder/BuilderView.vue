@@ -68,6 +68,14 @@ const sim = bridge.socket.state
 const currentTemplateId = ref<string | null>(null)
 /** 手测 Bug3/Bug4：观看视角（2D 构建 | 2.5D 等距 | 3D 环绕=右键拖转）——物理恒为 2D（x-y 平面） */
 const viewMode = ref<'2D' | '2.5D' | '3D'>('2D')
+// 决策 2（2026-10-03）：首次切维度弹轻提示——维度仅切换观看方式，场景不变
+const VIEW_HINT_KEY = 'ps_view_hint_shown'
+watch(viewMode, (m) => {
+  if (m !== '2D' && !localStorage.getItem(VIEW_HINT_KEY)) {
+    localStorage.setItem(VIEW_HINT_KEY, '1')
+    say('维度仅切换观看方式，场景内容不变。如需独立场景，请先清空画布。')
+  }
+})
 
 // ── 自查 1.5/5.5（高）：切 Tab 丢场景——v-if 卸载重挂导致 elements/undo/redo 全部清零。
 // 修复：localStorage 持久化（Tab 切换时保存+恢复）+ beforeunload 提示（关页/刷新前警告）
@@ -366,7 +374,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
       <input v-model="sceneName" class="name" title="场景名">
       <span class="badge" :class="dim === '3D' ? 'b3' : dim === '2.5D' ? 'b25' : 'b2'">元件维度 {{ dim }}</span>
       <span class="viewswitch" role="group" aria-label="观看视角">
-        <button v-for="m in (['2D', '2.5D', '3D'] as const)" :key="m" :class="{ on: viewMode === m }" @click="viewMode = m" :title="m === '3D' ? '可旋转视角（画布内右键拖动环绕）' : m === '2.5D' ? '等距立体观感' : '正交平面（构建默认）'">视角 {{ m }}</button>
+        <button v-for="vm in ([{ k: '2D' as const, label: '2D' }, { k: '2.5D' as const, label: '等距' }, { k: '3D' as const, label: '环绕' }])" :key="vm.k" :class="{ on: viewMode === vm.k }" @click="viewMode = vm.k" :title="vm.k === '3D' ? '环绕观看：右键拖动旋转相机。物理是 2D（x-y 平面），物体不在 z 轴运动' : vm.k === '2.5D' ? '等距观看：固定斜视角立体观感。物理是 2D（x-y 平面）' : '正交平面：构建默认，课本插图视角'">视角 {{ vm.label }}</button>
       </span>
       <span v-if="viewMode !== '2D'" class="dimnote" title="dyn4j 为二维物理引擎：物理计算与构建恒在 x-y 平面内（方案 B7 同口径）——2.5D/3D 仅是观看方式，不改变物理">⚠ 物理是 2D（x-y 平面）·当前为{{ viewMode === '3D' ? '环绕' : '等距' }}观看方式</span>
       <span class="sub">统一搭建台 · 元件拖入画布、锚点自动吸附、连线成题、一键运行（方案 v1.0）</span>
