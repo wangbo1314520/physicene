@@ -86,12 +86,10 @@ const scene = reactive({
     maxDuration: 10,
   } as Record<string, any>,
 })
-const selectedId = ref<string | null>(null)
 
 function resetCamera() {
   renderer?.resetView()
 }
-const selected = computed(() => scene.elements.find((e) => e.id === selectedId.value) ?? null)
 const busy = computed(() => ['running', 'paused', 'connecting'].includes(state.status))
 
 // ===== OCR 拍照识题（第五周：半自动建场景）=====
@@ -192,167 +190,19 @@ const dim = ref<SimDimension>(
 /** F1.1：顶栏页签（实验台 | 自由搭建）—— v-if 隔离两套面板/时间轴互不共存 */
 const activeTab = ref<"lab" | "free">("lab")
 
-// ===== 元件库：后端 dyn4j 支持的 7 种元件，按维度分档 =====
-interface PaletteItem { type: string; label: string; icon: string; color: string; dims: SimDimension[]; desc: string }
-const PALETTE: PaletteItem[] = [
-  { type: 'cube', label: '方块', icon: '▣', color: '#4A90D9', dims: ['2D', '2.5D'], desc: '有质量的滑块/物块，可设摩擦、弹性、初速' },
-  { type: 'sphere', label: '小球', icon: '●', color: '#F5C542', dims: ['2D', '2.5D', '3D'], desc: '质点模型；3D 中设电荷量即为带电粒子' },
-  { type: 'slope', label: '斜面', icon: '◺', color: '#3ecf8e', dims: ['2D', '2.5D'], desc: '固定斜面（直角在左下，scale 定底与高）' },
-  { type: 'wall', label: '墙壁/地面', icon: '▬', color: '#8a8aa0', dims: ['2D', '2.5D', '3D'], desc: '固定边界，可设摩擦' },
-  { type: 'point_charge', label: '点电荷', icon: '⊕', color: '#E05555', dims: ['2D', '3D'], desc: '带电质点：受库仑力与电场力/洛伦兹力；固定后作为场源' },
-  { type: 'e_field', label: '匀强电场', icon: '⇉', color: '#7fb3ff', dims: ['2D', '3D'], desc: '矩形区域匀强电场 (Ex, Ey)，3D 中画空间场线箭头' },
-  { type: 'b_field', label: '匀强磁场', icon: '⊗', color: '#c78bff', dims: ['2D', '3D'], desc: '区域匀强磁场 B（垂直纸面 出/入），带电粒子做圆周运动' },
-  { type: 'belt', label: '传送带（实验性）', icon: '⇶', color: '#3ecf8e', dims: ['2.5D'], desc: '固定胶囊体+带速（params.beltSpeed），摩擦拖动物块；将并入 /exp' },
-  { type: 'loop_track', label: '圆轨道（实验性）', icon: '◯', color: '#b06ce6', dims: ['2.5D'], desc: 'Link 链圆弧（params.radius/arcA0/arcA1/arcSideCode），解析导轨；将并入 /exp' },
-  { type: 'rope', label: '轻绳（实验性）', icon: '╱', color: '#d9a05a', dims: ['2.5D'], desc: '上限约束 DistanceJoint（connectTo+jointLength）；将并入 /exp' },
-  { type: 'spring', label: '弹簧（实验性）', icon: '〰', color: '#F5C542', dims: ['2.5D'], desc: '胡克力对（connectTo+stiffness）；将并入 /exp' },
-  { type: 'pulley', label: '滑轮（实验性）', icon: '◎', color: '#5c5c7a', dims: ['2.5D'], desc: '绳段罚力（connectTo+connectTo2+ratio）；将并入 /exp' },
-]
-const palette = computed(() => PALETTE.filter((p) => p.dims.includes(dim.value)))
+// 方案 B（2026-10-04）：搭建功能移至自由搭建 Tab（BuilderView）——PALETTE 已废弃
 const dimHint = computed(() => DIM_INFO[dim.value].hint)
 
 function setDim(d: SimDimension) {
   dim.value = d
   localStorage.setItem('ps_dim', d)
   renderer?.setDimension(d)
-  const bad = scene.elements.filter((e) => !PALETTE.find((p) => p.type === e.type)?.dims.includes(d))
-  if (bad.length) toast.value = `${DIM_INFO[d].label}模式不含 ${bad.length} 个已放置元件的类型（仍会显示，建议删除或切回原维度）`
+  // 搭建已移至 Tab 2，此处不再检查元件维度兼容性
 }
 
-let typeCounter: Record<string, number> = {}
-
-// ===== 每维度的实验设计模板：一键载入，可再自由增删元件 =====
-interface LabTemplate { name: string; desc: string; gravity?: number; elements: PhysicsElementInput[] }
-function mk(type: string, id: string, x: number, y: number, patch: Partial<PhysicsElementInput> = {}): PhysicsElementInput {
-  const base = defaultElement(type, x, y)
-  return { ...base, ...patch, id, position: { x, y }, properties: { ...base.properties, ...(patch.properties ?? {}) },
-    initialState: { velocity: { ...(base.initialState?.velocity ?? { x: 0, y: 0 }), ...(patch.initialState?.velocity ?? {}) } } }
-}
-const GROUND = () => mk('wall', 'ground', 0, -0.1, { scale: { x: 40, y: 0.2 } })
-const TEMPLATES: Record<SimDimension, LabTemplate[]> = {
-  '2D': [
-    { name: '斜面上的滑块', desc: '改滑块摩擦系数 μ：μ 大于 tanθ≈0.58 不下滑；μ=0 匀加速',
-      elements: [GROUND(), mk('slope', 'slope', -2, 0, { scale: { x: 2, y: 2.3 } }),
-        mk('cube', 'block', -3.23, 1.28, { angle: -0.5236, properties: { mass: 1, friction: 0.2, restitution: 0 } })] },
-    { name: '平抛运动', desc: '水平初速 6 m/s 从 10 m 高抛出；观察轨迹为抛物线，落地时间 √(2h/g)',
-      elements: [GROUND(), mk('sphere', 'ball', -10, 10, { properties: { mass: 1, friction: 0, restitution: 0 }, initialState: { velocity: { x: 6, y: 0 } } })] },
-    { name: '带电粒子在匀强电场中偏转', desc: '粒子水平入场，受竖直电场力做类平抛；改 E 或 v 看偏转量',
-      gravity: 0,
-      elements: [mk('e_field', 'ef', 0, 0, { scale: { x: 16, y: 8 }, properties: { eFieldX: 0, eFieldY: -2 } }),
-        mk('point_charge', 'q', -10, 2, { properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 8, y: 0 } } })] },
-    { name: '带电粒子在匀强磁场中回旋', desc: 'r = mv/(qB)：v=4、q=1、B=1、m=1 → 半径 4 m；改 B 看半径变化',
-      gravity: 0,
-      elements: [mk('b_field', 'bf', 0, 0, { scale: { x: 24, y: 24 }, properties: { bField: 1, bDirection: 'out' } }),
-        mk('point_charge', 'q', -4, 0, { properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 0, y: 4 } } })] },
-  ],
-  '2.5D': [
-    { name: '小车沿斜面下滑', desc: '等距视角看小车沿 30° 斜面加速下滑后在地面减速停下',
-      elements: [GROUND(), mk('slope', 'slope', -2, 0, { scale: { x: 2, y: 2.3 } }),
-        mk('cube', 'car', -3.23, 1.28, { angle: -0.5236, properties: { mass: 1, friction: 0.1, restitution: 0 } })] },
-    { name: '两球对心碰撞', desc: 'm₁=1 以 3 m/s 撞静止的 m₂=2，弹性碰撞 e=1；看动量守恒曲线',
-      elements: [GROUND(), mk('sphere', 'ball1', -4, 0.5, { properties: { mass: 1, friction: 0, restitution: 1 }, initialState: { velocity: { x: 3, y: 0 } } }),
-        mk('sphere', 'ball2', 2, 0.5, { color: '#E05555', properties: { mass: 2, friction: 0, restitution: 1 } })] },
-    { name: '自由落体与反弹', desc: '8 m 高静止释放，e=0.8 每次反弹高度按 e² 衰减',
-      elements: [GROUND(), mk('sphere', 'ball', 0, 8, { properties: { mass: 1, friction: 0, restitution: 0.8 } })] },
-  ],
-  '3D': [
-    { name: '正负点电荷的电场线', desc: '两个固定异号电荷（电偶极子），旋转视角看空间电场线从正到负',
-      gravity: 0,
-      elements: [mk('point_charge', 'qp', -3, 0, { fixed: true, color: '#E05555', properties: { mass: 1, charge: 2 } }),
-        mk('point_charge', 'qn', 3, 0, { fixed: true, color: '#4A90D9', properties: { mass: 1, charge: -2 } })] },
-    { name: '匀强电场中的加速与偏转', desc: '带电小球沿场方向加速；再给它横向初速看抛物线偏转',
-      gravity: 0,
-      elements: [mk('e_field', 'ef', 0, 0, { scale: { x: 16, y: 8 }, properties: { eFieldX: 1, eFieldY: 0 } }),
-        mk('sphere', 'q', -7, 0, { properties: { mass: 1, charge: 1, friction: 0, restitution: 0 }, initialState: { velocity: { x: 0, y: 2 } } })] },
-    { name: '匀强磁场中的圆周运动', desc: '洛伦兹力提供向心力：T = 2πm/(qB) 与速度无关',
-      gravity: 0,
-      elements: [mk('b_field', 'bf', 0, 0, { scale: { x: 24, y: 24 }, properties: { bField: 1, bDirection: 'out' } }),
-        mk('point_charge', 'q', -4, 0, { properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 0, y: 4 } } })] },
-    { name: '复合场：速度选择器', desc: 'E 与 B 正交，qE = qvB 时粒子直线通过（v = E/B = 4 m/s）；改 v 看偏转',
-      gravity: 0,
-      elements: [mk('e_field', 'ef', 0, 0, { scale: { x: 20, y: 8 }, properties: { eFieldX: 0, eFieldY: -4 } }),
-        mk('b_field', 'bf', 0, 0, { scale: { x: 20, y: 8 }, properties: { bField: 1, bDirection: 'out' } }),
-        mk('point_charge', 'q', -11, 0, { properties: { mass: 1, charge: 1 }, initialState: { velocity: { x: 4, y: 0 } } })] },
-  ],
-}
-const templates = computed(() => TEMPLATES[dim.value])
-function applyDimTemplate(t: LabTemplate) {
-  if (busy.value) return
-  scene.elements.splice(0, scene.elements.length, ...t.elements.map((e) => JSON.parse(JSON.stringify(e)) as PhysicsElementInput))
-  scene.config.gravity.y = t.gravity ?? -9.8
-  selectedId.value = null
-  syncRenderer()
-  renderer?.resetView()
-  toast.value = `已载入「${t.name}」：${t.desc}`
-}
-
-function defaultElement(type: string, x: number, y: number): PhysicsElementInput {
-  const UNIFY_DEFAULTS: Record<string, Record<string, number>> = {
-    belt: { beltSpeed: 3, beltLength: 4, beltRadius: 0.15 },
-    loop_track: { radius: 1, arcA0: 0, arcA1: 360, arcSideCode: 0 },
-    rope: { jointLength: 1 },
-    spring: { jointLength: 1, stiffness: 60, dampingRatio: 0.05 },
-    pulley: { ratio: 1, pulley1dx: -0.6, pulley1dy: 0, pulley2dx: 0.6, pulley2dy: 0 },
-  }
-  // 关节类无自身刚体：先创建目标提示（E2E 只验证能拖入运行）
-
-  typeCounter[type] = (typeCounter[type] ?? 0) + 1
-  const base = type === 'wall'
-    ? { scale: { x: 20, y: 0.2 }, fixed: true, color: '#8a8aa0' }
-    : type === 'slope'
-      ? { scale: { x: 2, y: 2.3 }, fixed: true, color: '#3ecf8e' }
-      : type === 'sphere'
-        ? { scale: { x: 1, y: 1 }, fixed: false, color: '#F5C542' }
-        : type === 'point_charge'
-          ? { scale: { x: 0.6, y: 0.6 }, fixed: false, color: '#E05555' }
-          : type === 'e_field'
-            ? { scale: { x: 12, y: 6 }, fixed: true, color: '#7fb3ff' }
-            : type === 'b_field'
-              ? { scale: { x: 12, y: 12 }, fixed: true, color: '#c78bff' }
-              : type === 'belt'
-                ? { scale: { x: 4, y: 0.3 }, fixed: true, color: '#3ecf8e' }
-                : type === 'loop_track'
-                  ? { scale: { x: 2, y: 2 }, fixed: true, color: '#b06ce6' }
-                  : type === 'rope' || type === 'spring' || type === 'pulley'
-                    ? { scale: { x: 1, y: 1 }, fixed: true, color: '#d9a05a' }
-                    : { scale: { x: 1, y: 1 }, fixed: false, color: '#4A90D9' }
-  const properties: Record<string, any> = type === 'e_field' ? { eFieldX: 1, eFieldY: 0 }
-    : type === 'b_field' ? { bField: 1, bDirection: 'out' }
-      : type === 'point_charge' ? { mass: 1, charge: 1, friction: 0, restitution: 0 }
-      : type === 'belt' ? { mass: 1, friction: 0.2, restitution: 0 }
-        : { mass: 1, friction: 0.1, restitution: 0.5 }
-  const unifyDefaults = UNIFY_DEFAULTS[type] ?? {}
-  const params: Record<string, number> = {}
-  for (const [k, v] of Object.entries(unifyDefaults)) params[k] = v
-  return {
-    id: `${type}_${String(typeCounter[type]).padStart(3, '0')}`,
-    type,
-    position: { x: +x.toFixed(2), y: +y.toFixed(2) },
-    angle: 0,
-    scale: base.scale,
-    properties,
-    params,
-    initialState: { velocity: { x: 0, y: 0 } },
-    fixed: type === 'belt' || type === 'loop_track' ? true : base.fixed,
-    color: base.color,
-  }
-}
+// 方案 B：TEMPLATES 已废弃（搭建在 Tab 2，62 卡模板在 BuilderView registry）
 
 // ===== 画布交互 =====
-function onDragStart(ev: DragEvent, type: string) {
-  ev.dataTransfer?.setData('application/x-element-type', type)
-}
-
-function onDrop(ev: DragEvent) {
-  const type = ev.dataTransfer?.getData('application/x-element-type')
-  if (!type || busy.value) return
-  const world = renderer?.screenToWorld(ev.clientX, ev.clientY)
-  if (!world) return
-  scene.elements.push(defaultElement(type, world.x, world.y))
-  syncRenderer()
-  selectedId.value = scene.elements[scene.elements.length - 1].id
-  checkSnap(selectedId.value)
-}
 
 // ===== 贴紧提示：两实体元件相邻（空隙或轻微重叠 ≤ 0.6 m）时询问是否贴紧，防止“看着挨着、其实有缝” =====
 interface SnapSuggestion { id: string; otherId: string; axis: 'x' | 'y'; delta: number; gap: number; label: string; otherLabel: string }
@@ -363,93 +213,18 @@ function aabb(e: PhysicsElementInput) {
   if (e.type === 'slope') return { xmin: e.position.x - sx, xmax: e.position.x + sx, ymin: e.position.y, ymax: e.position.y + sy }
   return { xmin: e.position.x - sx / 2, xmax: e.position.x + sx / 2, ymin: e.position.y - sy / 2, ymax: e.position.y + sy / 2 }
 }
-function checkSnap(id: string | null) {
-  snap.value = null
-  if (!id) return
-  const e = scene.elements.find((x) => x.id === id)
-  if (!e || !SOLID.has(e.type)) return
-  const A = aabb(e)
-  let best: SnapSuggestion | null = null
-  const consider = (otherId: string, axis: 'x' | 'y', gap: number, delta: number) => {
-    if (Math.abs(gap) < 0.005 || Math.abs(gap) > 0.6) return
-    if (!best || Math.abs(gap) < Math.abs(best.gap)) {
-      const name = (t: string) => PALETTE.find((p) => p.type === t)?.label ?? t
-      const other = scene.elements.find((x) => x.id === otherId)!
-      best = { id, otherId, axis, gap, delta, label: name(e.type), otherLabel: name(other.type) }
-    }
-  }
-  for (const o of scene.elements) {
-    if (o.id === id || !SOLID.has(o.type)) continue
-    const B = aabb(o)
-    const overlapX = Math.min(A.xmax, B.xmax) - Math.max(A.xmin, B.xmin) > 0.05
-    const overlapY = Math.min(A.ymax, B.ymax) - Math.max(A.ymin, B.ymin) > 0.05
-    if (overlapX) {
-      const gTop = A.ymin - B.ymax   // A 在 B 上方：>0 空隙，<0 重叠
-      const gBot = B.ymin - A.ymax   // A 在 B 下方
-      if (Math.abs(gTop) < Math.abs(gBot)) consider(o.id, 'y', gTop, -gTop); else consider(o.id, 'y', gBot, gBot)
-    }
-    if (overlapY) {
-      const gRight = A.xmin - B.xmax // A 在 B 右侧
-      const gLeft = B.xmin - A.xmax  // A 在 B 左侧
-      if (Math.abs(gRight) < Math.abs(gLeft)) consider(o.id, 'x', gRight, -gRight); else consider(o.id, 'x', gLeft, gLeft)
-    }
-  }
-  snap.value = best
-}
-function applySnap() {
-  const s = snap.value
-  if (!s) return
-  const e = scene.elements.find((x) => x.id === s.id)
-  if (e) {
-    e.position = { ...e.position, [s.axis]: +(e.position[s.axis] + s.delta).toFixed(3) }
-    renderer?.updateElement(e.id, { position: e.position })
-    toast.value = `已把「${s.label}」贴紧「${s.otherLabel}」（消除 ${Math.abs(s.gap).toFixed(2)} m ${s.gap > 0 ? '空隙' : '重叠'}）`
-  }
-  snap.value = null
-}
 
-let dragging = false
 
-function onPointerDown(ev: PointerEvent) {
-  if (busy.value || ev.button !== 0) return  // 右/中键留给视角平移
-  const hit = renderer?.pickElement(ev.clientX, ev.clientY) ?? null
-  selectedId.value = hit
-  renderer?.setSelected(hit)
-  dragging = hit !== null
-  if (dragging) (ev.target as HTMLElement).setPointerCapture(ev.pointerId)
-}
 
-function onPointerMove(ev: PointerEvent) {
-  if (!dragging || !selectedId.value || busy.value) return
-  const world = renderer?.screenToWorld(ev.clientX, ev.clientY)
-  if (!world) return
-  const el = scene.elements.find((e) => e.id === selectedId.value)
-  if (el) {
-    el.position = { x: +world.x.toFixed(2), y: +world.y.toFixed(2) }
-    renderer?.updateElement(el.id, { position: el.position })
-  }
-}
 
-function onPointerUp() {
-  if (dragging && selectedId.value) checkSnap(selectedId.value)
-  dragging = false
-}
 
-function removeSelected() {
-  if (!selectedId.value || busy.value) return
-  scene.elements = scene.elements.filter((e) => e.id !== selectedId.value)
-  selectedId.value = null
-  syncRenderer()
-}
 
-function selectElement(id: string) {
-  selectedId.value = id
-  renderer?.setSelected(id)
-}
+
+
 
 function syncRenderer() {
   renderer?.syncElements(JSON.parse(JSON.stringify(scene.elements)))
-  renderer?.setSelected(selectedId.value)
+  renderer?.setSelected(null)
 }
 
 watch(() => scene.elements, syncRenderer, { deep: true })
@@ -470,8 +245,6 @@ function newCanvas() {
   scene.name = ''
   scene.elements = []
   scene.config = { gravity: { x: 0, y: -9.8 }, maxDuration: 10 }
-  typeCounter = {}
-  selectedId.value = null
   resetReplay()
   cancelOcrPreview()
   chart?.setOption({ series: [] }, { replaceMerge: ['series'] })
@@ -503,13 +276,7 @@ async function loadScene(id: number) {
   scene.name = `场景 #${detail.id}`
   scene.elements = detail.elements
   scene.config = detail.config
-  typeCounter = {}
-  for (const el of detail.elements) {
-    const prefix = el.type
-    typeCounter[prefix] = Math.max(typeCounter[prefix] ?? 0,
-      parseInt(el.id.split('_')[1] ?? '0', 10) || 0)
-  }
-  selectedId.value = null
+  // typeCounter 已废弃（搭建在 Tab 2）
   syncRenderer()
 }
 
@@ -684,35 +451,13 @@ onMounted(async () => {
       })
     }
   })
-  if (import.meta.env.DEV) (window as unknown as { __lab?: unknown }).__lab = { scene, checkSnap, applySnap, snap, setDim, applyDimTemplate, templates: TEMPLATES }
+  if (import.meta.env.DEV) (window as unknown as { __lab?: unknown }).__lab = { scene, setDim, syncRenderer }
   if (canvasRef.value) {
     renderer = createSimRenderer(canvasRef.value)
     renderer.setDimension(dim.value)
   }
   // 自由搭建（/sandbox）刚体沙盒交接：把沙盒元件换成 dyn4j 元件后直接进入本页
-  const handoff = localStorage.getItem('ps_sandbox_handoff')
-  if (handoff) {
-    localStorage.removeItem('ps_sandbox_handoff')
-    try {
-      const j = JSON.parse(handoff) as { name: string; elements: { type: string; x: number; y: number; params: Record<string, number> }[] }
-      const MAP: Record<string, string> = { particle: 'sphere', block: 'cube', slider: 'cube', cart: 'cube', incline: 'slope', ground: 'wall', wall: 'wall', particle_q: 'point_charge', b_region: 'b_field', deflect_field: 'e_field', accel_field: 'e_field', composite: 'b_field' }
-      const els: PhysicsElementInput[] = []
-      for (const e of j.elements) {
-        const type = MAP[e.type]; if (!type) continue
-        const d = defaultElement(type, (e.x - 300) / 40, type === 'wall' ? 0 : Math.max(0.6, (420 - e.y) / 40))
-        d.properties = { ...d.properties, mass: e.params.m ?? e.params.M ?? d.properties?.mass, friction: e.params.mu ?? d.properties?.friction, ...(e.params.qm !== undefined ? { charge: e.params.qm } : {}), ...(e.params.B !== undefined ? { bField: e.params.B } : {}) }
-        if (e.params.v0 !== undefined || e.params.v !== undefined) d.initialState = { velocity: { x: e.params.v0 ?? e.params.v ?? 0, y: 0 } }
-        if (type === 'slope') { const L = e.params.L ?? 4, th = ((e.params.th ?? 30) * Math.PI) / 180; d.scale = { x: L * Math.cos(th), y: L * Math.sin(th) } }
-        if (type === 'wall') { d.position = { x: 0, y: -0.1 }; d.scale = { x: 40, y: 0.2 } }
-        els.push(d)
-      }
-      if (els.length && !els.some((x) => x.type === 'wall')) els.push(defaultElement('wall', 0, -0.1))
-      if (els.length) { scene.name = j.name; scene.elements = els; toast.value = `已从自由搭建接入 ${els.length} 个元件，按 ▶ 运行`; nextTick(() => syncRenderer()) }
-    } catch (e) {
-      toast.value = '交接数据损坏，已忽略（' + String(e).replace('Error: ', '') + '）'
-    }
-  }
-  if (chartRef.value) {
+    if (chartRef.value) {
     chart = echarts.init(chartRef.value)
     chart.setOption({
       darkMode: true, animation: false,
@@ -735,10 +480,7 @@ onMounted(async () => {
 })
 
 function onKey(ev: KeyboardEvent) {
-  if (ev.key === 'Delete' || ev.key === 'Backspace') {
-    const tag = (ev.target as HTMLElement)?.tagName
-    if (tag !== 'INPUT' && tag !== 'SELECT' && tag !== 'TEXTAREA') removeSelected()
-  }
+  // 方案 B：搭建已移 Tab 2，Delete 键不再在此处理
 }
 
 onUnmounted(() => {
@@ -791,24 +533,14 @@ onUnmounted(() => {
 
     <p v-if="activeTab === 'lab' && error" class="error">{{ error }}</p>
     <p v-if="activeTab === 'lab' && toast" class="toast" @click="toast = ''">{{ toast }}</p>
-    <div v-if="activeTab === 'lab' && snap" class="snapbar">
-      <span>📐 检测到「{{ snap.label }}」与「{{ snap.otherLabel }}」之间{{ snap.gap > 0 ? `有 ${snap.gap.toFixed(2)} m 空隙` : `重叠 ${(-snap.gap).toFixed(2)} m` }}——是否贴紧放置？</span>
-      <button class="ok" @click="applySnap">贴紧</button>
-      <button @click="snap = null">保持原位</button>
-    </div>
-
+    
     <section v-show="activeTab === 'lab'" class="workspace">  <!-- Bug6 方案 D：v-if→v-show（canvas 常驻）-->
       <aside class="left" v-if="activeTab === 'lab'">
         <h3>元件库 <span class="dimtag">{{ DIM_INFO[dim].label }}</span></h3>
         <p class="dimhint">{{ dimHint }}</p>
-        <div v-for="p in palette" :key="p.type" class="palette-item" draggable="true" :title="p.desc"
-             @dragstart="onDragStart($event, p.type)">
-          <span class="icon" :style="{ color: p.color }">{{ p.icon }}</span>{{ p.label }}
-        </div>
-        <p class="hint">拖到画布放置 · 点击选中 · Delete 删除</p>
-        <h3>实验设计</h3>
-        <button v-for="t in templates" :key="t.name" class="tpl" :disabled="busy" :title="t.desc" @click="applyDimTemplate(t)">📋 {{ t.name }}</button>
-        <p class="hint">载入后可继续增删元件、改参数再运行</p>
+        <!-- 方案 B：元件库已移至自由搭建 Tab -->
+                  <p class="hint">拖到画布放置 · 点击选中 · Delete 删除</p>
+        <!-- 方案 B：实验设计模板已移至自由搭建 Tab -->
         <div class="chat">
           <h3>AI 助教</h3>
           <div class="chat-log" ref="chatLog">
@@ -833,8 +565,8 @@ onUnmounted(() => {
       <section class="center">
         <div class="canvas-wrap">
           <canvas ref="canvasRef"
-                  @drop.prevent="onDrop" @dragover.prevent
-                  @pointerdown="onPointerDown" @pointermove="onPointerMove" @pointerup="onPointerUp"></canvas>
+                  
+                  ></canvas>
           <div v-if="state.keyEvents.length" class="events">
             <div v-for="(ev, i) in state.keyEvents.slice(-3)" :key="i" class="event-tag">
               ⚡ {{ ev.label }} @ {{ ev.t.toFixed(2) }}s
@@ -850,77 +582,7 @@ onUnmounted(() => {
         <div ref="chartRef" class="chart"></div>
       </section>
 
-      <aside class="right">
-        <h3>{{ selected ? `元件 ${selected.id}` : '参数面板' }}</h3>
-        <template v-if="selected">
-          <label>类型 <input :value="selected.type" disabled /></label>
-          <div class="row">
-            <label>x (m) <input type="number" step="0.5" v-model.number="selected.position.x" :disabled="busy"></label>
-            <label>y (m) <input type="number" step="0.5" v-model.number="selected.position.y" :disabled="busy"></label>
-          </div>
-          <div class="row">
-            <label>角度 (°) <input type="number" step="5" :value="Math.round((selected.angle ?? 0) * 180 / Math.PI)"
-                         @input="selected.angle = +($event.target as HTMLInputElement).value * Math.PI / 180" :disabled="busy"></label>
-            <label>颜色 <input type="color" v-model="selected.color" :disabled="busy"></label>
-          </div>
-          <template v-if="selected.type === 'e_field'">
-            <div class="row">
-              <label>Ex (N/C) <input type="number" step="0.5" v-model.number="selected.properties!.eFieldX" :disabled="busy"></label>
-              <label>Ey (N/C) <input type="number" step="0.5" v-model.number="selected.properties!.eFieldY" :disabled="busy"></label>
-            </div>
-            <div class="row">
-              <label>区域宽 (m) <input type="number" step="1" min="1" v-model.number="selected.scale!.x" :disabled="busy"></label>
-              <label>区域高 (m) <input type="number" step="1" min="1" v-model.number="selected.scale!.y" :disabled="busy"></label>
-            </div>
-          </template>
-          <template v-else-if="selected.type === 'b_field'">
-            <div class="row">
-              <label>B (T) <input type="number" step="0.1" min="0" v-model.number="selected.properties!.bField" :disabled="busy"></label>
-              <label>方向 <select v-model="selected.properties!.bDirection" :disabled="busy"><option value="out">⊙ 垂直纸面向外</option><option value="in">⊗ 垂直纸面向里</option></select></label>
-            </div>
-            <div class="row">
-              <label>区域宽 (m) <input type="number" step="1" min="1" v-model.number="selected.scale!.x" :disabled="busy"></label>
-              <label>区域高 (m) <input type="number" step="1" min="1" v-model.number="selected.scale!.y" :disabled="busy"></label>
-            </div>
-          </template>
-          <template v-else-if="!selected.fixed">
-            <div class="row">
-              <label>质量 (kg) <input type="number" step="0.5" min="0.01" v-model.number="selected.properties!.mass" :disabled="busy"></label>
-              <label>摩擦 μ <input type="number" step="0.05" min="0" max="1" v-model.number="selected.properties!.friction" :disabled="busy"></label>
-            </div>
-            <div class="row">
-              <label>弹性 e <input type="number" step="0.1" min="0" max="1" v-model.number="selected.properties!.restitution" :disabled="busy"></label>
-              <label>初速 vx <input type="number" step="1" v-model.number="selected.initialState!.velocity!.x" :disabled="busy"></label>
-            </div>
-            <div class="row">
-              <label>初速 vy (m/s) <input type="number" step="1" v-model.number="selected.initialState!.velocity!.y" :disabled="busy"></label>
-              <label v-if="selected.type === 'point_charge' || dim === '3D'">电荷量 q (C) <input type="number" step="0.5" v-model.number="selected.properties!.charge" :disabled="busy"></label>
-            </div>
-            <label v-if="selected.type === 'point_charge'" class="chk"><input type="checkbox" v-model="selected.fixed" :disabled="busy"> 固定为场源（不运动）</label>
-          </template>
-          <template v-else>
-            <p class="hint">固定元件（不参与运动统计）</p>
-            <label v-if="selected.type === 'point_charge'">电荷量 q (C) <input type="number" step="0.5" v-model.number="selected.properties!.charge" :disabled="busy"></label>
-            <label v-if="selected.type === 'point_charge'" class="chk"><input type="checkbox" v-model="selected.fixed" :disabled="busy"> 固定为场源</label>
-          </template>
-          <button class="danger" :disabled="busy" @click="removeSelected">删除元件</button>
-        </template>
-        <p v-else class="hint">点击画布中的元件编辑参数</p>
-
-        <h3 style="margin-top: 14px">全局配置</h3>
-        <div class="row">
-          <label>重力 gy (m/s²) <input type="number" step="0.5" v-model.number="scene.config.gravity.y" :disabled="busy"></label>
-          <label>时长上限 (s) <input type="number" step="1" min="1" max="30" v-model.number="scene.config.maxDuration" :disabled="busy"></label>
-        </div>
-
-        <h3 style="margin-top: 14px">场景元件 ({{ scene.elements.length }})</h3>
-        <ul class="element-list">
-          <li v-for="el in scene.elements" :key="el.id"
-              :class="{ active: el.id === selectedId }" @click="selectElement(el.id)">
-            {{ el.id }} <code>{{ el.type }}</code>
-          </li>
-        </ul>
-      </aside>
+      <aside class="right"><h3>实验运行</h3><p class="hint">搭建请切到「自由搭建」Tab，运行后此处显示曲线与回放</p></aside>
     </section>
   </main>
 </template>
