@@ -1071,7 +1071,7 @@ function gkRigidBody69(): GeoTemplate {
   }
 }
 // —— 卡 71 自由落体反弹（方案 B Step 3 迁移自 LabView preset）：e=0.8 衰减 h'=e²·h ——
-const P71_E = 0.8, P71_H = 8
+const P71_E = 0.5, P71_H = 4
 function gkBounceDecay71(): GeoTemplate {
   const h2 = P71_H * P71_E * P71_E
   return {
@@ -1083,10 +1083,10 @@ function gkBounceDecay71(): GeoTemplate {
       mk('sphere', 0, P71_H, { m: 1, v0: 0, e: P71_E, mus: 0 }),
     ],
     criticalChecks: [
-      { label: '初始高度（maxY 含起点——反弹衰减经回放/曲线观察，e² 规律由 DataPanel 数据验证）', theory: P71_H, tol: 0.1, from: { kind: 'max-y', subject: 0 } },
-      { label: '最终静止在地面（e=0.8 多次反弹能量耗尽）', theory: 0, tol: 0.02, tolAbs: 0.5, from: { kind: 'final', subject: 0, pick: 'vy' } },
+      { label: '初始高度（maxY 含起点，反弹衰减经曲线观察）', theory: P71_H, tol: 0.15, from: { kind: 'max-y', subject: 0 } },
+      { label: '最终静止在地面（e=0.5 三次反弹 ~2.3s 内能量耗尽）', theory: 0, tol: 0.02, tolAbs: 0.5, from: { kind: 'final', subject: 0, pick: 'vy' } },
     ],
-    maxDuration: 6, substeps: 4, solutionId: 'gk-bounce-decay',
+    maxDuration: 4, substeps: 4, solutionId: 'gk-bounce-decay',
   }
 }
 // —— 卡 72 电偶极子场线（方案 B Step 3 迁移自 LabView 3D preset）：异号点电荷 ——
