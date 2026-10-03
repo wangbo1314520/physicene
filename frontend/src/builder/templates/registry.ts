@@ -1070,6 +1070,41 @@ function gkRigidBody69(): GeoTemplate {
     maxDuration: 4, solutionId: 'gk-rigid-body',
   }
 }
+// —— 卡 71 自由落体反弹（方案 B Step 3 迁移自 LabView preset）：e=0.8 衰减 h'=e²·h ——
+const P71_E = 0.8, P71_H = 8
+function gkBounceDecay71(): GeoTemplate {
+  const h2 = P71_H * P71_E * P71_E
+  return {
+    id: 'gk-bounce-decay', card: '71', group: '力学',
+    name: '自由落体与反弹（e=0.8 高度衰减）',
+    tags: ['自由落体', '碰撞', '恢复系数'],
+    elements: [
+      ground(0),
+      mk('sphere', 0, P71_H, { m: 1, v0: 0, e: P71_E, mus: 0 }),
+    ],
+    criticalChecks: [
+      { label: '第一次反弹峰值 h₂=e²·h₁=' + (P71_E * P71_E) + '×' + P71_H + '=' + h2 + 'm（教材规律：恢复系数定义）', theory: h2, tol: 0.08, from: { kind: 'max-y', subject: 0 } },
+    ],
+    maxDuration: 6, substeps: 4, solutionId: 'gk-bounce-decay',
+  }
+}
+// —— 卡 72 电偶极子场线（方案 B Step 3 迁移自 LabView 3D preset）：异号点电荷 ——
+const P72_Q = 2, P72_D = 6
+function gkDipoleField72(): GeoTemplate {
+  return {
+    id: 'gk-dipole-field', card: '72', group: '电磁',
+    name: '电偶极子（异号点电荷场线）',
+    tags: ['电场线', '点电荷', '电偶极子'],
+    elements: [
+      mk('point_charge', -P72_D / 2, 0, { m: 1, qm: P72_Q, v0: 0 }),
+      mk('point_charge', P72_D / 2, 0, { m: 1, qm: -P72_Q, v0: 0 }),
+    ],
+    criticalChecks: [
+      { label: '两电荷静止（等大异号·连线中点场强同向叠加为零但力平衡）（教材规律：库仑力对称抵消）', theory: 0, tol: 0.02, tolAbs: 0.1, from: { kind: 'final', subject: 0, pick: 'vx' } },
+    ],
+    maxDuration: 2, substeps: 4, gravityY: 0, solutionId: 'gk-dipole-field',
+  }
+}
 // —— 卡 14 导轨棒（P2.1 同型）：v∞=FR/(B²L²) ——
 const P14_B = 1, P14_L = 1, P14_R = 1, P14_F = 2
 function gkRailRod14(): GeoTemplate {
@@ -1268,6 +1303,7 @@ const FACTORIES: (() => GeoTemplate)[] = [
   gkIsochrone22, gkClothesline23, gkMultistage25, gkObliqueProjectile26, gkImpulseMicro31, gkSmallQuantity67,
   gkNoninertial68, gkRigidBody69, gkRailRod14, gkRodFree38, gkRodForce39,
   gkDoubleRod40, gkRodCapacitor41, gkFrameThroughB42, gkRodSpring43, gkRodInclineB44, gkInductionOde70,
+  gkBounceDecay71, gkDipoleField72,
 ]
 
 export const TEMPLATES: GeoTemplate[] = FACTORIES.map((f) => f())
