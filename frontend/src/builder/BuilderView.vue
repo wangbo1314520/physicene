@@ -48,6 +48,25 @@ function doUndo() { const s = undo.pop(); if (s === undefined) return; redo.push
 function doRedo() { const s = redo.pop(); if (s === undefined) return; undo.push(JSON.stringify(elements)); restore(s) }
 function say(t: string) { toast.value = t; window.setTimeout(() => { if (toast.value === t) toast.value = '' }, 2200) }
 
+// ── 批 1 快捷键（2026-10-03 交互批 1）：Ctrl+Z/Y/Delete/C/V/D + Esc ──
+function onKeydown(ev: KeyboardEvent) {
+  // 输入框/下拉框聚焦时不拦截
+  const tag = (ev.target as HTMLElement)?.tagName
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
+  const ctrl = ev.ctrlKey || ev.metaKey
+  if (ctrl && ev.key === 'z' && !ev.shiftKey) { ev.preventDefault(); doUndo() }
+  else if ((ctrl && ev.key === 'y') || (ctrl && ev.shiftKey && ev.key === 'Z')) { ev.preventDefault(); doRedo() }
+  else if (ev.key === 'Delete' || ev.key === 'Backspace') { if (selected.value) { ev.preventDefault(); removeSelected() } }
+  else if (ctrl && (ev.key === 'c' || ev.key === 'd')) { if (selected.value) { ev.preventDefault(); duplicateSelected() } }
+  else if (ctrl && ev.key === 'v') { if (selected.value) { ev.preventDefault(); duplicateSelected() } }  // 无内部剪贴板，V 等效 D
+  else if (ev.key === 'Escape') { selectedId.value = null; linkFrom.value = null }
+  else if (ev.key === ' ') { ev.preventDefault(); doRun() }  // 空格=运行/再运行
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('keydown', onKeydown)
+  onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
+}
+
 const palette = computed(() => CATALOG.filter((e) => e.domain === domain.value && (!search.value || e.label.includes(search.value) || e.desc.includes(search.value) || e.tags.some((t) => t.includes(search.value)))))
 const selected = computed(() => elements.find((e) => e.id === selectedId.value) ?? null)
 const selectedSpec = computed(() => (selected.value ? byType.get(selected.value.type) : undefined))
@@ -399,10 +418,10 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
 
       <section class="canvas-wrap">
         <div class="tools">
-          <button :disabled="!selected" @click="removeSelected">🗑 删除</button>
-          <button :disabled="!selected" @click="duplicateSelected">⧉ 复制</button>
-          <button :disabled="!undo.length" @click="doUndo">↶ 撤销</button>
-          <button :disabled="!redo.length" @click="doRedo">↷ 重做</button>
+          <button :disabled="!selected" @click="removeSelected" title="Delete / Backspace">🗑 删除</button>
+          <button :disabled="!selected" @click="duplicateSelected" title="Ctrl+C / Ctrl+D / Ctrl+V">⧉ 复制</button>
+          <button :disabled="!undo.length" @click="doUndo" title="Ctrl+Z">↶ 撤销</button>
+          <button :disabled="!redo.length" @click="doRedo" title="Ctrl+Y / Ctrl+Shift+Z">↷ 重做</button>
           <button :class="{ active: linkMode }" @click="linkMode = !linkMode; linkFrom = null">🔗 连线{{ linkMode ? '中…' : '' }}</button>
           <select v-if="linkMode" v-model="linkKind" class="linkkind" title="连线类型">
             <option value="rope">轻绳</option><option value="rod">轻杆</option><option value="spring">弹簧</option><option value="wire">导线</option><option value="pulley-rope">跨轮绳</option>
@@ -422,7 +441,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
             <button @click="bridge.socket.step()">⏭ 单步</button>
             <button @click="bridge.socket.end()">⏹ 停止</button>
           </template>
-          <button class="primary" :disabled="analysis.path === 'none'" :title="analysis.path === 'java' ? '联合运行（Java 耦合调度）' : analysis.path === 'ts' ? 'TS 本地引擎（光学/近代）' : '无可运行引擎'" @click="doRun">▶ 运行</button>
+          <button class="primary" :disabled="analysis.path === 'none'" :title="(analysis.path === 'java' ? '联合运行（Java 耦合调度）' : analysis.path === 'ts' ? 'TS 本地引擎（光学/近代）' : '无可运行引擎') + ' | 空格键'" @click="doRun">▶ 运行</button>
         </div>
         <div class="canvas-holder">
           <div v-if="showTemplates" class="tpl-drawer">
