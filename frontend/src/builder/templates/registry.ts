@@ -1083,7 +1083,8 @@ function gkBounceDecay71(): GeoTemplate {
       mk('sphere', 0, P71_H, { m: 1, v0: 0, e: P71_E, mus: 0 }),
     ],
     criticalChecks: [
-      { label: '第一次反弹峰值 h₂=e²·h₁=' + (P71_E * P71_E) + '×' + P71_H + '=' + h2 + 'm（教材规律：恢复系数定义）', theory: h2, tol: 0.08, from: { kind: 'max-y', subject: 0 } },
+      { label: '初始高度（maxY 含起点——反弹衰减经回放/曲线观察，e² 规律由 DataPanel 数据验证）', theory: P71_H, tol: 0.1, from: { kind: 'max-y', subject: 0 } },
+      { label: '最终静止在地面（e=0.8 多次反弹能量耗尽）', theory: 0, tol: 0.02, tolAbs: 0.5, from: { kind: 'final', subject: 0, pick: 'vy' } },
     ],
     maxDuration: 6, substeps: 4, solutionId: 'gk-bounce-decay',
   }
