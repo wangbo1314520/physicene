@@ -35,13 +35,15 @@ describe('buildUnifiedMesh', () => {
     expect(Math.max(...mountY)).toBeGreaterThan(0.4) // 吊装杆在轮上方
   })
 
-  it('loop_track：side=2 管道双环，side=0 单环', () => {
+  it('loop_track：side=2 管道双环，side=0 内侧刻线', () => {
     const pipe = buildUnifiedMesh(mk('loop_track', { radius: 1, side: 2 })).mesh as THREE.Group
-    const single = buildUnifiedMesh(mk('loop_track', { radius: 1, side: 0 })).mesh as THREE.Group
-    expect(pipe.children.length).toBe(3)   // 双环 + 类型标记(任务D)
-    expect(single.children.length).toBe(2) // 环 + 类型标记
-    const r = (pipe.children[0] as THREE.Mesh).geometry as THREE.TorusGeometry
-    expect(r.parameters.radius).toBeCloseTo(1, 5)
+    const inner = buildUnifiedMesh(mk('loop_track', { radius: 1, side: 0 })).mesh as THREE.Group
+    // side=2：主环 + 内环 + 标注 = 3 children
+    expect(pipe.children.length).toBe(3)
+    // side=0：主环 + 8 刻线 + 标注 = 10 children（Bug D 刻线）
+    expect(inner.children.length).toBe(10)
+    const r = (pipe.children[0] as THREE.Mesh).geometry as THREE.RingGeometry
+    expect(r.parameters.outerRadius).toBeCloseTo(1.05, 5)
   })
 
   it('belt：baseAngle 来自倾角参数 th', () => {
@@ -61,8 +63,13 @@ describe('buildUnifiedMesh', () => {
     const r = buildUnifiedMesh(g)
     expect((r.mesh.userData as { kind?: string }).kind).toBe('graph-tag')
   })
-  it('未知类型回退为 Box', () => {
+  it('gas_cell 有专属渲染（2026-10-03 不再落 default Box）', () => {
     const { mesh } = buildUnifiedMesh(mk('gas_cell', { p0: 101325 }))
+    expect((mesh as THREE.Group).children.length).toBeGreaterThan(0) // 半透明填充 + 标注
+  })
+  it('未知类型仍回退为 Box（用虚构 type 测试）', () => {
+    const fake = { ...mk('gas_cell', {}), type: '__fake__' }
+    const { mesh } = buildUnifiedMesh(fake)
     expect((mesh as THREE.Mesh).geometry).toBeInstanceOf(THREE.BoxGeometry)
   })
 })

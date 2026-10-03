@@ -92,17 +92,36 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       }
     }
     case 'loop_track': {
-      // 轨道环：side 0 内轨 / 1 外轨 / 2 管道（双壁）；锚点约定 入口切点(0,-R) 顶点(0,R)
+      // Bug D（2026-10-03）：RingGeometry 平面环（无 z 厚度——透视下进出口不再错开）
+      // + side 0 内轨加内侧刻线 / side 1 外轨加外侧刻线（几何级区分）/ side 2 管道双环
       const R = Math.max(0.1, p.radius ?? 1)
+      const tube = 0.05
       const g = new THREE.Group()
-      const tube = 0.06
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(R, tube, 8, 64), mat(color, { opacity: 0.9 }))
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(R - tube, R + tube, 64),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(color), side: THREE.DoubleSide, transparent: true, opacity: 0.9 }))
       g.add(ring)
-      if ((p.side ?? 0) === 2) {
-        const inner = new THREE.Mesh(new THREE.TorusGeometry(R - tube * 2.5, tube * 0.7, 6, 64), mat(color, { opacity: 0.55 }))
+      const side = (p.side ?? 0) as 0 | 1 | 2
+      if (side === 2) {
+        const inner = new THREE.Mesh(
+          new THREE.RingGeometry(R - tube * 4, R - tube * 2.5, 64),
+          new THREE.MeshBasicMaterial({ color: new THREE.Color(color), side: THREE.DoubleSide, transparent: true, opacity: 0.55 }))
         g.add(inner)
+      } else if (side === 0 || side === 1) {
+        // 刻线：8 条短径向线，内轨朝圆心（球在内壁）/ 外轨朝外（球在外壁）
+        const dir = side === 0 ? -1 : 1
+        const tickLen = 0.12
+        for (let i = 0; i < 8; i++) {
+          const ang = (i * Math.PI) / 4
+          const r0 = side === 0 ? R - tube : R + tube
+          const r1 = r0 + dir * tickLen
+          const tickGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(r0 * Math.cos(ang), r0 * Math.sin(ang), 0.01),
+            new THREE.Vector3(r1 * Math.cos(ang), r1 * Math.sin(ang), 0.01)])
+          g.add(new THREE.Line(tickGeo, new THREE.LineBasicMaterial({ color: 0xF5C542 })))
+        }
       }
-      const sideName = ['内轨', '外轨', '管道'][(p.side ?? 0) as 0 | 1 | 2] ?? '内轨'
+      const sideName = ['内轨', '外轨', '管道'][side] ?? '内轨'
       g.add(textSprite(sideName, '#b06ce6', R + 0.55, R * 0.75))
       return { mesh: g, baseAngle: 0 }
     }
@@ -245,6 +264,196 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       for (let xx = -0.1; xx <= 0.1; xx += 0.07) {
         g.add(seg2(xx - 0.04, -H / 2, xx + 0.04, -H / 2 + 0.1, 0x565675))
       }
+      return { mesh: g, baseAngle: 0 }
+    }
+    // ── TS 光学/近代 8 件编辑态渲染（2026-10-03 逐个确认：全落 default 方块，该修）──
+    // 运行态由 TS Runner 输出光线叠加（BuilderCanvas tsRays），编辑态在此画可辨识几何
+    case 'light_source': {
+      // 光源：圆+发散线（模拟光束发射）
+      const g = new THREE.Group()
+      const core = new THREE.Mesh(new THREE.CircleGeometry(0.25, 20), mat(color))
+      g.add(core)
+      for (let i = 0; i < 5; i++) {
+        const ang = -0.6 + (i * 0.3)
+        const ray = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0.25 * Math.cos(ang), 0.25 * Math.sin(ang), 0),
+          new THREE.Vector3(1.2 * Math.cos(ang), 1.2 * Math.sin(ang), 0)])
+        g.add(new THREE.Line(ray, new THREE.LineBasicMaterial({ color: 0xF5C542 })))
+      }
+      g.add(textSprite(`λ=${p.lam ?? 600}nm θ=${p.th1 ?? 40}°`, '#F5C542', 0, -0.6))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'prism': {
+      // 棱镜：三角形
+      const A = p.A ?? 60
+      const tri = new THREE.Shape()
+      tri.moveTo(0, 0.5); tri.lineTo(-0.45, -0.35); tri.lineTo(0.45, -0.35); tri.closePath()
+      const g = new THREE.Group()
+      g.add(new THREE.Mesh(new THREE.ShapeGeometry(tri), new THREE.MeshBasicMaterial({ color: new THREE.Color(color), transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false })))
+      g.add(textSprite(`n=${p.n ?? 1.5} A=${A}°`, '#4A90D9', 0, 0.8))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'optic_screen': {
+      // 光屏：竖线+刻度
+      const g = new THREE.Group()
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 2, 0.15), mat(color, { opacity: 0.8 })))
+      for (const y of [-0.6, 0, 0.6]) {
+        const tick = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0.04, y, 0), new THREE.Vector3(0.12, y, 0)])
+        g.add(new THREE.Line(tick, new THREE.LineBasicMaterial({ color: 0x8a8aa0 })))
+      }
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'wedge': {
+      // 劈尖：细长三角形+空气膜厚标注
+      const g = new THREE.Group()
+      const tri = new THREE.Shape()
+      tri.moveTo(-1, 0); tri.lineTo(1, 0); tri.lineTo(1, 0.08); tri.closePath()
+      g.add(new THREE.Mesh(new THREE.ShapeGeometry(tri), new THREE.MeshBasicMaterial({ color: new THREE.Color(color), transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false })))
+      g.add(textSprite('劈尖', '#4A90D9', 0, 0.4))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'double_slit': {
+      // 双缝：两条竖线+缝宽标注
+      const g = new THREE.Group()
+      for (const x of [-0.15, 0.15]) {
+        g.add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.5, 0.15), mat(color)))
+      }
+      g.add(textSprite('双缝', '#4A90D9', 0, 1.0))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'photo_tube': {
+      // 光电管：真空管（半透明椭圆）+ 阴极/阳极标注
+      const g = new THREE.Group()
+      g.add(new THREE.Mesh(new THREE.SphereGeometry(0.5, 20, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(color), transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false })))
+      g.add(textSprite(`mat=${p.mat ?? 1}`, '#E05555', 0, 0.7))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'h_atom': {
+      // 氢原子：原子核+电子轨道环
+      const g = new THREE.Group()
+      const n = p.n ?? 2
+      g.add(new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 10), mat('#E05555')))
+      for (let i = 1; i <= n; i++) {
+        g.add(new THREE.Mesh(new THREE.RingGeometry(0.2 * i - 0.02, 0.2 * i + 0.02, 32),
+          new THREE.MeshBasicMaterial({ color: 0x4A90D9, side: THREE.DoubleSide, transparent: true, opacity: 0.5 })))
+      }
+      g.add(textSprite(`n=${n}`, '#4A90D9', 0.5, 0.5))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'electron_gun': {
+      // 电子枪：梯形发射器+电子束方向
+      const g = new THREE.Group()
+      const gun = new THREE.Shape()
+      gun.moveTo(-0.3, 0.2); gun.lineTo(0.3, 0.2); gun.lineTo(0.1, -0.1); gun.lineTo(-0.1, -0.1); gun.closePath()
+      g.add(new THREE.Mesh(new THREE.ShapeGeometry(gun), mat(color)))
+      const beam = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, -0.1, 0), new THREE.Vector3(0, -0.8, 0)])
+      g.add(new THREE.Line(beam, new THREE.LineBasicMaterial({ color: 0x3ecf8e })))
+      g.add(textSprite(`U=${p.U ?? 100}V`, '#3ecf8e', 0.4, -0.3))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'bohr_collision': {
+      // 玻尔碰撞：原子核+入射粒子轨迹
+      const g = new THREE.Group()
+      g.add(new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), mat('#E05555')))
+      const traj = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-1.2, 0.3, 0), new THREE.Vector3(0.15, 0, 0)])
+      g.add(new THREE.Line(traj, new THREE.LineBasicMaterial({ color: 0xF5C542 })))
+      g.add(textSprite(`E=${p.E ?? 25}eV`, '#F5C542', -0.6, 0.6))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'accelerating_platform': {
+      // 平台板 + a 值标注 + frame 模式标注
+      const L = Math.max(1, p.L ?? 8), a = p.a ?? 2
+      const g = new THREE.Group()
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(L, 0.3, 0.5), mat(color, { opacity: 0.85 })))
+      g.add(textSprite(`a=${a.toFixed(1)}m/s²`, '#c9a227', L / 2 + 0.5, 0.6))
+      if (p.frame === 1) g.add(textSprite('地面系', '#3ecf8e', -L / 2 - 0.5, 0.6))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'constant_force': {
+      // 力箭头 + F/Δt 标注
+      const F = p.F ?? 0, dur = p.duration ?? 2
+      const g = new THREE.Group()
+      const arrowShape = new THREE.Shape()
+      arrowShape.moveTo(0, 0); arrowShape.lineTo(1.2, 0.12); arrowShape.lineTo(1.2, 0.05)
+      arrowShape.lineTo(1.6, 0); arrowShape.lineTo(1.2, -0.05); arrowShape.lineTo(1.2, -0.12)
+      arrowShape.closePath()
+      g.add(new THREE.Mesh(new THREE.ShapeGeometry(arrowShape), mat(color)))
+      g.add(textSprite(`F=${F.toFixed(1)}N Δt=${dur}s`, '#F5A623', 1.0, 0.5))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'capacitor_r': {
+      // 电容符号（两平行板）+ C/V0 标注
+      const C = p.C ?? 0.1, V0 = p.V0 ?? 0
+      const g = new THREE.Group()
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.8, 0.2), mat(color))
+      const p2 = plate.clone(); p2.position.x = 0.3
+      plate.position.x = -0.3
+      g.add(plate, p2)
+      g.add(textSprite(`C=${(C * 1000).toFixed(0)}mF V₀=${V0.toFixed(0)}V`, '#F5C542', 0, 0.7))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'coil_frame': {
+      // 线框（矩形框）+ w/R 标注
+      const w = p.w ?? 1, R = p.R ?? 1
+      const g = new THREE.Group()
+      const outline = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-w / 2, -0.3, 0), new THREE.Vector3(w / 2, -0.3, 0),
+        new THREE.Vector3(w / 2, 0.3, 0), new THREE.Vector3(-w / 2, 0.3, 0),
+        new THREE.Vector3(-w / 2, -0.3, 0)])
+      g.add(new THREE.Line(outline, new THREE.LineBasicMaterial({ color: new THREE.Color(color) })))
+      g.add(textSprite(`w=${w.toFixed(1)}m R=${R.toFixed(1)}Ω`, '#E05555', 0, 0.6))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'rail_pair': {
+      // 双导轨（两条平行线）+ L 标注
+      const L = p.L ?? 1
+      const g = new THREE.Group()
+      for (const y of [0.3, -0.3]) {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 0.1), mat('#8a8aa0'))
+        rail.position.y = y
+        g.add(rail)
+      }
+      g.add(textSprite(`轨距 L=${L.toFixed(1)}m`, '#8a8aa0', 0, 0.7))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'projectile_platform': {
+      // 平台板（比 accelerating_platform 薄）+ v0 标注
+      const v0 = p.v0 ?? 0
+      const g = new THREE.Group()
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(3, 0.3, 0.3), mat(color, { opacity: 0.8 })))
+      if (v0) g.add(textSprite(`v₀=${v0}m/s`, '#3ecf8e', 1.8, 0.5))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'cylinder': {
+      // 汽缸壁（U 形截面）+ S 标注
+      const S = p.S ?? 0.01
+      const g = new THREE.Group()
+      const wallMat = mat(color, { opacity: 0.7 })
+      const left = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2, 0.3), wallMat); left.position.set(-0.5, 0, 0)
+      const right = left.clone(); right.position.x = 0.5
+      const bottom = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.08, 0.3), wallMat); bottom.position.y = -1
+      g.add(left, right, bottom)
+      g.add(textSprite(`S=${(S * 1000).toFixed(0)}cm²`, '#9cc5ff', 0, 1.3))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'gas_cell': {
+      // 气室（半透明填充矩形）+ p/V/T 标注
+      const p0 = p.p0 ?? 101325, V0 = p.V0 ?? 0.01, T0 = p.T0 ?? 300
+      const g = new THREE.Group()
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.3), mat(color, { opacity: 0.25 })))
+      g.add(textSprite(`p=${(p0 / 1000).toFixed(0)}kPa V=${(V0 * 1000).toFixed(0)}L T=${T0}K`, '#F5C542', 0, 0.8))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'piston': {
+      // 活塞（厚板）+ M 标注
+      const M = p.M ?? 10
+      const g = new THREE.Group()
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.25, 0.3), mat(color)))
+      g.add(textSprite(`M=${M.toFixed(0)}kg`, '#8a8aa0', 0, 0.5))
       return { mesh: g, baseAngle: 0 }
     }
     case 'rope': {
