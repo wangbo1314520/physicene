@@ -503,7 +503,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
 .canvas-wrap { display: flex; flex-direction: column; gap: 6px; }
 .tools { display: flex; gap: 6px; align-items: center; }
 .tools button { background: #23233a; color: #b0b0cc; border: 1px solid #2f2f4a; border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer; }
-.tools button:disabled { opacity: 0.4; cursor: not-allowed; } .tools button.active { border-color: #F5C542; color: #F5C542; }
+.tools button:disabled { opacity: 0.65; cursor: not-allowed; }  /* Bug A：0.4 太弱学生以为按钮不存在 */ .tools button.active { border-color: #F5C542; color: #F5C542; }
 .tools .primary { background: #2b5c8f; color: #fff; border-color: #4a90d9; padding: 6px 16px; font-size: 13px; }
 .tools .primary:disabled { opacity: 0.5; }
 .linkkind { background: #23233a; color: #F5C542; border: 1px solid #F5C54266; border-radius: 6px; padding: 4px 6px; font-size: 12px; }

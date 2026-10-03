@@ -67,6 +67,24 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       stripe.position.set(0, r + 0.025, 0)
       g.add(body, capL, capR, stripe)
       const vb = p.vb ?? 3
+      const mu = p.mu ?? 0.4
+      // Bug B（2026-10-03）：方向箭头（静止可见，指向运动方向）+ 速度/摩擦两个分开标注
+      const arrowDir = vb >= 0 ? 1 : -1
+      const arrowShape = new THREE.Shape()
+      const ah = 0.18, aw = 0.10
+      arrowShape.moveTo(-ah / 2 * arrowDir, 0)
+      arrowShape.lineTo(ah / 2 * arrowDir, aw / 2)
+      arrowShape.lineTo(ah / 2 * arrowDir - 0.05 * arrowDir, 0)
+      arrowShape.lineTo(ah / 2 * arrowDir, -aw / 2)
+      arrowShape.closePath()
+      const arrow = new THREE.Mesh(
+        new THREE.ShapeGeometry(arrowShape),
+        new THREE.MeshBasicMaterial({ color: 0xF5C542, side: THREE.DoubleSide, depthWrite: false }))
+      arrow.position.set(0, r + 0.10, 0.35)
+      g.add(arrow)
+      // 两个分开标注：速度 + 摩擦（参考圆轨道 textSprite 风格）
+      g.add(textSprite(`v=${Math.abs(vb).toFixed(1)}m/s`, '#3ecf8e', len / 2 + 0.4, r + 0.5))
+      g.add(textSprite(`μ=${mu.toFixed(2)}`, '#E05555', -len / 2 - 0.4, r + 0.5))
       return {
         mesh: g,
         baseAngle: THREE.MathUtils.degToRad(p.th ?? 0),
@@ -227,6 +245,23 @@ export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
       for (let xx = -0.1; xx <= 0.1; xx += 0.07) {
         g.add(seg2(xx - 0.04, -H / 2, xx + 0.04, -H / 2 + 0.1, 0x565675))
       }
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'rope': {
+      // Bug C（2026-10-03）：绳自身渲染（未连线时）——直线 + 两端锚点球 + 长度标注。
+      // 连线后由 buildConnectionLine 接管（松弛虚线/绷紧实线——P1.1 承诺已在 BuilderCanvas syncLinks 落地）
+      const L = Math.max(0.1, p.L ?? 2)
+      const g = new THREE.Group()
+      const c = spec?.color ?? '#d9a05a'
+      // 绳线：编辑态默认绷紧（粗实线）；L/Tmax 标注让学生知道可断
+      const line = new THREE.Mesh(new THREE.BoxGeometry(L, 0.035, 0.035), mat(c))
+      g.add(line)
+      // 两端锚点球（与连线锚点对齐：左端 (0,0)、右端 (L,0)）
+      const a = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), mat('#b0b0cc'))
+      const b = a.clone(); b.position.x = L
+      g.add(a, b)
+      // 长度标签
+      g.add(textSprite(`L=${L.toFixed(1)}m`, c, L / 2, 0.3))
       return { mesh: g, baseAngle: 0 }
     }
     case 'lead_in': {
