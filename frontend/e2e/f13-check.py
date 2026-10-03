@@ -45,7 +45,7 @@ def main() -> int:
         check("E1 交互：模板下拉可选", pg.locator(".lab select.tmpl").is_visible())
         pg.locator(".lab select.tmpl").select_option("template_projectile")
         pg.wait_for_timeout(500)
-        check("E1 交互：模板载入有元件", pg.locator(".lab .el-item, .lab .workspace li").count() > 0)
+        check("E1 Tab 1 无搭建 UI（方案 B）", pg.locator(".lab .palette-item").count() == 0)
         pg.locator(".lab button.primary", has_text="运行实验").click()
         e1_ended = False
         for _ in range(80):
