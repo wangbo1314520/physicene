@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import type { PhysicsElementInput, SubjectState } from '../composables/useSimulationSocket'
 import { buildBFieldLines3D, buildEFieldArrows3D, buildChargeFieldLines } from './fieldLines3d'
+import { buildUnifiedMesh } from '../builder/render/Renderer'
 
 /**
  * Three.js 渲染（SRS：物理 2D x/y，渲染按实验维度分三档）：
@@ -154,106 +155,46 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
   }
 
   function buildMesh(el: PhysicsElementInput): THREE.Mesh {
-    let geometry: THREE.BufferGeometry
+    // ── 方案 B（2026-10-03）：废弃原 11 个"实验性"case，改调 buildUnifiedMesh（42 个 case）──
+    // 保留：场符号叠加（buildFieldSymbols/3D）、场色/透明度、z 错层、halfW/H 自动取景
+    const result = buildUnifiedMesh(el)
+    const unified = result.mesh as THREE.Object3D
+    // 场色覆盖（e_field/b_field 在 Renderer 中已映射到 e_region/b_region）
+    const isField = el.type === 'e_field' || el.type === 'b_field'
     const sx = el.scale?.x ?? 1
     const sy = el.scale?.y ?? 1
-    switch (el.type) {
-      case 'sphere': {
-        const r = 0.5 * ((sx + sy) / 2)
-        geometry = new THREE.SphereGeometry(Math.max(0.05, r), 24, 16)
-        break
-      }
-      case 'point_charge': {
-        const r = 0.25 * ((sx + sy) / 2)
-        geometry = new THREE.SphereGeometry(Math.max(0.08, r), 24, 16)
-        break
-      }
-      case 'e_field':
-      case 'b_field': {
-        // 场区域：平面模式薄板半透明（绿=电场，紫=B 向外，青=B 向内）；3D 模式为有厚度场体
-        const depth = viewMode === 'orbit3d'
-          ? THREE.MathUtils.clamp(Math.min(sx, sy) * 0.4, 1.2, 5) : 0.05
-        geometry = new THREE.BoxGeometry(Math.max(0.1, sx), Math.max(0.1, sy), depth)
-        break
-      }
-      case 'belt': {
-        // 传送带（实验性可视化桥）：胶囊近似（Box+两半圆端帽）+条纹着色
-        const len = Math.max(0.2, sx), r = Math.max(0.05, sy)
-        geometry = new THREE.BoxGeometry(len, r * 2, Math.max(0.1, r * 2))
-        break
-      }
-      case 'loop_track': {
-        // 圆轨道（实验性）：TorusGeometry 弧带
-        const R = Math.max(0.1, sx / 2)
-        const a0 = 0, a1 = Math.PI * 2
-        geometry = new THREE.TorusGeometry(R, 0.06, 8, 72, a1 - a0)
-        geometry.rotateZ(a0)
-        break
-      }
-      case 'rope': case 'rod': case 'spring': case 'pulley': {
-        // 关节类（实验性）：位置标记（小圆盘），连接线由渲染循环画
-        geometry = new THREE.SphereGeometry(0.15, 12, 12)
-        break
-      }
-      case 'slope': {
-        const w = 2 * sx, h = 1 * sy
-        const shape = new THREE.Shape([
-          new THREE.Vector2(-w / 2, -h / 2),
-          new THREE.Vector2(w / 2, -h / 2),
-          new THREE.Vector2(-w / 2, h / 2),
-        ])
-        geometry = new THREE.ExtrudeGeometry(shape, { depth: 0.5, bevelEnabled: false })
-        geometry.translate(0, 0, -0.25)
-        break
-      }
-      case 'wall':
-      case 'cube':
-      default: {
-        geometry = new THREE.BoxGeometry(Math.max(0.05, sx), Math.max(0.05, sy), Math.max(0.05, sx))
-        break
-      }
-    }
-    const isField = el.type === 'e_field' || el.type === 'b_field'
-    let color = el.color ?? '#4A90D9'
-    let opacity = 1
-    if (el.type === 'e_field') {
-      color = '#3ecf8e'
-      opacity = 0.13
-    } else if (el.type === 'b_field') {
-      color = (el.properties?.bDirection === 'in') ? '#6cd9e8' : '#b06ce6'
-      opacity = 0.13
-    }
-    const material = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(color),
-      roughness: 0.45,
-      metalness: 0.15,
-      transparent: isField || el.type === 'wall',
-      opacity: isField ? opacity : el.type === 'wall' ? 0.55 : 1,
-      emissive: el.type === 'point_charge' ? new THREE.Color(color).multiplyScalar(0.7)
-        : new THREE.Color(0x000000),
-    })
-    geometries.push(geometry)
-    materials.push(material)
-    const mesh = new THREE.Mesh(geometry, material)
-    mesh.userData.baseOpacity = isField ? opacity : el.type === 'wall' ? 0.55 : 1
-    mesh.userData.baseTransparent = isField || el.type === 'wall'
-    // 自动取景用的大致半尺寸（元件几何跨度，非仅中心点）
-    if (el.type === 'slope') {
-      mesh.userData.halfW = sx; mesh.userData.halfH = sy / 2
-    } else if (isField || el.type === 'wall') {
-      mesh.userData.halfW = sx / 2; mesh.userData.halfH = sy / 2
-    } else {
-      mesh.userData.halfW = Math.max(0.5, sx / 2); mesh.userData.halfH = Math.max(0.5, sy / 2)
-    }
-    // E/B 场板沿 z 错开少许，避免同位置叠加时共面闪烁
-    const zOff = el.type === 'b_field' ? 0.09 : el.type === 'e_field' ? -0.09 : 0
-    mesh.position.set(el.position.x, el.position.y, zOff)
-    mesh.rotation.z = el.angle ?? 0
-    // 场分布可视化：平面=教材标准画法（E 箭头阵 / B ⊙⊗ 符号）；3D=带箭头场线
     if (isField) {
-      mesh.add(viewMode === 'orbit3d' ? buildFieldSymbols3D(el) : buildFieldSymbols(el))
+      let color = '#4A90D9', opacity = 0.13
+      if (el.type === 'e_field') color = '#3ecf8e'
+      else if (el.type === 'b_field') color = (el.properties?.bDirection === 'in') ? '#6cd9e8' : '#b06ce6'
+      unified.traverse((child) => {
+        const m = child as THREE.Mesh
+        if (m.material) {
+          const mat = m.material as THREE.MeshStandardMaterial
+          mat.color = new THREE.Color(color)
+          mat.transparent = true
+          mat.opacity = opacity
+        }
+      })
+      unified.userData.baseOpacity = opacity
+      unified.userData.baseTransparent = true
     }
-    return mesh
+    // 自动取景用的大致半尺寸
+    if (el.type === 'slope') {
+      unified.userData.halfW = sx; unified.userData.halfH = sy / 2
+    } else if (isField || el.type === 'wall') {
+      unified.userData.halfW = sx / 2; unified.userData.halfH = sy / 2
+    } else {
+      unified.userData.halfW = Math.max(0.5, sx / 2); unified.userData.halfH = Math.max(0.5, sy / 2)
+    }
+    const zOff = el.type === 'b_field' ? 0.09 : el.type === 'e_field' ? -0.09 : 0
+    unified.position.set(el.position.x, el.position.y, zOff)
+    unified.rotation.z = (el.angle ?? 0) + result.baseAngle
+    // 场分布可视化
+    if (isField) {
+      unified.add(viewMode === 'orbit3d' ? buildFieldSymbols3D(el) : buildFieldSymbols(el))
+    }
+    return unified as THREE.Mesh
   }
 
   /** 3D 模式场可视化（线+箭头）：

@@ -24,7 +24,19 @@ def main() -> int:
         print("❌ 无专属渲染分支（落 default 方块）：")
         for m in sorted(missing): print(f"  {m}")
         return 1
-    print("✅ 所有预期渲染元件都有专属 case")
+    # 方案 B 验证：threeScene.ts 不应有自己的 geometry case（已改调 buildUnifiedMesh）
+    ts = (ROOT / "src" / "sim" / "threeScene.ts").read_text(encoding="utf-8")
+    ts_cases = re.findall(r"case '(\w+)'", ts)
+    # 场符号相关函数名不算 geometry case
+    ts_geo_cases = [c for c in ts_cases if c in expected]
+    if ts_geo_cases:
+        print(f"❌ threeScene.ts 仍有独立 geometry case（应改调 buildUnifiedMesh）：{ts_geo_cases}")
+        return 1
+    # buildUnifiedMesh 引用确认
+    if 'buildUnifiedMesh' not in ts:
+        print("❌ threeScene.ts 未引用 buildUnifiedMesh（方案 B 未接入）")
+        return 1
+    print("✅ 所有预期渲染元件都有专属 case；threeScene 已接入 buildUnifiedMesh（方案 B）")
     return 0
 if __name__ == "__main__":
     sys.exit(main())

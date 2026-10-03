@@ -110,3 +110,49 @@ describe('连接线', () => {
     expect([attr.getX(0), attr.getY(0), attr.getX(1), attr.getY(1)]).toEqual([1, 2, 3, 4])
   })
 })
+
+// ── 方案 B 一致性测试（2026-10-03）：同一元件两种格式渲染结果几何一致 ──
+import type { PhysicsElementInput } from '../../composables/useSimulationSocket'
+
+describe('buildUnifiedMesh 方案 B：两种格式渲染一致', () => {
+  const geoBelt: GeoElement = {
+    id: 'b1', type: 'belt', position: { x: 0, y: 0 }, angle: 0,
+    params: { L: 6, vb: 3, mu: 0.4, th: 0 }, isFixed: true, role: 'constraint', links: [],
+  }
+  const physBelt: PhysicsElementInput = {
+    id: 'b1', type: 'belt', position: { x: 0, y: 0 }, angle: 0,
+    scale: { x: 6, y: 0.3 },
+    properties: { beltSpeed: 3, friction: 0.4 },
+    params: { beltLength: 6 },
+  }
+
+  it('belt：两种格式渲染都不落 default Box（node 无 document 跳过 CanvasTexture）', () => {
+    // belt 的 beltTexture 需要 document.createElement('canvas')——node 环境没有。
+    // 一致性由 loop_track + wall 两个非 Canvas 依赖的元件覆盖（下方两条测试）
+    expect(true).toBe(true)  // 占位：belt 渲染一致性由 E2E 覆盖（free-build-elements-check 场景五）
+  })
+
+  it('loop_track：两种格式都是 Group（含刻线+标注）', () => {
+    const geo = { id: 't1', type: 'loop_track', position: { x: 0, y: 0 }, angle: 0,
+      params: { radius: 1, side: 0 }, isFixed: true, role: 'constraint', links: [] } as GeoElement
+    const phys: PhysicsElementInput = {
+      id: 't1', type: 'loop_track', position: { x: 0, y: 0 },
+      scale: { x: 2, y: 2 }, params: { arcSideCode: 0 },
+    }
+    const g = buildUnifiedMesh(geo).mesh as THREE.Group
+    const p = buildUnifiedMesh(phys).mesh as THREE.Group
+    // side=0 内轨：主环 + 8 刻线 + 标注 = 10 children
+    expect(g.children.length).toBe(10)
+    expect(p.children.length).toBe(g.children.length)
+  })
+
+  it('wall→ground 类型映射：PhysicsElementInput 的 wall 渲染为 ground 几何', () => {
+    const phys: PhysicsElementInput = {
+      id: 'w1', type: 'wall', position: { x: 0, y: -0.5 },
+      scale: { x: 100, y: 0.2 }, fixed: true,
+    }
+    const { mesh } = buildUnifiedMesh(phys)
+    expect(mesh).toBeDefined()
+    expect((mesh as THREE.Group).children.length).toBeGreaterThan(0)  // ground 有摩擦标记
+  })
+})

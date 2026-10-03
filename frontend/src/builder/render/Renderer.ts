@@ -6,6 +6,7 @@
 import * as THREE from 'three'
 import type { GeoElement } from '../catalog'
 import { byType, BELT_RADIUS, BRACKET_POST, BRACKET_ARM, POLE_WIDTH } from '../catalog'
+import type { PhysicsElementInput } from '../../composables/useSimulationSocket'
 
 export interface UnifiedMeshResult {
   mesh: THREE.Mesh | THREE.Group
@@ -37,7 +38,43 @@ function beltTexture(): THREE.CanvasTexture {
   return tex
 }
 
-export function buildUnifiedMesh(e: GeoElement): UnifiedMeshResult {
+export function buildUnifiedMesh(e: GeoElement | PhysicsElementInput): UnifiedMeshResult {
+  // ── 方案 B 格式适配层（2026-10-03）：PhysicsElementInput → GeoElement，映射集中在此一处 ──
+  // 字段对应：scale.x/y → params.L/W/radius | properties.mass → params.m | properties.friction → params.mu
+  //          properties.beltSpeed → params.vb | properties.bField → params.B | properties.charge → params.qm·m
+  //          fixed → isFixed | 类型名映射：e_field→e_region / b_field→b_region / cube→block / wall→ground / rod→rod_bar
+  if ('role' in e && 'links' in e) {
+    // GeoElement——直走下方 switch
+  } else {
+    const pe = e as PhysicsElementInput
+    const sx = pe.scale?.x ?? 1, sy = pe.scale?.y ?? 1
+    const props = (pe.properties ?? {}) as Record<string, number | string>
+    const mapped: Record<string, number> = { ...(pe.params ?? {}) }
+    // 几何参数（scale → 各元件尺寸参数）
+    if (pe.type === 'belt') { mapped.L = sx; mapped.mu = (props.friction as number) ?? 0.4; mapped.vb = (props.beltSpeed as number) ?? 3 }
+    else if (pe.type === 'loop_track') { mapped.radius = sx / 2; mapped.side = mapped.arcSideCode ?? 0 }
+    else if (pe.type === 'e_field') { mapped.Ex = (props.eFieldX as number) ?? 0; mapped.Ey = (props.eFieldY as number) ?? 0; mapped.L = sx; mapped.W = sy }
+    else if (pe.type === 'b_field') { mapped.B = Math.abs((props.bField as number) ?? 1); mapped.L = sx; mapped.W = sy }
+    else if (pe.type === 'slope') { mapped.L = 2 * sx; mapped.th = Math.atan2(sy, sx) * 180 / Math.PI; mapped.mu = (props.friction as number) ?? 0.2 }
+    else if (pe.type === 'rail_pair') { mapped.L = mapped.railL ?? 1 }
+    if (props.mass !== undefined) mapped.m = props.mass as number
+    if (pe.initialState?.velocity) {
+      const v = pe.initialState.velocity
+      mapped.v0 = Math.hypot(v.x, v.y)
+      if (v.x !== 0) mapped.ang = Math.atan2(v.y, v.x) * 180 / Math.PI
+    }
+    const TYPE_MAP: Record<string, string> = {
+      'e_field': 'e_region', 'b_field': 'b_region', 'cube': 'block',
+      'wall': 'ground', 'rod': 'rod_bar', 'particle': 'particle',
+    }
+    const geo: GeoElement = {
+      id: pe.id, type: TYPE_MAP[pe.type] ?? pe.type,
+      position: pe.position, angle: pe.angle ?? 0,
+      params: mapped, isFixed: pe.fixed ?? false, role: 'body',
+      links: [], initialState: pe.initialState,
+    } as GeoElement  // display/role 字段可选，运行态渲染不依赖
+    return buildUnifiedMesh(geo)
+  }
   const spec = byType.get(e.type)
   const color = spec?.color ?? '#4A90D9'
   const p = e.params
