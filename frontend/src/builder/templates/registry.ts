@@ -1083,8 +1083,8 @@ function gkBounceDecay71(): GeoTemplate {
       mk('sphere', 0, P71_H, { m: 1, v0: 0, e: P71_E, mus: 0 }),
     ],
     criticalChecks: [
-      { label: '初始高度（maxY 含起点，反弹衰减经曲线观察）', theory: P71_H, tol: 0.15, from: { kind: 'max-y', subject: 0 } },
-      { label: '最终静止在地面（e=0.5 三次反弹 ~2.3s 内能量耗尽）', theory: 0, tol: 0.02, tolAbs: 0.5, from: { kind: 'final', subject: 0, pick: 'vy' } },
+      { label: '最终静止在地面 y≈0.5（球半径·三次反弹后能量耗尽）', theory: 0.5 * 1, tol: 0.05, tolAbs: 0.3, from: { kind: 'final', subject: 0, pick: 'y' } },
+      { label: '最终静止（vy→0·e=0.5 反弹衰减收敛）', theory: 0, tol: 0.02, tolAbs: 0.5, from: { kind: 'final', subject: 0, pick: 'vy' } },
     ],
     maxDuration: 4, substeps: 4, solutionId: 'gk-bounce-decay',
   }
