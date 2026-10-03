@@ -371,3 +371,22 @@ B4（电路引擎）和 B5（光学引擎）未独立开工，相关实验已用
 | processedData v1.2 | frontend/src/experiments/docs/processedData-v1.2.md |
 | 开发日志 | docs/开发日志.md |
 | 第一周复盘 | docs/第一周复盘总结.md |
+
+
+## 方案 B（2026-10-04）：LabView 合并——第 6 次"两份实现"归一
+
+**变更**：LabView 废弃搭建功能（338 行删除），Tab 1 重构为纯"实验运行"（回放/图表/AI/OCR）。
+
+| Tab | 名称 | 功能 |
+|---|---|---|
+| Tab 1 | 🧪 实验台 | 回放时间轴 + ECharts 曲线 + AI 助教 + OCR + 运行状态显示（无搭建） |
+| Tab 2 | 🧱 自由搭建 | BuilderView（64 卡模板 + 42 种元件 + 连线 + 撤销 + 吸附 + JSON） |
+
+**WS 单例**：`useSimulationSocket` 改为模块级共享 state——Tab 2 运行后切 Tab 1 即可看曲线/回放。
+
+**渲染器统一**：`buildUnifiedMesh` 接受 `GeoElement | PhysicsElementInput`（格式适配层集中一处），
+threeScene.ts 废弃 11 个实验性 case 改调 buildUnifiedMesh（42 case）。第 5 次两份实现归一。
+
+**preset 迁移**：11 个 LabView preset 中 9 个删除（62 卡已有同物理）、2 个迁移到 registry（卡 71 反弹 + 卡 72 电偶极子），TEMPLATES 62→64。
+
+**E2E**：lab-check 重写 12 条（Tab 语义断言）、f13 微调、builder-check 64 卡。
