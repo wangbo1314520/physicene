@@ -8,6 +8,8 @@ import { http } from '../api/http'
 import {
   useSimulationSocket, type PhysicsElementInput,
 } from '../composables/useSimulationSocket'
+import { toPhysicsElements } from '../builder/run/RunBridge'
+import type { GeoElement } from '../builder/catalog'
 
 const route = useRoute()
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -227,6 +229,26 @@ function syncRenderer() {
   renderer?.setSelected(null)
 }
 
+// ── Step 2 补丁（2026-10-04）：Tab 2 场景 → Tab 1 画布 ──
+// BuilderView persistWorkspace() 在切 Tab 时把 elements 存 ps_builder_workspace。
+// Tab 1 激活时读取 → toPhysicsElements 转换 → threeScene syncElements 渲染。
+// 运行时帧位姿由 sharedState.subjects 驱动（updateStates 在 threeScene 渲染循环内）。
+function syncFromBuilderTab() {
+  try {
+    const raw = localStorage.getItem('ps_builder_workspace')
+    if (!raw) return
+    const j = JSON.parse(raw) as { elements: GeoElement[] }
+    if (!j.elements?.length) return
+    const pkg = toPhysicsElements(j.elements)
+    scene.elements = pkg.list
+    syncRenderer()
+    // 运行中/结束后：把 WS 帧位姿应用到画布（threeScene updateStates）
+    if (state.subjects.length > 0) {
+      renderer?.updateStates(state.subjects)
+    }
+  } catch { /* 损坏数据静默丢弃 */ }
+}
+
 watch(() => scene.elements, syncRenderer, { deep: true })
 
 // ===== 保存 / 加载 =====
@@ -443,6 +465,7 @@ onMounted(async () => {
   watch(activeTab, (t) => {
     if (t === 'lab') {
       nextTick(() => {
+        syncFromBuilderTab()  // Step 2 补丁：从 Tab 2 同步场景 + 帧位姿到画布
         chart?.resize()
         renderer?.resetView()
         renderer?.setDimension(dim.value)  // 1.6：维度可能与自由搭建期间不一致
