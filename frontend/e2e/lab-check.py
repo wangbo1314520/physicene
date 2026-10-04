@@ -51,6 +51,9 @@ def main() -> int:
         log("Tab 1 canvas 存在", page.locator(".workspace canvas").count() > 0)
         log("Tab 1 无 palette（方案 B：搭建在 Tab 2）", page.locator(".lab .palette-item").count() == 0)
         log("Tab 1 无模板按钮（方案 B）", page.locator(".lab .tpl").count() == 0)
+        # 默认 Tab 已改为 free——先切到结果 Tab 再断言
+        page.locator(".tabbar .tab", has_text="结果").click()
+        page.wait_for_timeout(400)
         log("Tab 1 运行状态栏存在", page.locator(".lab .status").count() > 0)
         page.screenshot(path=str(OUT / "lab-tab1.png"))
 

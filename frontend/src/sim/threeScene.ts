@@ -26,6 +26,7 @@ export interface SimRenderer {
   setViewMode(mode: 'front' | 'iso'): void
   setDimension(dim: SimDimension): void
   resetView(): void
+  resize(): void  // 追问 2 修复：v-show 隐藏时构造渲染器读 clientWidth=0 → 切回可见后需 resize
   dispose(): void
 }
 
@@ -490,6 +491,13 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     resetView() {
       userControlled = false
       frameAll()
+    },
+    resize() {
+      // 追问 2 修复：v-show 隐藏时构造渲染器读 clientWidth=0 → 切回可见后用当前实际尺寸
+      const w = canvas.clientWidth || 800, h = canvas.clientHeight || 560
+      renderer.setSize(w, h, false)
+      const cam = camera as THREE.PerspectiveCamera
+      if (cam.isPerspectiveCamera) { cam.aspect = w / h; cam.updateProjectionMatrix() }
     },
     dispose() {
       cancelAnimationFrame(raf)

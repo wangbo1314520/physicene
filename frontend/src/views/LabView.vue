@@ -190,7 +190,7 @@ const dim = ref<SimDimension>(
   (localStorage.getItem('ps_dim') as SimDimension) || (localStorage.getItem('ps_view') === 'iso' ? '2.5D' : '2D'))
 
 /** F1.1：顶栏页签（实验台 | 自由搭建）—— v-if 隔离两套面板/时间轴互不共存 */
-const activeTab = ref<"lab" | "free">("lab")  // 默认结果：渲染器需可见 canvas 初始化（搭建入口=空态"去搭建"按钮）
+const activeTab = ref<"lab" | "free">("free")  // 默认搭建：学生一进来就能搭（resize 已修——切到结果 Tab 时渲染器 resize）
 
 // 方案 B（2026-10-04）：搭建功能移至自由搭建 Tab（BuilderView）——PALETTE 已废弃
 const dimHint = computed(() => DIM_INFO[dim.value].hint)
@@ -477,6 +477,7 @@ onMounted(async () => {
       nextTick(() => {
         syncFromBuilderTab()  // Step 2 补丁：从 Tab 2 同步场景 + 帧位姿到画布
         chart?.resize()
+        renderer?.resize()    // 追问 2 正修：v-show 隐藏时构造渲染器 0x0 → 切回时 resize
         renderer?.resetView()
         renderer?.setDimension(dim.value)  // 1.6：维度可能与自由搭建期间不一致
         renderer?.setGhost([])             // 1.6：OCR 预览幽灵元素可能残留
