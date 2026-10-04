@@ -251,6 +251,15 @@ function syncFromBuilderTab() {
 
 watch(() => scene.elements, syncRenderer, { deep: true })
 
+// 追问 4 修复：Tab 2 新运行（simId 变化）→ 重置 Tab 1 旧回放数据
+// 防止回放时间轴显示旧帧但 ECharts 显示新曲线的不一致
+watch(() => state.simId, () => {
+  replay.available = false
+  replay.frames = []
+  replay.t = 0
+  if (replay.timer) window.clearInterval(replay.timer)
+})
+
 // ===== 保存 / 加载 =====
 const toast = ref('')
 let toastTimer = 0

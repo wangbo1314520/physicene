@@ -81,7 +81,7 @@ let sharedWs: WebSocket | null = null
 export function useSimulationSocket() {
   const state = sharedState
   const error = sharedError
-  let ws = sharedWs
+  // 直接操作 sharedWs（修复关闭顺序：局部变量在 close 后脱同步）
 
   async function run(elements: PhysicsElementInput[], config: Record<string, unknown>,
                      sceneId?: string | null) {
@@ -103,14 +103,14 @@ export function useSimulationSocket() {
       state.recordId = resp.recordId
       const token = getAuthToken() ?? ''
       const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-      ws = new WebSocket(
+      sharedWs = new WebSocket(
         `${proto}://${location.host}${resp.wsUrl}?token=${encodeURIComponent(token)}`)
-      ws.onopen = () => (state.status = 'running')
-      ws.onmessage = (ev) => handle(JSON.parse(ev.data as string))
-      ws.onclose = () => {
+      sharedWs.onopen = () => (state.status = 'running')
+      sharedWs.onmessage = (ev) => handle(JSON.parse(ev.data as string))
+      sharedWs.onclose = () => {
         if (state.status !== 'ended') state.status = 'idle'
       }
-      ws.onerror = () => (error.value = 'WebSocket 连接失败')
+      sharedWs.onerror = () => (error.value = 'WebSocket 连接失败')
     } catch (e) {
       error.value = String(e)
       state.status = 'idle'
@@ -195,18 +195,18 @@ export function useSimulationSocket() {
     state.simId = simId
     const token = getAuthToken() ?? ''
     const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-    ws = new WebSocket(`${proto}://${location.host}${wsUrl}?token=${encodeURIComponent(token)}`)
-    ws.onopen = () => (state.status = 'running')
-    ws.onmessage = (ev) => handle(JSON.parse(ev.data as string))
-    ws.onclose = () => {
+    sharedWs = new WebSocket(`${proto}://${location.host}${wsUrl}?token=${encodeURIComponent(token)}`)
+    sharedWs.onopen = () => (state.status = 'running')
+    sharedWs.onmessage = (ev) => handle(JSON.parse(ev.data as string))
+    sharedWs.onclose = () => {
       if (state.status !== 'ended') state.status = 'idle'
     }
-    ws.onerror = () => (error.value = 'WebSocket 连接失败')
+    sharedWs.onerror = () => (error.value = 'WebSocket 连接失败')
   }
 
   function send(action: string, extra?: Record<string, unknown>) {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ action, ...extra }))
+    if (sharedWs && sharedWs.readyState === WebSocket.OPEN) {
+      sharedWs.send(JSON.stringify({ action, ...extra }))
     }
   }
 
@@ -218,10 +218,10 @@ export function useSimulationSocket() {
   const sync = () => send('sync')
 
   function close() {
-    if (ws) {
-      ws.onclose = null
-      ws.close()
-      ws = null
+    if (sharedWs) {
+      sharedWs.onclose = null
+      sharedWs.close()
+      sharedWs = null
     }
   }
 
