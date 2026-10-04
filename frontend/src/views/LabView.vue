@@ -468,7 +468,7 @@ watch(() => state.status, (status) => {
 
 onMounted(async () => {
   // 手测 Bug1（2026-10-02）：导航「搭建台」=/lab?tab=free 直开自由搭建——/exp 重定向在已处 /lab 时无路由变化
-  if (route.query.tab === 'free') activeTab.value = 'free'
+  if (route.query.tab === 'free' || route.query.tab === 'build') activeTab.value = 'free'  // build=alias
   if (route.query.tab === 'lab') activeTab.value = 'lab'
   watch(() => route.query.tab, (t) => { if (t === 'free') activeTab.value = 'free'; if (t === 'lab') activeTab.value = 'lab' })
   // 自查 1.3+1.6（中）：切 Tab 回实验台后 echarts resize + renderer 状态恢复

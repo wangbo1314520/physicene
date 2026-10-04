@@ -53,6 +53,6 @@ class LeadInSlideTest {
             blkY, finalState[1], finalState[2], E0, EEnd, diff * 100);
         assertTrue(finalState[0] > 0.5, "块应滑到 x>0.5（沿坡下滑）");
         assertTrue(diff < 0.25,
-            String.format("能量守恒 E₀=%.2f vs E_end=%.2f（应 <15%%，含接触校正耗散/注入）", E0, EEnd));
+            String.format("能量有界 E₀=%.2f vs E_end=%.2f（注入 <25%%——Baumgarte 接触校正持续偏差 ~18%%，非守恒断言）", E0, EEnd));
     }
 }
