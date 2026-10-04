@@ -119,6 +119,17 @@ def main() -> int:
                 });
                 if ((started && st === 'ended') || tsDone) break;
               }
+              // 卡68 定性正修（2026-10-05）：max-y/max-x 改读 WS 帧流真值（vSeries 按帧累计）。
+              // 根因：socket.run() POST 后才建 WS，attach 时服务端 lastFrames(150) 重放突发，
+              // subjects 只留最新帧——隔离首跑顶点帧（t_apex=0.254s < 握手 ~0.35s）在两次轮询间
+              // 被覆盖，轮询 max 只见上升段（0.52~0.69 离散簇）；全量跑因预热握手快而"偶发"通过。
+              // 禁 timer 节流参数对照 5 跑无效已证伪原归因。vSeries 无数据（TS 路径）时回退轮询 max。
+              const vs = B.vSeries ? B.vSeries() : [];
+              vs.forEach((series, k) => {
+                for (const p of series) {
+                  maxY[k] = Math.max(maxY[k] ?? -99, p.y);   // y 有流通道；x 无，保持轮询值
+                }
+              });
               return { status: B.simStatus(), t: B.simT(), events: B.keyEvents(),
                        subjects: B.subjects(), maxY, maxX,
                        tsDone, tsReadings: B.tsReadings ? B.tsReadings() : null,

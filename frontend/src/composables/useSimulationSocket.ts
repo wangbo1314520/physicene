@@ -43,7 +43,7 @@ export interface SimState {
   currentT: number
   subjects: SubjectState[]
   keyEvents: { t: number; label: string; eventType: string; payload?: Record<string, number | string> }[]
-  vSeries: { t: number; vx: number; vy: number }[][] // 每个运动主体的速度分量序列（带符号）
+  vSeries: { t: number; vx: number; vy: number; y: number }[][] // 每个运动主体的速度分量序列（带符号）；y=按帧累计峰值用（卡68 定性正修：subjects 只留最新帧，WS 重放突发期的顶点帧轮询不可见）
   vIds: string[] // 运动主体 id（与 vSeries 下标对应，图例命名用）
   ekSeries: { t: number; v: number }[]
   pSeries: { t: number; v: number }[]
@@ -130,7 +130,7 @@ export function useSimulationSocket() {
         }
         snap.elements.forEach((s, i) => {
           if (!state.vSeries[i]) state.vSeries[i] = []
-          state.vSeries[i].push({ t: msg.t, vx: s.vx, vy: s.vy })
+          state.vSeries[i].push({ t: msg.t, vx: s.vx, vy: s.vy, y: s.y })
         })
         const row = msg.dataTableIncrement as
           | { t: number; fields: Record<string, number> }

@@ -385,6 +385,7 @@ onMounted(() => {
     simT: () => sim.currentT,
     keyEvents: () => JSON.parse(JSON.stringify(sim.keyEvents)),
     subjects: () => JSON.parse(JSON.stringify(sim.subjects)),
+    vSeries: () => JSON.parse(JSON.stringify(sim.vSeries)),   // E2E：按帧流真值（重放突发期轮询丢顶点——卡68 定性正修）
     probes: () => JSON.parse(JSON.stringify(sim.probes)),
     tsRays: () => JSON.parse(JSON.stringify(bridge.tsRun.value.rays)),
     tsReadings: () => JSON.parse(JSON.stringify(bridge.tsRun.value.readings)),
