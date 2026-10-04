@@ -72,7 +72,7 @@ def main() -> int:
                 page.wait_for_timeout(200)
                 if page.evaluate("window.__builder.simStatus()") == "ended": break
             log("Tab 2 运行结束", page.evaluate("window.__builder.simStatus()") == "ended")
-            page.locator(".tabbar .tab", has_text="运行").click()
+            page.locator(".tabbar .tab", has_text="结果").click()
             page.wait_for_timeout(500)
             status_text = page.evaluate("() => document.querySelector('.lab .status')?.textContent?.trim() ?? ''")
             log("Tab 1 显示运行结果（共享 state）", "已结束" in status_text or "ended" in status_text, f"'{status_text[:50]}'")
@@ -81,7 +81,7 @@ def main() -> int:
             page.screenshot(path=str(OUT / "lab-tab1-after-run.png"))
 
         print("▶ F1.2-3 切回 Tab 1（canvas 恢复）")
-        page.locator(".tabbar .tab", has_text="运行").click()
+        page.locator(".tabbar .tab", has_text="结果").click()
         page.wait_for_timeout(500)
         log("切回后 canvas 恢复", page.locator(".workspace canvas").count() > 0)
         log("全程零页面错误", len(errs) == 0, str(errs[:1]) if errs else "")

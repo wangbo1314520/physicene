@@ -190,7 +190,7 @@ const dim = ref<SimDimension>(
   (localStorage.getItem('ps_dim') as SimDimension) || (localStorage.getItem('ps_view') === 'iso' ? '2.5D' : '2D'))
 
 /** F1.1：顶栏页签（实验台 | 自由搭建）—— v-if 隔离两套面板/时间轴互不共存 */
-const activeTab = ref<"lab" | "free">("lab")
+const activeTab = ref<"lab" | "free">("lab")  // 默认结果：渲染器需可见 canvas 初始化（搭建入口=空态"去搭建"按钮）
 
 // 方案 B（2026-10-04）：搭建功能移至自由搭建 Tab（BuilderView）——PALETTE 已废弃
 const dimHint = computed(() => DIM_INFO[dim.value].hint)
@@ -469,7 +469,8 @@ watch(() => state.status, (status) => {
 onMounted(async () => {
   // 手测 Bug1（2026-10-02）：导航「搭建台」=/lab?tab=free 直开自由搭建——/exp 重定向在已处 /lab 时无路由变化
   if (route.query.tab === 'free') activeTab.value = 'free'
-  watch(() => route.query.tab, (t) => { if (t === 'free') activeTab.value = 'free' })
+  if (route.query.tab === 'lab') activeTab.value = 'lab'
+  watch(() => route.query.tab, (t) => { if (t === 'free') activeTab.value = 'free'; if (t === 'lab') activeTab.value = 'lab' })
   // 自查 1.3+1.6（中）：切 Tab 回实验台后 echarts resize + renderer 状态恢复
   watch(activeTab, (t) => {
     if (t === 'lab') {
@@ -528,7 +529,7 @@ onUnmounted(() => {
   <main class="lab">
     <!-- 方案 B 后 Tab 语义：运行（查看/分析）| 搭建（BuilderView） -->
     <nav class="tabbar">
-      <button class="tab" :class="{ on: activeTab === 'lab' }" @click="activeTab = 'lab'">📊 运行</button>
+      <button class="tab" :class="{ on: activeTab === 'lab' }" @click="activeTab = 'lab'">📊 结果</button>
       <button class="tab" :class="{ on: activeTab === 'free' }" @click="activeTab = 'free'">🧱 搭建</button>
     </nav>
     <template v-if="activeTab === 'free'">
@@ -544,7 +545,7 @@ onUnmounted(() => {
         <option value="template_projectile">斜抛运动</option>
       </select>
       <button :disabled="busy" @click="saveScene()">💾 保存</button>
-      <span v-if="state.status === 'idle'" class="status hint">搭建并运行请切到「🧱 搭建」Tab</span>
+      <button v-if="state.status === 'idle'" class="primary goto-build" @click="activeTab = 'free'">🧱 去搭建 →</button>
       <!-- 方案 B Step 2：运行入口在 Tab 2（自由搭建）；此处显示共享运行状态 -->
       <button :disabled="busy" @click="pickImage">📷 拍照识题</button>
       <input ref="fileInput" type="file" accept="image/jpeg,image/png" style="display:none" @change="onImageChosen">
