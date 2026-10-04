@@ -290,10 +290,15 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
 
   function applySelection() {
     for (const [id, mesh] of meshes) {
-      const mat = mesh.material as THREE.MeshStandardMaterial
-      mat.emissive = new THREE.Color(id === selectedId ? 0x2a5c8f : 0x000000)
-      mat.opacity = ghostIds.has(id) ? 0.45 : (mesh.userData.baseOpacity ?? 1)
-      mat.transparent = ghostIds.has(id) || (mesh.userData.baseTransparent ?? false)
+      // 方案 B：buildUnifiedMesh 可能返回 Group（无顶层 material）——遍历 children
+      const targets: THREE.Mesh[] = mesh instanceof THREE.Mesh ? [mesh]
+        : (mesh as THREE.Group).children.filter((c): c is THREE.Mesh => c instanceof THREE.Mesh && !!c.material)
+      for (const m of targets) {
+        const mat = m.material as THREE.MeshStandardMaterial
+        if (mat?.emissive) mat.emissive = new THREE.Color(id === selectedId ? 0x2a5c8f : 0x000000)
+        mat.opacity = ghostIds.has(id) ? 0.45 : (mesh.userData.baseOpacity ?? 1)
+        mat.transparent = ghostIds.has(id) || (mesh.userData.baseTransparent ?? false)
+      }
     }
   }
 

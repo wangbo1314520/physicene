@@ -42,25 +42,21 @@ def main() -> int:
         pg.wait_for_selector(".lab > .topbar", timeout=12000)
         check("E1 加载：.lab > .topbar 挂载", True)
         check("E1 加载：.free-build-tab 不存在", pg.locator(".free-build-tab").count() == 0)
-        check("E1 交互：模板下拉可选", pg.locator(".lab select.tmpl").is_visible())
-        pg.locator(".lab select.tmpl").select_option("template_projectile")
-        pg.wait_for_timeout(500)
-        check("E1 Tab 1 无搭建 UI（方案 B）", pg.locator(".lab .palette-item").count() == 0)
-        pg.locator(".lab button.primary", has_text="运行实验").click()
-        e1_ended = False
-        for _ in range(80):
-            pg.wait_for_timeout(400)
-            if "ended" in (pg.locator(".lab .status").inner_text() or ""): e1_ended = True; break
-            if pg.evaluate("() => document.body.innerText").find("实验完成") >= 0: e1_ended = True; break
-        check("E1 运行：ended", e1_ended)
+        # 方案 B（2026-10-04）：Tab 1 纯查看/分析——无运行按钮/模板下拉/palette
+        check("E1 Tab 1 无搭建 UI（方案 B：palette=0）", pg.locator(".lab .palette-item").count() == 0)
+        check("E1 Tab 1 无模板按钮（方案 B）", pg.locator(".lab button.tpl").count() == 0)
+        check("E1 Tab 1 无运行按钮（方案 B）", pg.locator(".lab button.primary").count() == 0)
+        check("E1 Tab 1 状态栏存在", pg.locator(".lab .status").count() > 0)
+        # 运行从 Tab 2 触发（E2/E3 已覆盖）
+        e1_ended = True  # Tab 1 不再独立运行
         pg.locator(".tabbar .tab", has_text="自由搭建").click()
         pg.wait_for_selector(".free-build-tab .builder", timeout=8000)
         check("E1 切出：切自由后 .lab > .topbar 卸载", not pg.locator(".lab > .topbar").is_visible())
-        check("E1 切出：.lab .workspace 卸载", pg.locator(".lab > .workspace").count() == 0)
+        check("E1 切出：workspace 隐藏（v-show）", not pg.locator(".lab > .workspace").is_visible())
         pg.locator(".tabbar .tab", has_text="实验台").click()
         pg.wait_for_selector(".lab > .topbar", timeout=8000)
         check("E1 切回：topbar 恢复", pg.locator(".lab > .topbar").is_visible())
-        check("E1 切回：palette 恢复不重复", pg.locator(".lab .left .palette-item").count() > 0)
+        check("E1 切回：canvas 恢复（方案 B：palette 已删）", pg.locator(".lab .workspace canvas").count() > 0)
 
         # ═══ E2 自由搭建（/lab → 自由 Tab）═══
         print("══ E2 自由搭建")
@@ -68,7 +64,7 @@ def main() -> int:
         pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
         check("E2 加载：FreeBuildTab 挂载", pg.locator(".free-build-tab .builder").count() == 1)
         check("E2 加载：.lab > .topbar 不共存", not pg.locator(".lab > .topbar").is_visible())
-        check("E2 交互：模板下拉 62 项", pg.evaluate("window.__builder.templates().length") == 62)
+        check("E2 交互：模板下拉 64 项（方案 B +2）", pg.evaluate("window.__builder.templates().length") == 64)
         check("E2 交互：palette 域 Tab 可用", pg.locator(".free-build-tab .builder .palette .tabs button").count() >= 5)
         pg.evaluate("window.__builder.clear()")
         pg.evaluate("window.__builder.loadTemplate('gk-board-block')")
@@ -98,7 +94,7 @@ def main() -> int:
         pg.locator(".tabbar .tab", has_text="自由搭建").click()
         pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
         check("E3 加载：BuilderView 挂载", pg.locator(".free-build-tab .builder").count() >= 1)
-        check("E3 交互：模板下拉 62 项", pg.evaluate("window.__builder.templates().length") == 62)
+        check("E3 交互：模板下拉 64 项（方案 B +2）", pg.evaluate("window.__builder.templates().length") == 64)
         pg.evaluate("window.__builder.clear()")
         pg.evaluate("window.__builder.loadTemplate('gk-connected-bodies')")
         pg.wait_for_timeout(300)
