@@ -69,7 +69,9 @@ def main() -> int:
     failures = []
 
     with sync_playwright() as p:
-        b = p.chromium.launch(headless=True)
+        # 卡68 定性重审（2026-10-05）A/B 实验：50ms 采样循环疑似被后台 timer 节流拉长
+        b = p.chromium.launch(headless=True, args=["--disable-background-timer-throttling",
+                                                   "--disable-backgrounding-occluded-windows"])
         auth = login_api()
         ctx = b.new_context(viewport={"width": 1560, "height": 980})
         ctx.add_init_script(f"localStorage.setItem('ps_token', {json.dumps(auth['token'])});"
