@@ -102,7 +102,7 @@ with sync_playwright() as p:
     # P0 后 builder 迁入 /lab「自由搭建」Tab（/exp→/lab 重定向）；选择器作用域化
     page.goto(f"{BASE}/lab")
     page.wait_for_selector(".canvas-wrap canvas", timeout=12000)
-    page.locator(".tabbar .tab", has_text="自由搭建").click()
+    page.locator(".tabbar .tab", has_text="搭建").click()
     page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
 
     # ════ 场景一：斜面（θ=30°，μ=0）滑块 ════

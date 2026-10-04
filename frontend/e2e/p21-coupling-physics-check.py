@@ -37,7 +37,7 @@ def main() -> int:
         pg.add_init_script(f"localStorage.setItem('ps_token', {json.dumps(auth['token'])});")
         pg.goto(f"{BASE}/lab")
         pg.wait_for_selector(".canvas-wrap canvas", timeout=12000)
-        pg.locator(".tabbar .tab", has_text="自由搭建").click()
+        pg.locator(".tabbar .tab", has_text="搭建").click()
         pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
 
         # ═ 导轨棒：F=2N 恒力推 → EMF 减速 → 终速 v_m = F·R/(B²L²) = 2.00 ═

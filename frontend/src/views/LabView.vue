@@ -526,10 +526,10 @@ onUnmounted(() => {
 
 <template>
   <main class="lab">
-    <!-- F1.1 页签条：实验台（原 /lab 全部功能不动）| 自由搭建（BuilderView 薄包装） -->
+    <!-- 方案 B 后 Tab 语义：运行（查看/分析）| 搭建（BuilderView） -->
     <nav class="tabbar">
-      <button class="tab" :class="{ on: activeTab === 'lab' }" @click="activeTab = 'lab'">🧪 实验台</button>
-      <button class="tab" :class="{ on: activeTab === 'free' }" @click="activeTab = 'free'">🧱 自由搭建</button>
+      <button class="tab" :class="{ on: activeTab === 'lab' }" @click="activeTab = 'lab'">📊 运行</button>
+      <button class="tab" :class="{ on: activeTab === 'free' }" @click="activeTab = 'free'">🧱 搭建</button>
     </nav>
     <template v-if="activeTab === 'free'">
       <FreeBuildTab />
@@ -544,7 +544,7 @@ onUnmounted(() => {
         <option value="template_projectile">斜抛运动</option>
       </select>
       <button :disabled="busy" @click="saveScene()">💾 保存</button>
-      <span v-if="state.status === 'idle'" class="status hint">搭建并运行请切到「🧱 自由搭建」Tab</span>
+      <span v-if="state.status === 'idle'" class="status hint">搭建并运行请切到「🧱 搭建」Tab</span>
       <!-- 方案 B Step 2：运行入口在 Tab 2（自由搭建）；此处显示共享运行状态 -->
       <button :disabled="busy" @click="pickImage">📷 拍照识题</button>
       <input ref="fileInput" type="file" accept="image/jpeg,image/png" style="display:none" @change="onImageChosen">
@@ -614,7 +614,7 @@ onUnmounted(() => {
         <div ref="chartRef" class="chart"></div>
       </section>
 
-      <aside class="right"><h3>实验运行</h3><p class="hint">搭建请切到「自由搭建」Tab，运行后此处显示曲线与回放</p></aside>
+      <aside class="right"><h3>实验运行</h3><p class="hint">搭建请切到「🧱 搭建」Tab，运行后此处显示曲线与回放</p></aside>
     </section>
   </main>
 </template>

@@ -67,7 +67,7 @@ def main() -> int:
                            f"localStorage.setItem('ps_user', {json.dumps(json.dumps(auth['user']))});")
         pg.goto(f"{BASE}/lab")
         pg.wait_for_selector(".canvas-wrap canvas", timeout=15000)
-        pg.locator(".tabbar .tab", has_text="自由搭建").click()
+        pg.locator(".tabbar .tab", has_text="搭建").click()
         pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=15000)
         r = pg.evaluate(JS)
         print(f"[reconnect] 断线前帧={r['f1']} 重连后帧={r['f2']} 事件={r['ev2']} 乱序={r['ooo']} 末帧t={r['lastT']:.1f}s")

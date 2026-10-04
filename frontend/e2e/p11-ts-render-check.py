@@ -32,7 +32,7 @@ def main() -> int:
         pg.add_init_script(f"localStorage.setItem('ps_token', {json.dumps(auth['token'])});")
         pg.goto(f"{BASE}/lab")
         pg.wait_for_selector(".canvas-wrap canvas", timeout=12000)
-        pg.locator(".tabbar .tab", has_text="自由搭建").click()
+        pg.locator(".tabbar .tab", has_text="搭建").click()
         pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
 
         # ═ 光学场景：光源 + 棱镜 + 屏（n=1.5, A=60°, 入射 40°） ═

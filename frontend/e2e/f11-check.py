@@ -27,7 +27,7 @@ def main() -> int:
         assert pg.locator(".lab > .topbar").is_visible(), "默认应显示实验台顶栏"
         pg.screenshot(path=str(OUT / "f11-tab-lab.png"))
         # 2) 切自由搭建
-        pg.locator(".tabbar .tab", has_text="自由搭建").click()
+        pg.locator(".tabbar .tab", has_text="搭建").click()
         pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=15000)
         assert not pg.locator(".lab > .topbar").is_visible(), "自由搭建页不应显示实验台顶栏（v-if 隔离）"
         pg.screenshot(path=str(OUT / "f11-tab-free.png"))
@@ -70,7 +70,7 @@ def main() -> int:
         subs = pg.evaluate("window.__builder.subjects()")
         assert subs and subs[0]["x"] > 0.5, f"板块共速后位移应为正（x={subs[0]['x'] if subs else '无'}）"
         # 4) 切回实验台仍可用
-        pg.locator(".tabbar .tab", has_text="实验台").click()
+        pg.locator(".tabbar .tab", has_text="运行").click()
         pg.wait_for_selector(".lab > .topbar", timeout=5000)
         assert pg.locator(".lab > .topbar").is_visible(), "切回应显示实验台顶栏"
         assert not errs, f"页面错误 {errs}"

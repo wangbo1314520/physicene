@@ -95,7 +95,7 @@ def main() -> int:
         page.on("pageerror", lambda e: errs.append(str(e)))
         page.goto(f"{BASE}/lab")
         page.wait_for_selector(".canvas-wrap canvas", timeout=12000)
-        page.locator(".tabbar .tab", has_text="自由搭建").click()
+        page.locator(".tabbar .tab", has_text="搭建").click()
         page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
 
         # ═══ 场景一：pulley 阿特伍德 ═══
@@ -276,10 +276,10 @@ def main() -> int:
         page.wait_for_selector(".workspace canvas", timeout=10000)
         page.wait_for_timeout(600)
         sz0 = page.evaluate("() => { const c = document.querySelector('.workspace canvas'); return c.width + 'x' + c.height }")
-        page.locator(".tabbar .tab", has_text="自由搭建").click()
+        page.locator(".tabbar .tab", has_text="搭建").click()
         page.wait_for_selector(".free-build-tab canvas", timeout=8000)
         page.wait_for_timeout(400)
-        page.locator(".tabbar .tab", has_text="实验台").click()
+        page.locator(".tabbar .tab", has_text="运行").click()
         page.wait_for_timeout(600)
         info = page.evaluate("() => { const c = document.querySelector('.workspace canvas'); if (!c) return null; return { w: c.width, h: c.height } }")
         check("Tab 切回后 canvas 尺寸恢复（非 300×150 默认）",

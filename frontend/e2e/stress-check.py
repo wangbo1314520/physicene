@@ -62,7 +62,7 @@ def main() -> int:
                            f"localStorage.setItem('ps_user', {json.dumps(json.dumps(auth['user']))});")
         pg.goto(f"{BASE}/lab")
         pg.wait_for_selector(".canvas-wrap canvas", timeout=15000)
-        pg.locator(".tabbar .tab", has_text="自由搭建").click()
+        pg.locator(".tabbar .tab", has_text="搭建").click()
         pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=15000)
         results = pg.evaluate(JS_STRESS, 10)
         ok_run = sum(1 for r in results if r.get('run'))
