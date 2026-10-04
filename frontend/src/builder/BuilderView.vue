@@ -6,6 +6,7 @@
  */
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { CATALOG, DOMAINS, byType, defaultsOf, type Dim, type Domain, type GeoElement } from './catalog'
+import { linkConflict } from './model/link-conflict'
 import { findSnap, applySnap } from './model/snap'
 import { resolveAnchorById } from './model/anchors'
 import BuilderCanvas from './render/BuilderCanvas.vue'
@@ -282,10 +283,16 @@ function onDrop(shiftSkip = false) {
     }
   }
 }
+// ── 批 2·2.11 连接冲突：重复/超接当场拦截（规则与依据见 model/link-conflict.ts，
+//    引擎只读 rope/spring/pulley 前 2 条、检测器与矢量箭头第 1 条连线，多连的此前静默不生效）──
+const labelOf = (id: string) => byType.get(elements.find((e) => e.id === id)?.type ?? '')?.label ?? id
 function onAnchorPick(p: { id: string; anchorId: string }) {
   if (!linkFrom.value) { linkFrom.value = p; say(`已选锚点 ${snapLabel(p)}，再点另一元件的锚点完成${linkKindLabel.value}连线`); return }
   if (linkFrom.value.id === p.id && linkFrom.value.anchorId === p.anchorId) { linkFrom.value = null; return }
   if (linkFrom.value.id === p.id) { say('两个锚点需在不同元件上'); return }
+  const conflict = linkConflict(linkFrom.value, p,
+    elements.find((e) => e.id === linkFrom.value!.id), elements.find((e) => e.id === p.id), labelOf)
+  if (conflict) { say(conflict); return }   // 拦截：不落线不加快照；linkFrom 保留可直接换目标重试，Esc 取消
   snapshot()
   const a = elements.find((e) => e.id === linkFrom.value!.id)!
   a.links.push({ toId: p.id, kind: linkKind.value, anchorA: linkFrom.value.anchorId, anchorB: p.anchorId })
@@ -365,6 +372,11 @@ onMounted(() => {
       if (ea) ea.links.push({ toId: b, kind: (kind ?? 'rope') as typeof linkKind.value, anchorA, anchorB })
     },
     unlinkAll: (id: string) => { const e = elements.find((x) => x.id === id); if (e) e.links.splice(0) },
+    pickAnchor: (id: string, anchorId: string) => onAnchorPick({ id, anchorId }),   // E2E：走真实连线入口（含 2.11 冲突拦截）
+    toastNow: () => toast.value,
+    linksOf: (id: string) => { const e = elements.find((x) => x.id === id); return e ? JSON.parse(JSON.stringify(e.links)) : null },
+    fixedPins: () => canvasRef.value?.fixedPinIds() ?? [],
+    setFixed: (id: string, v: boolean) => { const e = elements.find((x) => x.id === id); if (e) e.isFixed = v },
     snapOf: (id: string) => canvasRef.value?.snapOf(id) ?? null,
     loadTemplate: (id: string) => loadTemplate(id),
     templates: () => JSON.parse(JSON.stringify(TEMPLATES.map((t) => ({ id: t.id, name: t.name, card: t.card, group: t.group, checks: t.criticalChecks })))),

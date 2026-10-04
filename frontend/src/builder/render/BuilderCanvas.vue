@@ -377,6 +377,37 @@ function syncSelection() {
     selectionBox = new THREE.BoxHelper(entry.obj, 0xf5c542)
     scene.add(selectionBox)
   }
+  // 批 2·3.2 固定视觉：isFixed 元件顶一枚红锚钉（学生在 2D/等距视图都能一眼分辨固定/自由件）
+  const byId = new Map(props.elements.map((el) => [el.id, el]))
+  for (const [id, ent] of meshMap) {
+    const el = byId.get(id)
+    if (!el || !ent) continue
+    const pin = ent.obj.children.find((c) => c.userData?.isFixedPin)
+    if (el.isFixed && !pin) {
+      // 元件重建（参数变更）后首次出现时量一次包围盒：钉立在元件顶缘上方、水平居中（视觉走查：加大一号防看不清）
+      const box = new THREE.Box3().setFromObject(ent.obj)
+      const maxL = ent.obj.worldToLocal(box.max.clone())
+      const minL = ent.obj.worldToLocal(box.min.clone())
+      const cx = (maxL.x + minL.x) / 2
+      const topY = maxL.y
+      const mat = new THREE.MeshBasicMaterial({ color: 0xE05555 })
+      const g = new THREE.Group()
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.26, 8), mat)
+      shaft.position.set(cx, topY + 0.12, 0.42)
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.095, 12, 10), mat)
+      head.position.set(cx, topY + 0.3, 0.42)
+      g.add(shaft, head)
+      g.userData.isFixedPin = true
+      ent.obj.add(g)
+    } else if (!el.isFixed && pin) {
+      pin.traverse((o) => {
+        const m = o as THREE.Mesh
+        if (m.geometry) m.geometry.dispose()
+        if (m.material) (m.material as THREE.Material).dispose()
+      })
+      ent.obj.remove(pin)
+    }
+  }
 }
 
 /** 吸附预览：拖拽中实时画锚点对连线 */
@@ -567,6 +598,11 @@ defineExpose({
     const e = props.elements.find((x) => x.id === id)
     return e ? findSnap(e, props.elements) : null
   },
+  /** E2E：当前显示固定锚钉的元件 id 列表（批 2·3.2） */
+  fixedPinIds: (): string[] =>
+    [...meshMap.entries()]
+      .filter(([, ent]) => ent && ent.obj.children.some((c) => c.userData?.isFixedPin))
+      .map(([id]) => id),
 })
 </script>
 

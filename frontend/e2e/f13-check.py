@@ -36,16 +36,20 @@ def main() -> int:
         pg.on("pageerror", lambda e: errs.append(str(e)[:80]))
         pg.on("console", lambda m: errs.append(m.text[:80]) if m.type == "error" and "favicon" not in m.text else None)
 
-        # ═══ E1 实验台（/lab 默认）═══
+        # ═══ E1 实验台（/lab 默认=搭建 Tab，84c30c2 起；结果 Tab 语义随后切验）═══
         print("══ E1 实验台")
         pg.goto(f"{BASE}/lab")
-        pg.wait_for_selector(".lab > .topbar", timeout=12000)
-        check("E1 加载：.lab > .topbar 挂载", True)
-        check("E1 加载：.free-build-tab 不存在", pg.locator(".free-build-tab").count() == 0)
+        pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
+        check("E1 加载：默认 Tab=搭建（builder 挂载）", pg.locator(".free-build-tab .builder").count() == 1)
+        check("E1 加载：默认下 .lab > .topbar 不挂载（v-if）", pg.locator(".lab > .topbar").count() == 0)
+        pg.locator(".tabbar .tab", has_text="结果").click()
+        pg.wait_for_selector(".lab > .topbar", timeout=8000)
+        check("E1 加载：切结果后 .lab > .topbar 挂载", True)
         # 方案 B（2026-10-04）：Tab 1 纯查看/分析——无运行按钮/模板下拉/palette
         check("E1 Tab 1 无搭建 UI（方案 B：palette=0）", pg.locator(".lab .palette-item").count() == 0)
         check("E1 Tab 1 无模板按钮（方案 B）", pg.locator(".lab button.tpl").count() == 0)
-        check("E1 Tab 1 无运行按钮（方案 B）", pg.locator(".lab button.primary").count() == 0)
+        check("E1 Tab 1 无运行按钮（方案 B：唯一 primary 是'去搭建'CTA）",
+              pg.locator(".lab button", has_text="运行").count() == 0 and pg.locator(".lab button.primary.goto-build").count() == 1)
         check("E1 Tab 1 状态栏存在", pg.locator(".lab .status").count() > 0)
         # 运行从 Tab 2 触发（E2/E3 已覆盖）
         e1_ended = True  # Tab 1 不再独立运行
@@ -107,10 +111,11 @@ def main() -> int:
         e3_subs = pg.evaluate("window.__builder.subjects()")
         e3_kes = pg.evaluate("window.__builder.keyEvents()")
         check("E3 运行：keyEvents>0", len(e3_kes) > 0, f"n={len(e3_kes)}")
-        # E3 切出（到 /lab）后 BuilderView 卸载（路由级）
+        # E3 切出（到 /lab）——84c30c2 起 /lab 默认即搭建 Tab：独立态与 Tab 态以路由+挂载位置区分
         pg.goto(f"{BASE}/lab")
-        pg.wait_for_selector(".lab > .topbar", timeout=8000)
-        check("E3 切出：到 /lab 后 .builder 不存在", pg.locator(".builder").count() == 0)
+        pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=8000)
+        check("E3 切出：回 /lab 默认搭建 Tab（Tab 内 builder，pathname=/lab）",
+              pg.evaluate("() => location.pathname") == "/lab" and pg.locator(".free-build-tab .builder").count() == 1)
 
         check("全程无页面错误", not errs, str(errs[:2]))
         pg.screenshot(path=str(OUT / "f13-final.png"))
