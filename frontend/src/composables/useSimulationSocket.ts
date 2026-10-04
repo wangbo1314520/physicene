@@ -225,5 +225,17 @@ export function useSimulationSocket() {
     }
   }
 
-  return { state, error, run, attach, pause, play, step, seek, end, sync, close }
+  /** 批 3·6.5 复位：断开并清空全部运行态回 idle（simId 置空触发 LabView 回放重置 watcher）。
+   *  运行中调用直接断 WS——服务端实例照常跑到 maxDuration 自止（无泄漏，仅不再推送）。 */
+  function reset() {
+    close()
+    Object.assign(state, {
+      status: 'idle', simId: '', currentT: 0, subjects: [], keyEvents: [],
+      vSeries: [], vIds: [], ekSeries: [], pSeries: [], probes: {}, endInfo: null, frameCount: 0,
+      recordId: null,
+    })
+    error.value = ''
+  }
+
+  return { state, error, run, attach, pause, play, step, seek, end, sync, close, reset }
 }

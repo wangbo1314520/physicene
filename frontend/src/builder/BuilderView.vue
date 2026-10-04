@@ -216,6 +216,16 @@ function duplicateSelected() {
 }
 function clearAll() { if (!elements.length) return; snapshot(); elements.splice(0); selectedId.value = null; linkFrom.value = null; records.value = []; currentTemplateId.value = null }
 
+/** 批 3·6.5 复位：回到"运行前"——场景/元件/连线保留，运行状态与数据清零（≠ ✕ 清空画布）。
+ *  运行中调用：直接断 WS（服务端实例自跑到 maxDuration），编辑即时恢复。 */
+function resetRun() {
+  bridge.socket.reset()
+  bridge.resetTs()
+  brokenRopes.value = new Set()
+  records.value = []
+  say('已复位：场景保留，运行状态清零')
+}
+
 // ── 模板（阶段四 §6.1 几何模板层）──
 const showTemplates = ref(false)
 function loadTemplate(id: string) {
@@ -440,6 +450,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
             <option value="rope">轻绳</option><option value="rod">轻杆</option><option value="spring">弹簧</option><option value="wire">导线</option><option value="pulley-rope">跨轮绳</option>
           </select>
           <button @click="clearAll">✕ 清空</button>
+          <button :disabled="sim.status === 'idle' && bridge.tsRun.value.status === 'idle'" @click="resetRun" title="清除运行状态，场景回到运行前（不清空画布）">🔄 复位</button>
           <button :class="{ active: showTemplates }" @click="showTemplates = !showTemplates">📚 模板</button>
           <span class="spacer"></span>
           <span v-if="sim.status !== 'idle'" class="runstate">

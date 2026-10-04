@@ -320,6 +320,12 @@ export function useRunBridge() {
     tsRun.value = { ...tsRun.value, status: 'ended' }
   }
 
+  /** 批 3·6.5 复位：TS 引擎播放态回 idle（与 socket.reset 配对，"运行前"语义） */
+  function resetTs() {
+    if (tsTimer) { clearInterval(tsTimer); tsTimer = null }
+    tsRun.value = { status: 'idle', t: 0, readings: {}, rays: [], frames: [] }
+  }
+
   async function run(els: GeoElement[], analysis: Analysis, maxDuration = 12, gravityY = -9.8, substepsOverride?: number): Promise<string | null> {
     lastNotes.value = []  // 每次运行重置（TS 路径不经 toPhysicsElements）
     if (els.length === 0) return '画布为空'
@@ -405,5 +411,5 @@ export function useRunBridge() {
     return m
   })
 
-  return { socket, run, runStates, tsRun, lastNotes }
+  return { socket, run, runStates, tsRun, lastNotes, resetTs }
 }
