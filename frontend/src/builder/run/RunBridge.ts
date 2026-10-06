@@ -12,6 +12,7 @@ import { computed, ref } from 'vue'
 import { useSimulationSocket, type PhysicsElementInput } from '../../composables/useSimulationSocket'
 import { THERMO_DEVICE_TYPES, AC_DEVICE_TYPES } from '../analysis/EngineAnalyzer'
 import { CYCLOTRON_TYPES, DC_DEVICE_TYPES, WAVE_DEVICE_TYPES, MISC_DEVICE_TYPES } from '../analysis/EngineAnalyzer'
+import { CIRCUIT_BASIC_TYPES, runCircuitBasics } from '../../physics/circuit-basics'
 import { byType, BELT_RADIUS, type GeoElement } from '../catalog'
 import { resolveAnchorById, anchorWorldOf } from '../model/anchors'
 import type { Analysis } from '../analysis/EngineAnalyzer'
@@ -30,6 +31,8 @@ const TS_ENGINE_TYPES = new Set(['light_source', 'prism', 'optic_screen', 'photo
   ...CYCLOTRON_TYPES,
   // 批3 第4步：DC 装置六卡
   ...DC_DEVICE_TYPES,
+  // B1 批1（2026-10-07）：电路基础五件（wire 拓扑→MNA，circuit-basics）
+  ...CIRCUIT_BASIC_TYPES,
   // 批4：波3 + 杂项装置
   ...WAVE_DEVICE_TYPES, ...MISC_DEVICE_TYPES])
 /** 不建刚体的显示/检测类（静默跳过）；bracket/pole = 理想固定端（无碰撞体，绳/弹簧连接端折算固定悬点） */
@@ -338,7 +341,8 @@ export function useRunBridge() {
     if (els.every((e) => TS_ENGINE_TYPES.has(e.type) || NO_BODY.has(e.type))) {
       const isWave = els.some((e) => WAVE_DEVICE_TYPES.has(e.type))
       const isMisc = els.some((e) => MISC_DEVICE_TYPES.has(e.type))
-      const isDc = !isWave && !isMisc && els.some((e) => DC_DEVICE_TYPES.has(e.type))
+      const isCircuit = els.some((e) => CIRCUIT_BASIC_TYPES.has(e.type))
+      const isDc = !isCircuit && !isWave && !isMisc && els.some((e) => DC_DEVICE_TYPES.has(e.type))
       const isCyc = !isDc && els.some((e) => CYCLOTRON_TYPES.has(e.type))
       const isAc = !isCyc && els.some((e) => AC_DEVICE_TYPES.has(e.type))
       const isThermo = !isAc && els.some((e) => THERMO_DEVICE_TYPES.has(e.type))
@@ -354,7 +358,13 @@ export function useRunBridge() {
       const bodies = els.filter((e) => TS_ENGINE_TYPES.has(e.type)).map((e) => ({
         id: e.id, type: e.type, x: e.position.x, y: e.position.y, angle: e.angle, params: e.params,
       }))
-      const frames = isWave
+      // B1：电路基础件需要 links（wire 拓扑），bodies 映射剥离了 links——单独构造
+      const frames = isCircuit
+        ? runCircuitBasics(els.filter((e) => CIRCUIT_BASIC_TYPES.has(e.type)).map((e) => ({
+            id: e.id, type: e.type, x: e.position.x, y: e.position.y, angle: e.angle,
+            params: e.params, links: e.links.map((l) => ({ toId: l.toId, kind: l.kind, anchorA: l.anchorA, anchorB: l.anchorB })),
+          })) as Parameters<typeof runCircuitBasics>[0], maxDuration)
+        : isWave
         ? runWave(bodies as Parameters<typeof runWave>[0], maxDuration)
         : isMisc
           ? runMisc(bodies as Parameters<typeof runMisc>[0], maxDuration)
@@ -388,10 +398,10 @@ export function useRunBridge() {
         }, stepMs)
         return null  // 无错误
       }
-      return 'TS 引擎未识别到可运行的光学/近代元件组合'
+      return isCircuit ? '电路缺少电源（干电池）或端子连线不完整——用「导线」连接各元件端子成回路' : 'TS 引擎未识别到可运行的光学/近代元件组合'
     }
     if (els.some((e) => TS_ENGINE_TYPES.has(e.type)) && els.some((e) => !TS_ENGINE_TYPES.has(e.type) && !NO_BODY.has(e.type)))
-      return '光学/近代元件不能与力学刚体混合运行（需拆为独立场景）'
+      return '电路/光学/近代元件不能与力学刚体混合运行（需拆为独立场景）'
     // P2·耦合接入：rail-rod / 热学已解除拒绝（Java 联合运行，CouplingOrchestrator 调度）
     const pkg = toPhysicsElements(els)
     lastNotes.value = pkg.notes

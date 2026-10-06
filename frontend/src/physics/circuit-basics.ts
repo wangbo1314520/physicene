@@ -56,20 +56,20 @@ export function buildCircuit(els: CircuitBody[]): { circuit: AcCircuit } | { err
     const p = e.params
     switch (e.type) {
       case 'battery': {
-        const emf = Math.max(0.01, p.EMF ?? 1.5)
-        components.push(SRC(e.id + '#src', emf), R2(e.id + '#r', Math.max(0.01, p.r ?? 0.5)))
+        const emf = Math.max(0.01, e.params.EMF ?? 1.5)
+        components.push(SRC(e.id + '#src', emf), R2(e.id + '#r', Math.max(0.01, e.params.r ?? 0.5)))
         wires.push(W([e.id + '#src', 1], [e.id + '#r', 0]))   // 源负—内阻串联
         break
       }
-      case 'resistor': components.push(R2(e.id, Math.max(0.01, p.R ?? 10))); break
+      case 'resistor': components.push(R2(e.id, Math.max(0.01, e.params.R ?? 10))); break
       case 'rheostat': {
-        const pos = Math.min(1, Math.max(0.05, p.pos ?? 0.5))
-        components.push(R2(e.id, Math.max(0.01, (p.Rmax ?? 20) * pos)))
+        const pos = Math.min(1, Math.max(0.05, e.params.pos ?? 0.5))
+        components.push(R2(e.id, Math.max(0.01, (e.params.Rmax ?? 20) * pos)))
         break
       }
-      case 'switch_spst': components.push(R2(e.id, (p.state ?? 1) === 1 ? R_ON : R_OFF)); break
+      case 'switch_spst': components.push(R2(e.id, (e.params.state ?? 1) === 1 ? R_ON : R_OFF)); break
       case 'switch_spdt': {
-        const sel = (p.sel ?? 0) === 1 ? 1 : 0
+        const sel = (e.params.sel ?? 0) === 1 ? 1 : 0
         components.push(R2(e.id + '#A', sel === 0 ? R_ON : R_OFF), R2(e.id + '#B', sel === 1 ? R_ON : R_OFF))
         wires.push(W([e.id + '#A', 0], [e.id + '#B', 0]))   // 两闸刀公共端（刀端）
         break
@@ -107,22 +107,22 @@ export function runCircuitBasics(els: CircuitBody[], maxDuration = 2): CircuitFr
     if (e.type === 'battery') {
       const cur = i[`${e.id}#src#I`] ?? 0
       readings[`I_${e.id}`] = +cur.toFixed(4)
-      readings[`U_${e.id}`] = +((p.EMF ?? 1.5) - cur * (p.r ?? 0.5)).toFixed(4)   // 端电压=EMF−I·r
+      readings[`U_${e.id}`] = +((e.params.EMF ?? 1.5) - cur * (e.params.r ?? 0.5)).toFixed(4)   // 端电压=EMF−I·r
     } else if (e.type === 'resistor') {
-      const rEff = Math.max(0.01, p.R ?? 10)
+      const rEff = Math.max(0.01, e.params.R ?? 10)
       const cur = i[`${e.id}#I`] ?? 0
       readings[`I_${e.id}`] = +cur.toFixed(4)
       readings[`U_${e.id}`] = +(cur * rEff).toFixed(4)
     } else if (e.type === 'rheostat') {
-      const pos = Math.min(1, Math.max(0.05, p.pos ?? 0.5))
-      const rEff = Math.max(0.01, (p.Rmax ?? 20) * pos)
+      const pos = Math.min(1, Math.max(0.05, e.params.pos ?? 0.5))
+      const rEff = Math.max(0.01, (e.params.Rmax ?? 20) * pos)
       const cur = i[`${e.id}#I`] ?? 0
       readings[`I_${e.id}`] = +cur.toFixed(4)
       readings[`U_${e.id}`] = +(cur * rEff).toFixed(4)
     } else if (e.type === 'switch_spst') {
       readings[`I_${e.id}`] = +(i[`${e.id}#I`] ?? 0).toFixed(4)
     } else if (e.type === 'switch_spdt') {
-      const sel = (p.sel ?? 0) === 1 ? 'B' : 'A'
+      const sel = (e.params.sel ?? 0) === 1 ? 'B' : 'A'
       readings[`I_${e.id}`] = +(i[`${e.id}#${sel}#I`] ?? 0).toFixed(4)
     }
   }

@@ -798,6 +798,84 @@ export function buildUnifiedMesh(e: GeoElement | PhysicsElementInput): UnifiedMe
       g.add(textSprite('U_H', '#F5C542', 0.3, 0.42, 0.4))
       return { mesh: g, baseAngle: 0 }
     }
+    // ── B1 批1（2026-10-07）：电路基础五件——端子锚点与 catalog ATTACH 坐标对齐 ──
+    case 'battery': {
+      // 干电池：横置圆柱 + 正极凸头 + 正负极标记（端子 ±0.5）
+      const g = new THREE.Group()
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.8, 18), mat(color))
+      body.rotation.z = Math.PI / 2
+      g.add(body)
+      const nub = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.12, 10), mat('#b0b0cc'))
+      nub.rotation.z = Math.PI / 2
+      nub.position.x = 0.46
+      g.add(nub)
+      const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.165, 0.165, 0.1, 18), mat('#8a8aa0'))
+      cap.rotation.z = Math.PI / 2
+      cap.position.x = -0.38
+      g.add(cap)
+      g.add(textSprite('+', '#E05555', 0.5, 0.24, 0.4))
+      g.add(textSprite('−', '#4A90D9', -0.5, 0.24, 0.4))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'resistor': {
+      // 定值电阻：锯齿折线（教材符号；端子 ±0.7）
+      const g = new THREE.Group()
+      const segs = 7, w = 1.0, amp = 0.14
+      let px = -w / 2
+      for (let i = 0; i < segs; i++) {
+        const nx = -w / 2 + (w * (i + 1)) / segs
+        const ny = i % 2 === 0 ? amp : -amp
+        g.add(seg2(px, i === 0 ? 0 : (i % 2 === 0 ? -amp : amp), nx, ny, 0xd9a05a))
+        px = nx
+      }
+      g.add(seg2(-0.7, 0, -w / 2, 0, 0xd9a05a))
+      g.add(seg2(w / 2, 0, 0.7, 0, 0xd9a05a))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'rheostat': {
+      // 滑动变阻器：电阻条 + 上方滑片箭头（pos 比例定位；端子 ±0.6）
+      const g = new THREE.Group()
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.22, 0.16), mat(color))
+      g.add(body)
+      const pos = Math.min(1, Math.max(0.05, p.pos ?? 0.5))
+      const sliderX = -0.5 + pos
+      g.add(seg2(sliderX, 0.36, sliderX, 0.13, 0xe8e8f0))
+      const head = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.1, 4), mat('#e8e8f0'))
+      head.rotation.z = Math.PI
+      head.position.set(sliderX, 0.1, 0)
+      g.add(head)
+      g.add(textSprite(`${Math.round(((p.Rmax ?? 20) * pos))}Ω`, '#b0b0cc', 0, 0.52, 0.42))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'switch_spst': {
+      // 单刀单掷：两端子点 + 闸刀杆（state 合=平/断=翘起；端子 ±0.45）
+      const g = new THREE.Group()
+      const closed = (p.state ?? 1) === 1
+      for (const sx of [-0.45, 0.45]) {
+        const term = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), mat('#b0b0cc'))
+        term.position.set(sx, 0, 0)
+        g.add(term)
+      }
+      g.add(seg2(-0.45, 0, 0.4, closed ? 0 : 0.35, 0xe8e8f0))
+      if (!closed) g.add(seg2(0.4, 0.35, 0.45, 0.32, 0xe8e8f0))
+      g.add(textSprite(closed ? '合' : '开', closed ? '#3ecf8e' : '#E05555', 0, 0.5, 0.42))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'switch_spdt': {
+      // 单刀双掷：刀端（左）+ 掷A/B（右上/右下）+ 闸刀指向选通侧
+      const g = new THREE.Group()
+      const sel = (p.sel ?? 0) === 1 ? 'B' : 'A'
+      const pts: [number, number, string][] = [[-0.5, 0, '刀'], [0.5, 0.25, 'A'], [0.5, -0.25, 'B']]
+      for (const [tx, ty, lb] of pts) {
+        const term = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), mat('#b0b0cc'))
+        term.position.set(tx, ty, 0)
+        g.add(term)
+        g.add(textSprite(lb, sel === lb ? '#3ecf8e' : '#565675', tx, ty + 0.22, 0.36))
+      }
+      const ty = sel === 'A' ? 0.25 : -0.25
+      g.add(seg2(-0.5, 0, 0.5, ty, 0xe8e8f0))
+      return { mesh: g, baseAngle: 0 }
+    }
     default: {
       return { mesh: new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.5), mat(color, { opacity: 0.9 })), baseAngle: 0 }
     }
