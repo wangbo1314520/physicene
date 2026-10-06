@@ -56,7 +56,7 @@ with sync_playwright() as p:
     check("D2 运行结束（ended）", ok and st == "ended", f"status={st}")
     check("D3 运行态指示存在（复位前）", page.locator(".tools .runstate").count() > 0)
 
-    page.locator(".tools button", has_text="复位").click()
+    page.locator(".tools button", has_text="🔄 复位").click()
     page.wait_for_timeout(300)
     st2 = page.evaluate("window.__builder.simStatus()")
     check("D4 复位后 simStatus=idle", st2 == "idle", f"status={st2}")
@@ -71,9 +71,9 @@ with sync_playwright() as p:
     check("D7 复位后可再运行（ended）", ok2 and st3 == "ended", f"status={st3}")
 
     # 复位按钮禁用语义：idle 时禁用
-    page.locator(".tools button", has_text="复位").click()
+    page.locator(".tools button", has_text="🔄 复位").click()
     page.wait_for_timeout(200)
-    check("D8 idle 态复位按钮禁用", page.locator(".tools button", has_text="复位").is_disabled())
+    check("D8 idle 态复位按钮禁用", page.locator(".tools button", has_text="🔄 复位").is_disabled())
     check("D9 全程无页面错误", not errs, str(errs[:1]))
 
     # ═══ 追问4：运行中复位 → 服务端实例立即停（非自跑到 maxDuration）═══
@@ -84,7 +84,7 @@ with sync_playwright() as p:
         page.wait_for_timeout(100)
         if page.evaluate("window.__builder.simStatus()") == "running": running = True; break
     check("E1 运行中（running）", running, f"status={page.evaluate('window.__builder.simStatus()')}")
-    page.locator(".tools button", has_text="复位").click()
+    page.locator(".tools button", has_text="🔄 复位").click()
     for _ in range(20):
         page.wait_for_timeout(100)
         if page.evaluate("window.__builder.simStatus()") == "idle": break

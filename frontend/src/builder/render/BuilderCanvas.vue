@@ -50,13 +50,20 @@ let pCamera: THREE.PerspectiveCamera | null = null
 let activeCamera: THREE.Camera
 const orbit = { azim: Math.PI / 4, polar: Math.PI / 3.4, dist: 26 }
 let viewModeNow: '2D' | '2.5D' | '3D' = '2D'
+// 批 3·5.3 平移：相机世界偏移（中键拖）。2D=正交相机平移；2.5D/3D=连同 lookAt 目标一起偏移。
+const pan = { x: 0, y: 0 }
+const ORBIT_HOME = { azim: Math.PI / 4, polar: Math.PI / 3.4, dist: 26 }
+
+function applyPan2D() {
+  camera.position.set(pan.x, pan.y, 30)   // 正交轴对齐：改 position 即纯平移，无需重 lookAt
+}
 
 function placePerspective() {
   if (!pCamera) return
   const y = orbit.dist * Math.cos(orbit.polar)
   const r = orbit.dist * Math.sin(orbit.polar)
-  pCamera.position.set(r * Math.cos(orbit.azim), y, r * Math.sin(orbit.azim))
-  pCamera.lookAt(0, 1, 0)
+  pCamera.position.set(pan.x + r * Math.cos(orbit.azim), pan.y + y, r * Math.sin(orbit.azim))
+  pCamera.lookAt(pan.x, 1 + pan.y, 0)
 }
 function applyViewMode(mode: '2D' | '2.5D' | '3D') {
   if (mode === viewModeNow || !renderer) return
@@ -477,6 +484,49 @@ function onWheel(ev: WheelEvent) {
   }
 }
 
+// ── 批 3·5.3 平移（中键拖，任意视角模式可用；与元件拖拽 button 通道隔离）──
+let panning = false, lastPx = 0, lastPy = 0
+function onPanDown(ev: PointerEvent) {
+  if (ev.button !== 1) return
+  ev.preventDefault()   // 阻止浏览器中键自动滚动光标
+  panning = true; lastPx = ev.clientX; lastPy = ev.clientY
+  rootEl.value?.setPointerCapture(ev.pointerId)
+  rootEl.value!.style.cursor = 'grabbing'
+}
+function onPanMove(ev: PointerEvent) {
+  if (!panning) return
+  const el = rootEl.value!
+  const dxPx = ev.clientX - lastPx, dyPx = ev.clientY - lastPy
+  lastPx = ev.clientX; lastPy = ev.clientY
+  // 每像素世界宽度：2D 正交=可视高/画布高/zoom；透视≈2·dist·tan(fov/2)/画布高
+  const wpp = viewModeNow === '2D'
+    ? (camera.top - camera.bottom) / Math.max(1, el.clientHeight) / camera.zoom
+    : (2 * orbit.dist * Math.tan((pCamera ? pCamera.fov : 45) * Math.PI / 360)) / Math.max(1, el.clientHeight)
+  pan.x -= dxPx * wpp
+  pan.y += dyPx * wpp
+  if (viewModeNow === '2D') applyPan2D()
+  else placePerspective()
+}
+function onPanUp() {
+  if (!panning) return
+  panning = false
+  if (rootEl.value) rootEl.value.style.cursor = ''
+}
+
+/** 批 3·5.4 复位视角：pan 归零 + zoom 归一 + 环绕回初始角（不清场景、不动元件） */
+function resetView() {
+  pan.x = 0; pan.y = 0
+  camera.zoom = 1
+  camera.updateProjectionMatrix()
+  applyPan2D()
+  if (viewModeNow !== '2D') {
+    orbit.azim = viewModeNow === '3D' ? Math.PI / 2.6 : ORBIT_HOME.azim
+    orbit.polar = viewModeNow === '3D' ? Math.PI / 4.2 : ORBIT_HOME.polar
+    orbit.dist = viewModeNow === '3D' ? 24 : ORBIT_HOME.dist
+    placePerspective()
+  }
+}
+
 // Bug3·3D 环绕：右键拖转视角（左键仍是元件拖拽——button===2 独立通道，contextmenu 屏蔽）
 let orbiting = false, lastOx = 0, lastOy = 0
 function onOrbitDown(ev: PointerEvent) {
@@ -491,9 +541,10 @@ function onOrbitMove(ev: PointerEvent) {
 }
 function onOrbitUp() { orbiting = false }
 // 合并入口：Bug3 修复过程中模板重复 @pointerdown 致 SFC 编译 500（/lab 懒加载整链中止）——单一入口分流
-function onDownAll(ev: PointerEvent) { onOrbitDown(ev); if (!orbiting) onPointerDown(ev) }
-function onMoveAll(ev: PointerEvent) { if (orbiting) onOrbitMove(ev); else onPointerMove(ev) }
-function onUpAll(ev: PointerEvent) { onOrbitUp(); onPointerUp(ev) }
+// 5.3：中键（button 1）→ 平移；右键（button 2）→ 3D 环绕；左键（button 0）→ 元件拖拽/选锚
+function onDownAll(ev: PointerEvent) { onPanDown(ev); onOrbitDown(ev); if (!orbiting && !panning) onPointerDown(ev) }
+function onMoveAll(ev: PointerEvent) { if (panning) onPanMove(ev); else if (orbiting) onOrbitMove(ev); else onPointerMove(ev) }
+function onUpAll(ev: PointerEvent) { onPanUp(); onOrbitUp(); onPointerUp(ev) }
 
 // ── HTML5 拖放（面板 → 画布） ──
 function onDragOver(ev: DragEvent) { ev.preventDefault() }
@@ -603,6 +654,10 @@ defineExpose({
     [...meshMap.entries()]
       .filter(([, ent]) => ent && ent.obj.children.some((c) => c.userData?.isFixedPin))
       .map(([id]) => id),
+  /** E2E（批 3）：相机状态（平移/缩放）——平移与复位视角断言用 */
+  camState: () => ({ panX: +pan.x.toFixed(3), panY: +pan.y.toFixed(3), zoom: +camera.zoom.toFixed(3), mode: viewModeNow }),
+  /** 批 3·5.4 复位视角（工具栏按钮调用） */
+  resetView,
 })
 </script>
 

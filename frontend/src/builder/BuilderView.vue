@@ -388,6 +388,8 @@ onMounted(() => {
     linksOf: (id: string) => { const e = elements.find((x) => x.id === id); return e ? JSON.parse(JSON.stringify(e.links)) : null },
     fixedPins: () => canvasRef.value?.fixedPinIds() ?? [],
     setFixed: (id: string, v: boolean) => { const e = elements.find((x) => x.id === id); if (e) e.isFixed = v },
+    camState: () => canvasRef.value?.camState() ?? null,   // E2E（批 3）：平移/缩放断言
+    resetView: () => canvasRef.value?.resetView(),          // E2E（批 3·5.4）
     snapOf: (id: string) => canvasRef.value?.snapOf(id) ?? null,
     loadTemplate: (id: string) => loadTemplate(id),
     templates: () => JSON.parse(JSON.stringify(TEMPLATES.map((t) => ({ id: t.id, name: t.name, card: t.card, group: t.group, checks: t.criticalChecks })))),
@@ -455,6 +457,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
           </select>
           <button @click="clearAll">✕ 清空</button>
           <button :disabled="sim.status === 'idle' && bridge.tsRun.value.status === 'idle'" @click="resetRun" title="清除运行状态，场景回到运行前（不清空画布）">🔄 复位</button>
+          <button @click="canvasRef?.resetView()" title="平移/缩放/环绕回到初始视角（不动元件）">⌖ 复位视角</button>
           <button :class="{ active: showTemplates }" @click="showTemplates = !showTemplates">📚 模板</button>
           <span class="spacer"></span>
           <span v-if="sim.status !== 'idle'" class="runstate">
