@@ -101,9 +101,13 @@ describe('toPhysicsElements 类型映射', () => {
     expect(b.angle).toBeCloseTo(0.1 + (10 * Math.PI) / 180, 6)
   })
 
-  it('loop_track：side → arcSideCode，全圆 0..360', () => {
+  it('loop_track：side → arcSideCode；A1 缺口角 → 弧段（中心 270°=底部）；gap=0 闭环', () => {
     const { list } = toPhysicsElements([mk('loop_track', 'lp1', { params: { radius: 1.5, side: 2 } })])
-    expect(list[0].params).toMatchObject({ radius: 1.5, arcA0: 0, arcA1: 360, arcSideCode: 2 })
+    // A1（2026-10-06）：默认 gap=40°——arcA0=270+20、arcA1=270−20+360（span=320，底部缺口）
+    expect(list[0].params).toMatchObject({ radius: 1.5, arcA0: 290, arcA1: 610, arcSideCode: 2 })
+    const { list: l0 } = toPhysicsElements([mk('loop_track', 'lp0', { params: { radius: 1.5, side: 0, gap: 0 } })])
+    // gap=0：span=360 闭环（Java inArc 走全圆分支，模板回归用）
+    expect(l0[0].params).toMatchObject({ arcA0: 270, arcA1: 630, arcSideCode: 0 })
   })
 
   it('绳双端：connectTo/anchorA 取连体 A 上的锚点局部坐标', () => {
