@@ -89,14 +89,25 @@ public class LoopTrackElement implements ElementBehavior {
     /**
      * 解析法向导轨（内轨语义：球在圆内，表面超出 R 时受向心罚力）。
      * 返回 [Fx, Fy, N, pen]；N≤0 且此前有接触 → 脱离。要求 substeps≥4（240Hz）保稳定。
+     * A1 开口环（2026-10-06）：
+     * ① 球方位角落在缺口角区内不导——底部入口可自由进出；
+     * ② onTrack 身份集：球心进入 R−r 球道圈才"上轨"——墙带(R−r, R]幽灵穿入的球不捕获
+     *   （传感器链无外壁碰撞，原实现会对穿墙球垫罚力=能量注入，实测 v=2.5 爬 1.1m）；
+     * ③ 脱离事件不受缺口影响（SimulationInstance 判 upper，底部区天然不触发）。
      */
-    public double[] guideForce(double bx, double by, double bvx, double bvy, double m, double ballRadius) {
+    private final java.util.Set<org.dyn4j.dynamics.Body> onTrack =
+            java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
+    public double[] guideForce(org.dyn4j.dynamics.Body body, double bx, double by, double bvx, double bvy, double m, double ballRadius) {
         Vector2D c = data.getPosition();
         double R = radius();
         double dx = bx - c.x(), dy = by - c.y();
         double dist = Math.hypot(dx, dy);
         if (dist < 1e-6) {
             return null;
+        }
+        if (!inArc(dx, dy)) {
+            return null;   // A1：缺口角区（含端部 2° 缓冲）内无轨道——入口/出口自由
         }
         double ux = dx / dist, uy = dy / dist; // 径向单位（向外）
         double vr = bvx * ux + bvy * uy;       // 径向速度（向外为正）
@@ -111,9 +122,11 @@ public class LoopTrackElement implements ElementBehavior {
             pen = R - (dist - ballRadius);  // 球在外侧压向轨道
             dir = 1;
         } else {
-            // OPEN#3 修复：内轨/管道只导「圈内」的球（dist ≤ R）——原实现对圈外任意远的球
-            // pen=(dist+r)−R 恒正，轨道成了无限远吸尘器（静置球 2.4m 外被吸入实测 vx=5.35）
-            if (dist > R) {
+            // 内轨/管道只导「圈内」的球（OPEN#3）+ A1 onTrack：球心进 R−r 球道圈才上轨——
+            // 墙带 (R−r, R] 的幽灵穿入球（传感器链无外壁，从圈外穿墙进来）不捕获，防罚力垫注入能量
+            if (dist <= R - ballRadius + 1e-9) {
+                onTrack.add(body);
+            } else if (!onTrack.contains(body)) {
                 return null;
             }
             pen = (dist + ballRadius) - R;  // 球在圆内压向外壁（内轨/管道）
@@ -137,6 +150,24 @@ public class LoopTrackElement implements ElementBehavior {
             return s == 1 ? "outer" : s == 2 ? "both" : "inner";
         }
         return "inner"; // 默认（JSON 数字参数表无法存字符串，arcSideCode 0/1/2）
+    }
+
+    /** A1 开口环：球方位角是否在弧覆盖内（数学角 CCW，0=+x）。
+     *  arcA0/arcA1 定义弧段（span=a1−a0，允许 >360 跨轴）；缺口两端各 2° 缓冲防力开关抖动。
+     *  rel = 自 a0 起顺时针到 θ 的角距 ∈ (EDGE, span−EDGE) 才导——旧闭环场景 span=360 全程命中。 */
+    private boolean inArc(double dx, double dy) {
+        double a0 = param("arcA0", 0.0);
+        double span = Math.max(0, param("arcA1", 360.0) - a0);
+        if (span >= 360 - 1e-9) {
+            return true;   // 闭环（兼容旧场景/无缺口参数）
+        }
+        double theta = Math.toDegrees(Math.atan2(dy, dx));
+        if (theta < 0) {
+            theta += 360;
+        }
+        double rel = (theta - (a0 % 360) + 360) % 360;
+        double EDGE = 2.0;
+        return rel > EDGE && rel < span - EDGE;
     }
 
     public double radius() {

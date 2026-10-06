@@ -102,7 +102,7 @@ export const CATALOG: ElementSpec[] = [
     SURFACE_END(-3, BELT_RADIUS, '左端上表面'), SURFACE_END(3, BELT_RADIUS, '右端上表面'),
     ATTACH(-1.5, BELT_RADIUS, '表面左中'), ATTACH(0, BELT_RADIUS, '表面中'), ATTACH(1.5, BELT_RADIUS, '表面右中'),
   ]),
-  el('loop_track', '竖直圆轨道', '◯', 'mech', ['2.5D'], '#b06ce6', '绳/杆/内轨/外轨/管道五类', [P('radius', '半径 R', 0.3, 3, 0.1, 1, 'm'), SEL('side', '类型', 0, [{ value: 0, label: '内轨（球在轨内）' }, { value: 1, label: '外轨（球在轨外）' }, { value: 2, label: '管道（双壁）' }])], 'constraint', ['圆轨道'], [
+  el('loop_track', '竖直圆轨道', '◯', 'mech', ['2.5D'], '#b06ce6', '绳/杆/内轨/外轨/管道五类', [P('radius', '半径 R', 0.3, 3, 0.1, 1, 'm'), SEL('side', '类型', 0, [{ value: 0, label: '内轨（球在轨内）' }, { value: 1, label: '外轨（球在轨外）' }, { value: 2, label: '管道（双壁）' }]), P('gap', '底部缺口角', 0, 120, 10, 40, '°')], 'constraint', ['圆轨道'], [
     TANGENT_PT(0, -1, '入口切点'), ATTACH(0, 1, '顶点'),
   ]),
   el('spring', '弹簧', '〰', 'mech', ['2.5D'], '#F5C542', '劲度系数、自然长', [P('k', '劲度系数 k', 5, 500, 5, 100, 'N/m'), P('L0', '自然长', 0.3, 3, 0.1, 1, 'm'), P('zeta', '阻尼比', 0, 1, 0.05, 0.05)], 'constraint', ['弹簧'], [

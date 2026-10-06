@@ -131,25 +131,31 @@ export function buildUnifiedMesh(e: GeoElement | PhysicsElementInput): UnifiedMe
     case 'loop_track': {
       // Bug D（2026-10-03）：RingGeometry 平面环（无 z 厚度——透视下进出口不再错开）
       // + side 0 内轨加内侧刻线 / side 1 外轨加外侧刻线（几何级区分）/ side 2 管道双环
+      // A1 开口环（2026-10-06）：底部入口缺口（gap 参数，默认 40°，0=闭环）——
+      // RingGeometry thetaStart/thetaLength 画部分弧；缺口中心 270°（底部），两端切线引入自然形成。
+      // 注：THREE thetaStart 从 +x 轴起 CCW，与 Java 数学角一致。
       const R = Math.max(0.1, p.radius ?? 1)
       const tube = 0.05
+      const gapDeg = Math.max(0, Math.min(120, p.gap ?? 40))
+      const thetaStart = THREE.MathUtils.degToRad(270 + gapDeg / 2)
+      const thetaLength = THREE.MathUtils.degToRad(360 - gapDeg)
       const g = new THREE.Group()
       const ring = new THREE.Mesh(
-        new THREE.RingGeometry(R - tube, R + tube, 64),
+        new THREE.RingGeometry(R - tube, R + tube, 64, 1, thetaStart, thetaLength),
         new THREE.MeshBasicMaterial({ color: new THREE.Color(color), side: THREE.DoubleSide, transparent: true, opacity: 0.9 }))
       g.add(ring)
       const side = (p.side ?? 0) as 0 | 1 | 2
       if (side === 2) {
         const inner = new THREE.Mesh(
-          new THREE.RingGeometry(R - tube * 4, R - tube * 2.5, 64),
+          new THREE.RingGeometry(R - tube * 4, R - tube * 2.5, 64, 1, thetaStart, thetaLength),
           new THREE.MeshBasicMaterial({ color: new THREE.Color(color), side: THREE.DoubleSide, transparent: true, opacity: 0.55 }))
         g.add(inner)
       } else if (side === 0 || side === 1) {
-        // 刻线：8 条短径向线，内轨朝圆心（球在内壁）/ 外轨朝外（球在外壁）
+        // 刻线：沿弧均布 8 条短径向线（避开缺口区），内轨朝圆心（球在内壁）/ 外轨朝外（球在外壁）
         const dir = side === 0 ? -1 : 1
         const tickLen = 0.12
         for (let i = 0; i < 8; i++) {
-          const ang = (i * Math.PI) / 4
+          const ang = thetaStart + (thetaLength * i) / 7   // 首尾各贴一端，缺口内不放
           const r0 = side === 0 ? R - tube : R + tube
           const r1 = r0 + dir * tickLen
           const tickGeo = new THREE.BufferGeometry().setFromPoints([

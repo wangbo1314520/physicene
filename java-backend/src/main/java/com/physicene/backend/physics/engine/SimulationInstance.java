@@ -94,6 +94,12 @@ public class SimulationInstance {
     private final Map<String, Boolean> loopContactNow = new java.util.concurrent.ConcurrentHashMap<>();
     /** 动态体 id -> 上一契约步是否贴轨（脱离判定：was 贴轨 && 本步全程无力） */
     private final Map<String, Boolean> loopContactPrev = new java.util.concurrent.ConcurrentHashMap<>();
+    /** A1 防抖（2026-10-06）：最近接触时刻——脱离判据改为"距上次接触 >3 帧(≈100ms)"。
+     *  罚力 cushion 上 N 高频抖动（隔帧交替），连续帧计数判据会同时吞掉真分离与抖动；
+     *  时间窗：单帧抖动 33ms 滤除、抖动链每帧刷新时基不触发、真坠落 300ms+ 必触发。
+     *  配套 loopLastContactAngle：末次接触角——跨缺口传输（末次接触在缺口边缘=下半区）不算脱离。 */
+    private final Map<String, Double> loopLastContactT = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, Double> loopLastContactAngle = new java.util.concurrent.ConcurrentHashMap<>();
     /** 滑轮元件（自研绳段罚力对） */
     private final java.util.List<com.physicene.backend.physics.element.PulleyElement> pulleys = new java.util.ArrayList<>();
     /** D5 冲量式绳（断裂判定 + rope_break 事件） */
@@ -623,9 +629,23 @@ public class SimulationInstance {
             for (int i = 0; i < dynamicBodies.size(); i++) {
                 Body b = dynamicBodies.get(i);
                 String id = dynamicElements.get(i).getId();
-                boolean was = Boolean.TRUE.equals(loopContactPrev.get(id));
                 boolean now = Boolean.TRUE.equals(loopContactNow.get(id));
-                if (was && !now && t > dt * 4) {
+                Double lastT = loopLastContactT.get(id);
+                if (now) {
+                    loopLastContactT.put(id, t);
+                    // 记录末次接触角（对首个环）：脱离必须"从上半弧离开"——缺口穿越的末次接触在下半区
+                    for (double[] g : loops.values()) {
+                        double adx = b.getTransform().getTranslationX() - g[0];
+                        double ady = b.getTransform().getTranslationY() - g[1];
+                        double ath = Math.toDegrees(Math.atan2(adx, -ady));
+                        loopLastContactAngle.put(id, ath < 0 ? ath + 360 : ath);
+                        break;
+                    }
+                } else if (lastT != null && t - lastT > dt * 3 && t > dt * 4) {
+                    // A1 时间窗：距上次接触 >3 帧——cushion 抖动不触发，真分离必触发（一次性，触发后清时基）
+                    loopLastContactT.remove(id);
+                    Double lastAngle = loopLastContactAngle.get(id);
+                    loopLastContactAngle.remove(id);
                     for (double[] g : loops.values()) {
                         double dx = b.getTransform().getTranslationX() - g[0];
                         double dy = b.getTransform().getTranslationY() - g[1];
@@ -633,9 +653,14 @@ public class SimulationInstance {
                         if (theta < 0) {
                             theta += 360;
                         }
-                        boolean upper = theta > 90 && theta < 270;
-                        boolean near = Math.abs(Math.hypot(dx, dy) - g[2]) < 0.5;
-                        if (upper && near && latch("detach:" + id)) {
+                        // A1：脱离=末次接触在上半弧（真离开轨道面）；末次接触在缺口边缘（下半区）
+                        // 的跨缺口传输不算——否则高速绕圈每趟缺口穿越后 100ms 在对侧上半弧误报
+                        boolean leftUpper = lastAngle != null && lastAngle > 90 && lastAngle < 270;
+                        // A1 修正：near 以球心球道圈（R−r）为基准——原 |dist−R|<0.5 恰卡在球半径，
+                        // 大球（r=0.5）脱离时 |(R−r)−R|=0.5 边界浮点翻车，detach 漏报
+                        double rb2 = equivalentRadius(dynamicElements.get(i));
+                        boolean near = Math.abs(Math.hypot(dx, dy) + rb2 - g[2]) < 0.3;
+                        if (leftUpper && near && latch("detach:" + id)) {
                             fireKeyEvent(t, "detach",
                                     id + " 脱离轨道（θ=" + String.format("%.1f", theta) + "°）",
                                     Map.<String, Object>of("theta", round(theta)));
@@ -799,6 +824,7 @@ public class SimulationInstance {
                 double rb = equivalentRadius(el);
                 for (LoopTrackElement lt : loopGuides.values()) {
                     double[] f = lt.guideForce(
+                            b,
                             b.getTransform().getTranslationX(), b.getTransform().getTranslationY(),
                             b.getLinearVelocity().x, b.getLinearVelocity().y,
                             el.getProperties().getMass(), rb);

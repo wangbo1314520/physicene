@@ -177,10 +177,14 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
           properties: { friction: num(p.mu, 0.4) },
           params: { beltSpeed: num(p.vb, 3), beltLength: num(p.L, 6), beltRadius: BELT_RADIUS } })
         break
-      case 'loop_track':
+      case 'loop_track': {
+        // A1 开口环（2026-10-06）：底部入口缺口（gap 参数，默认 40°，0=闭环兼容旧场景）。
+        // 弧段 CCW：a0 = 270+gap/2 起，span = 360−gap（缺口中心 270°=底部）。
+        const gap = Math.max(0, Math.min(120, num(p.gap, 40)))
         asBody({ type: 'loop_track', fixed: true,
-          params: { radius: num(p.radius, 1), arcA0: 0, arcA1: 360, arcSideCode: num(p.side, 0) } })
+          params: { radius: num(p.radius, 1), arcA0: 270 + gap / 2, arcA1: 270 - gap / 2 + 360, arcSideCode: num(p.side, 0) } })
         break
+      }
       case 'rope': case 'spring': {
         // 连接映射：body 端 → connectTo(+anchorA=连体局部锚点)；双 body 端再加 connectTo2/anchorB。
         // 固定端（NO_BODY：bracket/pole/anchor_point）或未连端 → Java 悬点语义：
