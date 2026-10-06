@@ -334,6 +334,10 @@ function syncLinks() {
           } else if (slack) {
             line.computeLineDistances()   // 端点变化后虚线间距重算
           }
+        } else if (l.kind === 'pulley-rope' && e.type === 'pulley') {
+          // A2（2026-10-06）：跨轮绳绕外缘——端点→切点直线 + 切点沿轮缘到轮底弧段
+          // （左右两条各画半弧，合起来即完整绕缘；与 Java PulleyElement 切点同公式）
+          updatePulleyRope(line, e, pb)
         } else updateLine(line, pa.x, pa.y, pb.x, pb.y)
       }
     }
@@ -341,6 +345,43 @@ function syncLinks() {
   for (const [key, line] of lineMap) {
     if (!seen.has(key)) { scene.remove(line); line.geometry.dispose(); (line.material as THREE.Material).dispose(); lineMap.delete(key) }
   }
+}
+
+/** A2：圆外一点的轮缘切点（贴目标同侧）——与 Java PulleyElement.tangentPoint 同式 */
+function pulleyTangent(cx: number, cy: number, R: number, px: number, py: number): { x: number; y: number } {
+  const dx = px - cx, dy = py - cy, d = Math.hypot(dx, dy)
+  if (d <= R + 1e-9) return { x: cx, y: cy - R }
+  const beta = Math.PI / 2 - Math.asin(Math.min(1, R / d))
+  const ux = dx / d, uy = dy / d, cb = Math.cos(beta), sb = Math.sin(beta)
+  const t1 = { x: cx + R * (ux * cb - uy * sb), y: cy + R * (ux * sb + uy * cb) }
+  const t2 = { x: cx + R * (ux * cb + uy * sb), y: cy + R * (-ux * sb + uy * cb) }
+  const ang = Math.atan2(uy, ux)
+  const near = (t: { x: number; y: number }) => {
+    const a2 = Math.atan2(t.y - cy, t.x - cx)
+    let dd = Math.abs(a2 - ang); if (dd > Math.PI) dd = 2 * Math.PI - dd
+    return dd
+  }
+  return near(t1) <= near(t2) ? t1 : t2
+}
+
+/** A2：跨轮绳几何——端点→切点直线 + 切点沿轮缘弧到轮底（两链接各半弧合成完整绕缘） */
+function updatePulleyRope(line: THREE.Line, pulley: GeoElement, pb: { x: number; y: number }) {
+  const pose = poseOf(pulley)
+  const R = 0.4   // 渲染轮半径（Renderer pulley case 同源）
+  const T = pulleyTangent(pose.x, pose.y, R, pb.x, pb.y)
+  const aT = Math.atan2(T.y - pose.y, T.x - pose.x)
+  const aB = -Math.PI / 2   // 轮底
+  let sweep = aB - aT
+  while (sweep <= -Math.PI) sweep += 2 * Math.PI
+  while (sweep > Math.PI) sweep -= 2 * Math.PI   // 短弧方向
+  const pts: THREE.Vector3[] = [new THREE.Vector3(pb.x, pb.y, 0.18), new THREE.Vector3(T.x, T.y, 0.18)]
+  const n = 10
+  for (let i = 1; i <= n; i++) {
+    const a = aT + (sweep * i) / n
+    pts.push(new THREE.Vector3(pose.x + R * Math.cos(a), pose.y + R * Math.sin(a), 0.18))
+  }
+  line.geometry.dispose()
+  line.geometry = new THREE.BufferGeometry().setFromPoints(pts)
 }
 
 /** 锚点手柄：选中件常显（蓝），连线模式全显（暗），已选第一锚点高亮（黄）；运行态隐藏 */
