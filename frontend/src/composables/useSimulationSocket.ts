@@ -77,6 +77,7 @@ const sharedState = reactive<SimState>({
 })
 const sharedError = ref('')
 let sharedWs: WebSocket | null = null
+let lastAttach: { simId: string; wsUrl: string; recordId: number | null } | null = null
 
 export function useSimulationSocket() {
   const state = sharedState
@@ -101,6 +102,7 @@ export function useSimulationSocket() {
       }
       state.simId = resp.simId
       state.recordId = resp.recordId
+      lastAttach = { simId: resp.simId, wsUrl: resp.wsUrl, recordId: resp.recordId }
       const token = getAuthToken() ?? ''
       const proto = location.protocol === 'https:' ? 'wss' : 'ws'
       sharedWs = new WebSocket(
@@ -187,6 +189,7 @@ export function useSimulationSocket() {
   function attach(simId: string, wsUrl: string, recordId: number | null = null) {
     error.value = ''
     close()
+    lastAttach = { simId, wsUrl, recordId }   // 追问4：复位后服务端停止状态的 E2E 验证经 reattach 复查
     Object.assign(state, {
       status: 'connecting', currentT: 0, subjects: [], keyEvents: [],
       vSeries: [], vIds: [], ekSeries: [], pSeries: [], probes: {}, endInfo: null, frameCount: 0,
@@ -225,9 +228,26 @@ export function useSimulationSocket() {
     }
   }
 
-  /** 批 3·6.5 复位：断开并清空全部运行态回 idle（simId 置空触发 LabView 回放重置 watcher）。
-   *  运行中调用直接断 WS——服务端实例照常跑到 maxDuration 自止（无泄漏，仅不再推送）。 */
-  function reset() {
+  /** 批 3·6.5 复位（追问4 强化：权宜→设计）：运行/暂停中先发 end 让服务端实例立即停——
+   *  防"复位→孤儿实例跑到 maxDuration"堆积（100 学生×反复位≈每人至多 1 个孤儿，虽无泄漏
+   *  但白耗求解线程）。收到 ended 或 800ms 超时（end 帧未及处理即断开）后清态。 */
+  async function reset() {
+    if (sharedWs && sharedWs.readyState === WebSocket.OPEN
+        && (state.status === 'running' || state.status === 'paused')) {
+      await new Promise<void>((done) => {
+        const ws = sharedWs!
+        const timer = setTimeout(done, 800)
+        const prev = ws.onmessage
+        ws.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data as string)
+            if (msg.type === 'ended') { clearTimeout(timer); done(); return }
+          } catch { /* 非 JSON 帧照旧转发 */ }
+          prev?.call(ws, ev)
+        }
+        end()
+      })
+    }
     close()
     Object.assign(state, {
       status: 'idle', simId: '', currentT: 0, subjects: [], keyEvents: [],
@@ -237,5 +257,12 @@ export function useSimulationSocket() {
     error.value = ''
   }
 
-  return { state, error, run, attach, pause, play, step, seek, end, sync, close, reset }
+  /** 重连最近一次 run/attach 的仿真（追问4：E2E 复查复位后服务端实例已 ended） */
+  function reattach(): boolean {
+    if (!lastAttach) return false
+    attach(lastAttach.simId, lastAttach.wsUrl, lastAttach.recordId)
+    return true
+  }
+
+  return { state, error, run, attach, reattach, pause, play, step, seek, end, sync, close, reset }
 }

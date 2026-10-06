@@ -217,9 +217,10 @@ function duplicateSelected() {
 function clearAll() { if (!elements.length) return; snapshot(); elements.splice(0); selectedId.value = null; linkFrom.value = null; records.value = []; currentTemplateId.value = null }
 
 /** 批 3·6.5 复位：回到"运行前"——场景/元件/连线保留，运行状态与数据清零（≠ ✕ 清空画布）。
- *  运行中调用：直接断 WS（服务端实例自跑到 maxDuration），编辑即时恢复。 */
-function resetRun() {
-  bridge.socket.reset()
+ *  追问4 强化：运行中复位先向服务端发 end（实例立即停，非自跑到 maxDuration），
+ *  收到 ended 或 800ms 超时后断开清态——100 学生×反复位不产生孤儿实例堆积。 */
+async function resetRun() {
+  await bridge.socket.reset()
   bridge.resetTs()
   brokenRopes.value = new Set()
   records.value = []
@@ -396,6 +397,9 @@ onMounted(() => {
     keyEvents: () => JSON.parse(JSON.stringify(sim.keyEvents)),
     subjects: () => JSON.parse(JSON.stringify(sim.subjects)),
     vSeries: () => JSON.parse(JSON.stringify(sim.vSeries)),   // E2E：按帧流真值（重放突发期轮询丢顶点——卡68 定性正修）
+    endInfo: () => (sim.endInfo ? JSON.parse(JSON.stringify(sim.endInfo)) : null),
+    reattach: () => bridge.socket.reattach(),   // E2E（追问4）：复位后重连旧仿真复查服务端已 ended
+    syncNow: () => bridge.socket.sync(),        // E2E：reattach 后主动 sync（attach 不自动校正已结束实例的状态）
     probes: () => JSON.parse(JSON.stringify(sim.probes)),
     tsRays: () => JSON.parse(JSON.stringify(bridge.tsRun.value.rays)),
     tsReadings: () => JSON.parse(JSON.stringify(bridge.tsRun.value.readings)),

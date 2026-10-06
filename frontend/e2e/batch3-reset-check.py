@@ -75,6 +75,36 @@ with sync_playwright() as p:
     page.wait_for_timeout(200)
     check("D8 idle 态复位按钮禁用", page.locator(".tools button", has_text="复位").is_disabled())
     check("D9 全程无页面错误", not errs, str(errs[:1]))
+
+    # ═══ 追问4：运行中复位 → 服务端实例立即停（非自跑到 maxDuration）═══
+    print("场景 E：运行中复位的服务端停止验证（reattach 复查）")
+    page.evaluate("window.__builder.run()")
+    running = False
+    for _ in range(60):
+        page.wait_for_timeout(100)
+        if page.evaluate("window.__builder.simStatus()") == "running": running = True; break
+    check("E1 运行中（running）", running, f"status={page.evaluate('window.__builder.simStatus()')}")
+    page.locator(".tools button", has_text="复位").click()
+    for _ in range(20):
+        page.wait_for_timeout(100)
+        if page.evaluate("window.__builder.simStatus()") == "idle": break
+    check("E2 运行中复位 → idle", page.evaluate("window.__builder.simStatus()") == "idle")
+    # reattach 到同一 simId + 主动 sync：服务端应已 ended（end 生效）且 currentT 远小于 maxDuration（早停证据）
+    ok_att = page.evaluate("window.__builder.reattach()")
+    page.wait_for_timeout(400)   # 等 WS open + 重放
+    page.evaluate("window.__builder.syncNow()")
+    srv = None
+    for _ in range(30):
+        page.wait_for_timeout(100)
+        st = page.evaluate("() => ({ s: window.__builder.simStatus(), t: window.__builder.simT() })")
+        if st["s"] == "ended":
+            srv = st
+            break
+    check("E3 服务端实例已停（reattach+sync 见 ended）",
+          srv is not None and srv["s"] == "ended", f"{srv}")
+    check("E4 早停证据：服务端 currentT≪maxDuration（主动 end，非自然到时）",
+          srv is not None and srv["t"] < 2.0, f"t={srv['t'] if srv else None}s（复位发起于运行 ~0.5s 内）")
+    check("E5 场景E 无页面错误", not errs, str(errs[:1]))
     b.close()
 
 print()
