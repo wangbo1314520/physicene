@@ -311,15 +311,9 @@ async function loadScene(id: number) {
   syncRenderer()
 }
 
-async function loadTemplate(type: string) {
-  const created = (await http.post(`/templates/${type}/load`)) as { id: number }
-  await loadScene(created.id)
-  toast.value = `模板已加载为场景 #${created.id}`
-}
-
 // ===== 运行 / 回放 =====
-// 手测 2026-10-06：startRun 已删——方案 B Step 2 删了 ▶运行实验 按钮后此函数即成死代码
-//（运行入口唯一：搭建 Tab ▶ 运行）。本文件对 WS 只剩只读消费（状态/曲线/回放 attach）。
+// 手测 2026-10-06 二审：loadTemplate 已删——"结果"Tab 去新建类操作（模板在搭建 Tab 62 卡）。
+// 本文件对 WS 只剩只读消费（状态/曲线/回放 attach）+ ?scene= URL 直进（loadScene）。
 
 watch(() => state.subjects, (subjects) => {
   if (subjects.length) renderer?.updateStates(subjects)
@@ -526,12 +520,10 @@ onUnmounted(() => {
     <section v-if="activeTab === 'lab'" class="topbar">
       <span class="title">{{ scene.name || '未命名场景' }}
         <code v-if="scene.sceneId">#{{ scene.sceneId }}</code></span>
-      <select class="tmpl" @change="loadTemplate(($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).selectedIndex = 0"
-              :disabled="busy">
-        <option value="">📚 加载模板…</option>
-        <option value="template_collision">小车碰撞</option>
-        <option value="template_projectile">斜抛运动</option>
-      </select>
+      <!-- 手测 2026-10-06 二审：删'加载模板'下拉——"结果"Tab 不该有新建类操作（62 卡模板在搭建 Tab）。
+           例外条款核实：?scene= URL 直进看历史场景已存在（route.query.scene → loadScene），
+           但本下拉是"从预置模板新建"（POST /templates/{type}/load）非"切换查看对象"——
+           未来切换查看应接"我的场景"入口（P7），不由此下拉承担。 -->
       <button :disabled="busy" @click="saveScene()">💾 保存</button>
       <button v-if="state.status === 'idle'" class="primary goto-build" @click="activeTab = 'free'">🧱 去搭建 →</button>
       <!-- 方案 B Step 2：运行入口在 Tab 2（自由搭建）；此处显示共享运行状态 -->
