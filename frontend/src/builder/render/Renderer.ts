@@ -236,8 +236,18 @@ export function buildUnifiedMesh(e: GeoElement | PhysicsElementInput): UnifiedMe
       g.add(axis)
       return { mesh: g, baseAngle: 0 }
     }
-    case 'sphere': case 'particle': {
+    case 'sphere': {
       return { mesh: new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 16), mat(color)), baseAngle: 0 }
+    }
+    case 'particle': {
+      // Bug B（手测 2026-10-06）：质点不再与 sphere 同尺寸（原共用 0.5 球）。
+      // 小实心球 r=0.2 贴 Java 碰撞（RunBridge particle→sphere scale 0.4）落地不悬空；
+      // 十字准星（±0.32）为视觉主角——教科书"质点"记号。层级：sphere 0.5 > point_charge 0.3 > particle 0.2
+      const g = new THREE.Group()
+      g.add(new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), mat(color, { emissive: 0.6 })))
+      g.add(seg2(-0.32, 0, -0.22, 0, 0xe8e8f0)); g.add(seg2(0.22, 0, 0.32, 0, 0xe8e8f0))
+      g.add(seg2(0, -0.32, 0, -0.22, 0xe8e8f0)); g.add(seg2(0, 0.22, 0, 0.32, 0xe8e8f0))
+      return { mesh: g, baseAngle: 0 }
     }
     case 'point_charge': {
       return { mesh: new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 14), mat(color, { emissive: 0.6 })), baseAngle: 0 }
