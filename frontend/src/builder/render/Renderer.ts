@@ -658,6 +658,140 @@ export function buildUnifiedMesh(e: GeoElement | PhysicsElementInput): UnifiedMe
       g.userData.kind = 'graph-tag'
       return { mesh: g, baseAngle: 0 }
     }
+    // ── 批A（手测 2026-10-06）：装置类 A 类"几何即物理"——检测器四件/光电门/热学三件/流量计/霍尔 ──
+    case 'speed_sensor': case 'accel_sensor': case 'range_finder': case 'force_sensor': {
+      // 检测器家族：表头方块 + 下探针 + 发光探头尖（元件中心=探针中部，连线落点即此）
+      const g = new THREE.Group()
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.32, 0.3), mat(color))
+      head.position.y = 0.34
+      g.add(head)
+      const needle = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.5, 8), mat('#8a8aa0'))
+      needle.position.y = -0.05
+      g.add(needle)
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), mat(color, { emissive: 0.8 }))
+      tip.position.y = -0.3
+      g.add(tip)
+      const letter = e.type === 'speed_sensor' ? 'v' : e.type === 'accel_sensor' ? 'a' : e.type === 'range_finder' ? 'L' : 'F'
+      g.add(textSprite(letter, '#e8e8f0', 0, 0.36, 0.42))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'photogate': {
+      // 光电门：左右立柱 + 顶横梁 + 红外门线（发射/接收对点，越过此线记时）
+      const g = new THREE.Group()
+      for (const sx of [-0.28, 0.28]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.7, 0.12), mat('#565675'))
+        post.position.set(sx, 0, 0)
+        g.add(post)
+      }
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.08, 0.12), mat('#565675'))
+      beam.position.y = 0.35
+      g.add(beam)
+      g.add(seg2(0, -0.31, 0, 0.31, 0xE05555))
+      const em = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), mat('#E05555', { emissive: 1 }))
+      em.position.set(-0.24, -0.28, 0)
+      const rec = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), mat('#3ecf8e', { emissive: 1 }))
+      rec.position.set(0.24, -0.28, 0)
+      g.add(em, rec)
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'liquid_seal': {
+      // 液封玻璃管：透明竖管 + 汞柱（h 比例 0.08/cm，上限 1.2）+ mode 开口朝向（0 上=汞沉底 / 1 下=汞挂顶）
+      const g = new THREE.Group()
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.6, 16, 1, true), mat('#b0d8ff', { opacity: 0.25 }))
+      g.add(tube)
+      const h = Math.min(1.2, 0.08 * (p.h ?? 10))
+      const hg = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, h, 16), mat('#c0c0d8', { opacity: 0.95 }))
+      hg.position.y = (p.mode ?? 0) === 1 ? 0.8 - h / 2 : -0.8 + h / 2
+      g.add(hg)
+      g.add(textSprite('汞', '#c0c0d8', 0.26, hg.position.y, 0.38))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'u_tube': {
+      // U 形管：左右竖玻璃管 + 半圆弯底 + 双侧液柱（dh0 比例 0.04/cm，右高左低）+ 左封标记
+      const g = new THREE.Group()
+      const glassM = mat('#b0d8ff', { opacity: 0.25 })
+      for (const sx of [-0.3, 0.3]) {
+        const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 1.4, 14, 1, true), glassM)
+        tube.position.set(sx, 0.35, 0)
+        g.add(tube)
+      }
+      const bend = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.09, 10, 20, Math.PI), glassM)
+      bend.rotation.z = Math.PI
+      bend.position.y = -0.35
+      g.add(bend)
+      const dh = Math.max(-0.28, Math.min(0.5, 0.04 * (p.dh0 ?? 4)))
+      const fluidM = mat('#7ec8e3', { opacity: 0.8 })
+      const hl = Math.max(0.15, 0.7 - Math.abs(dh) / 2), hr = Math.max(0.15, 0.7 + Math.abs(dh) / 2)
+      const fl = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, dh >= 0 ? hl : hr, 12), fluidM)
+      fl.position.set(-0.3, -0.35 + (dh >= 0 ? hl : hr) / 2, 0)
+      const fr = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, dh >= 0 ? hr : hl, 12), fluidM)
+      fr.position.set(0.3, -0.35 + (dh >= 0 ? hr : hl) / 2, 0)
+      g.add(fl, fr)
+      g.add(textSprite('封', '#9cc5ff', -0.3, 0.55, 0.35))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'pump_syringe': {
+      // 打气抽气筒：注射器——透明筒身 + 活塞 + 推杆 + 手柄 + 出气嘴（mode 打气/抽气共用形态）
+      const g = new THREE.Group()
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.9, 16, 1, true), mat('#b0d8ff', { opacity: 0.3 }))
+      barrel.rotation.z = Math.PI / 2
+      g.add(barrel)
+      const plunger = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.12, 14), mat('#8a8aa0'))
+      plunger.rotation.z = Math.PI / 2
+      plunger.position.x = -0.1
+      g.add(plunger)
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 8), mat('#8a8aa0'))
+      rod.rotation.z = Math.PI / 2
+      rod.position.x = -0.4
+      g.add(rod)
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.26, 0.1), mat('#565675'))
+      handle.position.x = -0.66
+      g.add(handle)
+      const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.2, 10), mat('#565675'))
+      nozzle.rotation.z = Math.PI / 2
+      nozzle.position.x = 0.53
+      g.add(nozzle)
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'flow_meter': {
+      // 电磁流量计：绝缘管道（上下壁）+ 左右电极点（黄）+ B 场 ⊗ 记号（上方）+ 流向箭头（管轴）
+      const g = new THREE.Group()
+      for (const sy of [0.22, -0.22]) {
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.08, 0.3), mat(color))
+        wall.position.set(0, sy, 0)
+        g.add(wall)
+      }
+      for (const sx of [-0.55, 0.55]) {
+        const electrode = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), mat('#F5C542', { emissive: 0.6 }))
+        electrode.position.set(sx, 0, 0)
+        g.add(electrode)
+      }
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.07, 0.09, 16), mat('#4A90D9'))
+      ring.position.set(0, 0.48, 0)
+      g.add(ring, seg2(-0.05, 0.43, 0.05, 0.53, 0x4A90D9), seg2(-0.05, 0.53, 0.05, 0.43, 0x4A90D9))
+      g.add(seg2(-0.3, 0, 0.3, 0, 0x3ecf8e), seg2(0.3, 0, 0.2, 0.08, 0x3ecf8e), seg2(0.3, 0, 0.2, -0.08, 0x3ecf8e))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'hall_slab': {
+      // 霍尔元件：矩形薄片 + 四引线（左右=工作电流 I，上下=霍尔电压 U_H）
+      const g = new THREE.Group()
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.5, 0.08), mat(color, { opacity: 0.9 }))
+      g.add(slab)
+      const leadM = mat('#8a8aa0')
+      for (const sx of [-0.7, 0.7]) {
+        const lead = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.035, 0.035), leadM)
+        lead.position.set(sx, 0, 0)
+        g.add(lead)
+      }
+      for (const sy of [0.65, -0.65]) {
+        const lead = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.3, 0.035), leadM)
+        lead.position.set(0, sy, 0)
+        g.add(lead)
+      }
+      g.add(textSprite('I', '#e8e8f0', -0.55, 0.12, 0.4))
+      g.add(textSprite('U_H', '#F5C542', 0.3, 0.42, 0.4))
+      return { mesh: g, baseAngle: 0 }
+    }
     default: {
       return { mesh: new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.5), mat(color, { opacity: 0.9 })), baseAngle: 0 }
     }
