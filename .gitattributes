@@ -1,0 +1,26 @@
+# 行尾统一（追问5，2026-10-05）：仓库内文本一律 LF——消除 CRLF 幻影改动（对账表 md 反复假 M）
+# Windows 批处理脚本例外（CRLF 是 cmd 解释器要求）
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# 二进制（禁任何转换）
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webm binary
+*.mp4 binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.docx binary
+*.xlsx binary
+*.pdf binary
+*.jar binary
+*.zip binary
+*.exe binary
+*.dll binary
