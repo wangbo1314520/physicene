@@ -212,7 +212,7 @@ const gkCircularCritical = (): GeoTemplate => ({
   id: 'gk-circular-critical', card: '7/28', group: '力学', name: '竖直圆轨道（临界速度）',
   tags: ['圆轨道', '小球'],
   elements: [
-    mk('loop_track', 2, 0, { radius: CIRC_R, side: 0 }),
+    mk('loop_track', 2, 0, { radius: CIRC_R, side: 0, gap: 0 }),
     mk('sphere', 2, -(CIRC_R - BALL_R), { m: 0.5, v0: 8, e: 1, mus: 0 }),
   ],
   criticalChecks: [
@@ -229,7 +229,7 @@ const gkProjectileLoop = (): GeoTemplate => ({
   tags: ['平抛', '圆轨道'],
   elements: [
     mk('projectile_platform', -1.5, -1.2, { h: 1, v0: 7 }),  // 顶面 −1.05：低于球底轨道 −1.0，防刮擦冻结
-    mk('loop_track', 0, 0, { radius: PL_R, side: 0 }),
+    mk('loop_track', 0, 0, { radius: PL_R, side: 0, gap: 0 }),
     mk('particle', 0.3, -(PL_R - 0.2), { m: 1, v0: 7, ang: 0 }),
   ],
   criticalChecks: [
