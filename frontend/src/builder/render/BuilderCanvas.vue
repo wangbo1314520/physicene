@@ -391,7 +391,8 @@ function syncSelection() {
     if (!el || !ent) continue
     const pin = ent.obj.children.find((c) => c.userData?.isFixedPin)
     if (el.isFixed && !pin) {
-      // 元件重建（参数变更）后首次出现时量一次包围盒：钉立在元件顶缘上方、水平居中（视觉走查：加大一号防看不清）
+      // 元件重建（参数变更）后首次出现时量一次包围盒：钉立在元件顶缘上方、水平居中。
+      // Bug C（手测 2026-10-06）：尺寸砍半（视觉走查"太大太醒目"），语义靠悬停 tooltip 说明
       const box = new THREE.Box3().setFromObject(ent.obj)
       const maxL = ent.obj.worldToLocal(box.max.clone())
       const minL = ent.obj.worldToLocal(box.min.clone())
@@ -399,10 +400,10 @@ function syncSelection() {
       const topY = maxL.y
       const mat = new THREE.MeshBasicMaterial({ color: 0xE05555 })
       const g = new THREE.Group()
-      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.26, 8), mat)
-      shaft.position.set(cx, topY + 0.12, 0.42)
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.095, 12, 10), mat)
-      head.position.set(cx, topY + 0.3, 0.42)
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.13, 8), mat)
+      shaft.position.set(cx, topY + 0.06, 0.42)
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.048, 12, 10), mat)
+      head.position.set(cx, topY + 0.15, 0.42)
       g.add(shaft, head)
       g.userData.isFixedPin = true
       ent.obj.add(g)
@@ -466,9 +467,22 @@ function onPointerDown(ev: PointerEvent) {
   }
 }
 function onPointerMove(ev: PointerEvent) {
-  if (!dragState.id) return
+  if (!dragState.id) { updateHoverTooltip(ev.clientX, ev.clientY); return }
   const w = toWorld(ev.clientX, ev.clientY)
   emit('dragging', dragState.id, w.x + dragState.grabX, w.y + dragState.grabY)
+}
+
+// Bug C（手测 2026-10-06）：固定钉悬停提示——"红点是干嘛的"需要有答案。
+// 悬停 isFixed 元件时置 canvas 根节点 title（原生 tooltip，零依赖）
+let hoverTipId: string | null = null
+function updateHoverTooltip(clientX: number, clientY: number) {
+  const el = rootEl.value
+  if (!el) return
+  const id = props.runStates ? null : hitElement(clientX, clientY)
+  if (id === hoverTipId) return
+  hoverTipId = id
+  const fixed = id ? props.elements.find((e) => e.id === id)?.isFixed : false
+  el.title = fixed ? '📍 此元件固定，不随物理运动（属性面板可改）' : ''
 }
 function onPointerUp(ev: PointerEvent) {
   if (dragState.id) { dragState.id = null; emit('drop', ev.shiftKey) }   // 渲染尾项③：shiftKey 传出供跳过面自动对齐
