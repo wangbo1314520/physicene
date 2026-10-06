@@ -97,6 +97,11 @@ public class LoopTrackElement implements ElementBehavior {
      */
     private final java.util.Set<org.dyn4j.dynamics.Body> onTrack =
             java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    /** A1 回归修正：首次见到的球若出生在盘内（dist≤R）直接视为已入系统——模板球常出生在
+     *  盘内偏离球道圈处（BALL_R 常量与物理半径有出入，旧'盘内任意捕获'掩盖）；
+     *  幽灵防护只针对从圈外穿墙进入的球（首见即在圈外 → 不入系统，穿墙带不被垫） */
+    private final java.util.Set<org.dyn4j.dynamics.Body> firstSeen =
+            java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
     public double[] guideForce(org.dyn4j.dynamics.Body body, double bx, double by, double bvx, double bvy, double m, double ballRadius) {
         Vector2D c = data.getPosition();
@@ -123,11 +128,18 @@ public class LoopTrackElement implements ElementBehavior {
             dir = 1;
         } else {
             // 内轨/管道只导「圈内」的球（OPEN#3）+ A1 onTrack：球心进 R−r 球道圈才上轨——
-            // 墙带 (R−r, R] 的幽灵穿入球（传感器链无外壁，从圈外穿墙进来）不捕获，防罚力垫注入能量
+            // 墙带 (R−r, R] 的幽灵穿入球（传感器链无外壁，从圈外穿墙进来）不捕获，防罚力垫注入能量。
+            // 回归修正：出生在盘内（首见 dist≤R）的球直接入系统（模板球出生位偏离球道圈）。
             if (dist <= R - ballRadius + 1e-9) {
                 onTrack.add(body);
             } else if (!onTrack.contains(body)) {
-                return null;
+                if (firstSeen.add(body)) {
+                    if (dist <= R) {
+                        onTrack.add(body);
+                    }
+                } else {
+                    return null;
+                }
             }
             pen = (dist + ballRadius) - R;  // 球在圆内压向外壁（内轨/管道）
             dir = -1;
