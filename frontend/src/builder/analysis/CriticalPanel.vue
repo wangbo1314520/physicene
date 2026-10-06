@@ -79,7 +79,11 @@ const TYPE_LABEL: Record<string, string> = {
       </div>
     </div>
   </div>
-  <div class="crit empty" v-else-if="elements.length">
+  <!-- 2026-10-06：根类名去掉 empty——与 BuilderView 作用域 .empty（画布空态提示：
+       position:absolute + left/right:20 + top:45%）碰撞。Vue scoped 的子组件根节点
+       继承父作用域 data-v 属性，父规则命中本面板 → 编辑态整页横带盖住画布中心
+       （有元件未运行时必现；BugA/B 验证时的"球消失/单轮"皆此遮挡） -->
+  <div class="crit crit-empty" v-else-if="elements.length">
     <h4>🎯 临界事件</h4>
     <p class="hint">运行后这里列出关键时刻（共速/过顶/脱离/绷紧/原长…）并与理论对照</p>
   </div>
