@@ -247,8 +247,22 @@ export function buildUnifiedMesh(e: GeoElement | PhysicsElementInput): UnifiedMe
       return { mesh: new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.6), mat(color)), baseAngle: 0 }
     }
     case 'cart': {
+      // Bug A（手测 2026-10-06）：平板小车补轮——车体矩形贴 Java 碰撞盒（L×0.3，底部 y=−0.15），
+      // 2 轮圆心置于盒底边（轮底恰=盒底，不穿地），z 前脸 + 深色胎/浅色毂，侧视读作小车
       const L = Math.max(1, p.L ?? 6)
-      return { mesh: new THREE.Mesh(new THREE.BoxGeometry(L, 0.3, 0.8), mat(color)), baseAngle: 0 }
+      const g = new THREE.Group()
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(L, 0.3, 0.8), mat(color)))
+      const R = 0.13
+      for (const wx of [-L / 4, L / 4]) {
+        const tire = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.1, 20), mat('#2a2a3a'))
+        tire.rotation.x = Math.PI / 2
+        tire.position.set(wx, -0.15 + R, 0.38)
+        const hub = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.38, R * 0.38, 0.12, 12), mat('#b0b0cc'))
+        hub.rotation.x = Math.PI / 2
+        hub.position.set(wx, -0.15 + R, 0.38)
+        g.add(tire, hub)
+      }
+      return { mesh: g, baseAngle: 0 }
     }
     case 'vwall': {
       const H = p.H ?? 6
