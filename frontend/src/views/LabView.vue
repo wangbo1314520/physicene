@@ -17,7 +17,7 @@ const chartRef = ref<HTMLDivElement | null>(null)
 let renderer: SimRenderer | null = null
 let chart: echarts.ECharts | null = null
 
-const { state, error, run, attach, pause, play, step, end, close: closeSocket } = useSimulationSocket()
+const { state, error, attach, close: closeSocket } = useSimulationSocket()   // 手测 2026-10-06：run/pause/play/step/end 随播放行与 startRun 删除
 
 // ===== AI 助教对话框（第四周：用嘴做实验）=====
 const chatLog = ref<HTMLElement | null>(null)
@@ -318,21 +318,8 @@ async function loadTemplate(type: string) {
 }
 
 // ===== 运行 / 回放 =====
-async function startRun() {
-  if (scene.elements.length === 0) {
-    toast.value = '先从左侧元件库拖入元件'
-    return
-  }
-  // 手测 Bug2（2026-10-02）：run(sceneId) 让后端回放库中场景——曾有 id 就跳过保存导致
-  // 本地拖动/改参不生效（物理永远是第一次保存的）。改为运行前必存（PUT 更新），
-  // toast 只在用户手动保存时弹（saveScene 加静默参）
-  await saveScene(true)
-  if (!scene.sceneId) return
-  resetReplay()
-  // 只清 series 保留坐标轴（chart.clear() 会连轴一起清掉，后续增量 setOption 报 xAxis not found）
-  chart?.setOption({ series: [] }, { replaceMerge: ['series'] })
-  await run(scene.elements, scene.config, String(scene.sceneId))
-}
+// 手测 2026-10-06：startRun 已删——方案 B Step 2 删了 ▶运行实验 按钮后此函数即成死代码
+//（运行入口唯一：搭建 Tab ▶ 运行）。本文件对 WS 只剩只读消费（状态/曲线/回放 attach）。
 
 watch(() => state.subjects, (subjects) => {
   if (subjects.length) renderer?.updateStates(subjects)
@@ -554,10 +541,10 @@ onUnmounted(() => {
         <button class="ok" @click="confirmOcrPreview">✓ 确认搭建</button>
         <button @click="cancelOcrPreview">✗ 取消</button>
       </template>
-      <button :disabled="state.status !== 'running'" @click="pause">⏸</button>
-      <button :disabled="state.status !== 'paused'" @click="play">▶</button>
-      <button :disabled="state.status !== 'paused'" @click="step">⏭</button>
-      <button :disabled="state.status === 'ended' || state.status === 'idle'" @click="end">■</button>
+      <!-- 手测 2026-10-06：删播放控制行（⏸▶⏭■）——方向 A："结果"Tab 只读。
+           暂停/继续/单步/停止在搭建 Tab 工具栏（BuilderView，同一 WS 单例，零功能损失）；
+           原 ▶ 是"暂停后恢复"专用（仅 paused 亮），idle/ended 恒灰——学生读作"坏的启动按钮"。
+           方案 B Step 2（0d674a1）删了 ▶运行实验 启动入口，播放行是当时漏删的遗留。 -->
       <span class="status" :class="{ ok: state.status === 'ended' }">{{ state.status === 'running' ? `▶ 运行中 t=${state.currentT.toFixed(2)}s` : state.status === 'ended' ? `⏹ 已结束 t=${state.currentT.toFixed(2)}s（${state.keyEvents.length} 事件）` : state.status }}</span>
       <div class="dims" :title="dimHint">
         <button v-for="d in DIMS" :key="d" class="dim" :class="{ on: dim === d }" @click="setDim(d)">{{ DIM_INFO[d].label }}</button>
