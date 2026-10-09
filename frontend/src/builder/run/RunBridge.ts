@@ -14,7 +14,7 @@ import { THERMO_DEVICE_TYPES, AC_DEVICE_TYPES } from '../analysis/EngineAnalyzer
 import { CYCLOTRON_TYPES, DC_DEVICE_TYPES, WAVE_DEVICE_TYPES, MISC_DEVICE_TYPES } from '../analysis/EngineAnalyzer'
 import { CIRCUIT_BASIC_TYPES, runCircuitBasics } from '../../physics/circuit-basics'
 import { byType, BELT_RADIUS, type GeoElement } from '../catalog'
-import { resolveAnchorById, anchorWorldOf } from '../model/anchors'
+import { resolveAnchorById, anchorWorldOf , resolveAnchors} from '../model/anchors'
 import type { Analysis } from '../analysis/EngineAnalyzer'
 
 /** P2·耦合接入完成：rail-rod/热学已接入 Java 联合运行——PHASE4 拒绝集合清空 */
@@ -241,15 +241,40 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
         const aEl = els.find((x) => x.id === links[0].toId)
         const bEl = els.find((x) => x.id === links[1].toId)
         if (!aEl || !bEl) { notes.push(`滑轮「${e.id}」连接对象缺失，已跳过`); continue }
-        // NO_BODY 固定端不可作绳端（Java PulleyElement 要求两端 body；支架悬挂由滑轮位置表达——吸附 bracket.mount 即可）
-        if (NO_BODY.has(aEl.type) || NO_BODY.has(bEl.type)) {
+        const movable = num(p.kind, 0) === 1
+        if (!movable && (NO_BODY.has(aEl.type) || NO_BODY.has(bEl.type))) {
           notes.push(`滑轮「${e.id}」两端须为运动物体（固定悬挂=把滑轮吸附到 bracket/pole 的 mount 锚点，勿直接连线），已跳过`)
           continue
         }
         base.type = 'pulley'
-        base.connectTo = links[0].toId
-        base.connectTo2 = links[1].toId
-        base.params = { ratio: num(p.kind, 0) === 1 ? 2 : 1 }
+        // 动滑轮（决策批准 2026-10-07）：绳端允许固定锚（anchor_point/bracket/pole 的 mount）——
+        // 固定端以世界坐标入 params（Java 端静态端）；运动端仍走 connectTo。滑轮本体为动态体（质量 M）
+        const anchorWorldOf = (t: GeoElement, anchorId: string) => {
+          const a = resolveAnchors(t).find((x) => x.id === anchorId)
+          const c2 = Math.cos(t.angle), s2 = Math.sin(t.angle)
+          return a
+            ? { x: t.position.x + c2 * a.local.x - s2 * a.local.y, y: t.position.y + s2 * a.local.x + c2 * a.local.y }
+            : { x: t.position.x, y: t.position.y }
+        }
+        const params: Record<string, number> = { ratio: movable ? 2 : 1 }
+        if (movable) {
+          params.M = num(p.M, 1)
+          const ends = [aEl, bEl]
+          ends.forEach((t, i) => {
+            if (NO_BODY.has(t.type)) {
+              const anchorId = i === 0 ? links[0].anchorB : links[1].anchorB
+              const w = anchorWorldOf(t, anchorId)
+              params[`end${i}x`] = +w.x.toFixed(4)
+              params[`end${i}y`] = +w.y.toFixed(4)
+            }
+          })
+          base.connectTo = NO_BODY.has(aEl.type) ? undefined : links[0].toId
+          base.connectTo2 = NO_BODY.has(bEl.type) ? undefined : links[1].toId
+        } else {
+          base.connectTo = links[0].toId
+          base.connectTo2 = links[1].toId
+        }
+        base.params = params
         list.push(base)
         break
       }
@@ -408,10 +433,13 @@ export function useRunBridge() {
     if (pkg.skipped.length) return `暂不支持运行的元件：${[...new Set(pkg.skipped)].join('、')}`
     if (!pkg.list.length) return '没有可映射到求解器的元件'
     const hasBeltOrLoop = els.some((e) => e.type === 'belt' || e.type === 'loop_track')
+    // 动滑轮（2026-10-07）：绳约束软度随 h²——substeps 8（实测伸长 0.118→0.044→~0.015）；
+    // 此类场景小（双 subject），求解成本可承受
+    const hasMovablePulley = els.some((e) => e.type === 'pulley' && (e.params.kind ?? 0) === 1)
     await socket.run(pkg.list, {
       gravity: { x: 0, y: gravityY },
       maxDuration,
-      substeps: substepsOverride ?? (hasBeltOrLoop ? 4 : 2), // 模板可覆盖（磁场色散敏感场景 8）；SceneValidator：带/圆轨道建议 ≥4
+      substeps: substepsOverride ?? (hasBeltOrLoop ? 4 : hasMovablePulley ? 8 : 2), // 模板可覆盖（磁场色散敏感场景 8）；SceneValidator：带/圆轨道建议 ≥4
     })
     return socket.error.value ? String(socket.error.value) : null
   }

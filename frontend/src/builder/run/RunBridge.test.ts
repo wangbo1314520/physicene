@@ -156,7 +156,22 @@ describe('toPhysicsElements 类型映射', () => {
       { toId: 'b', kind: 'pulley-rope', anchorA: '悬挂点', anchorB: '顶' },
     ]
     const { list } = toPhysicsElements([pulley, mk('sphere', 'a'), mk('sphere', 'b')])
-    expect(list.find((e) => e.id === 'p1')!.params).toEqual({ ratio: 2 })
+    // 动滑轮新契约（2026-10-07）：+M 载重（两端均为运动体时无静态端坐标）
+    expect(list.find((e) => e.id === 'p1')!.params).toEqual({ ratio: 2, M: 1 })
+  })
+
+  it('动滑轮：绳端可为固定锚——锚世界坐标入 params（end0x/end0y）', () => {
+    const anchor = mk('anchor_point', 'ap', { position: { x: 3, y: 5 } })
+    const pulley = mk('pulley', 'p2', { params: { kind: 1, M: 3 } })
+    pulley.links = [
+      { toId: 'ap', kind: 'pulley-rope', anchorA: '悬挂点', anchorB: '锚点' },
+      { toId: 'b', kind: 'pulley-rope', anchorA: '悬挂点', anchorB: '顶' },
+    ]
+    const { list } = toPhysicsElements([anchor, pulley, mk('sphere', 'b')])
+    const el = list.find((e) => e.id === 'p2')!
+    expect(el.params).toMatchObject({ ratio: 2, M: 3, end0x: 3, end0y: 5 })
+    expect(el.connectTo).toBeUndefined()
+    expect(el.connectTo2).toBe('b')
   })
 
   it('point_charge：比荷 qm → charge = qm·mass', () => {

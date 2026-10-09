@@ -187,6 +187,16 @@ public class SimulationInstance {
             }
             if (behavior instanceof JointBehavior jb && !(behavior instanceof LoopTrackElement)) {
                 jointBehaviors.add(jb);
+                // 动滑轮（2026-10-07 决策批准）：JointBehavior 亦可有本体——PulleyElement ratio=2
+                // 返回动态圆盘（质量 M）；rope/spring/rod 的 createBody 返回 null 不受影响
+                Body jbBody = behavior.createBody(world);
+                if (jbBody != null) {
+                    bodies.put(element.getId(), jbBody);
+                    if (!element.isFixed()) {
+                        dynamicBodies.add(jbBody);
+                        dynamicElements.add(element);
+                    }
+                }
                 continue;
             }
             if (behavior instanceof BeltElement be) {

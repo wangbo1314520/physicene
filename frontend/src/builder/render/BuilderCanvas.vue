@@ -364,13 +364,13 @@ function pulleyTangent(cx: number, cy: number, R: number, px: number, py: number
   return near(t1) <= near(t2) ? t1 : t2
 }
 
-/** A2：跨轮绳几何——端点→切点直线 + 切点沿轮缘弧到轮底（两链接各半弧合成完整绕缘） */
+/** A2：跨轮绳几何——端点→切点直线 + 切点沿轮缘弧（定滑轮弧向轮底；动滑轮绳端在上方→弧越轮顶） */
 function updatePulleyRope(line: THREE.Line, pulley: GeoElement, pb: { x: number; y: number }) {
   const pose = poseOf(pulley)
   const R = 0.4   // 渲染轮半径（Renderer pulley case 同源）
   const T = pulleyTangent(pose.x, pose.y, R, pb.x, pb.y)
   const aT = Math.atan2(T.y - pose.y, T.x - pose.x)
-  const aB = -Math.PI / 2   // 轮底
+  const aB = pb.y > pose.y ? Math.PI / 2 : -Math.PI / 2   // 端在上方=动滑轮悬于绳→弧过轮顶；下方=定滑轮→轮底
   let sweep = aB - aT
   while (sweep <= -Math.PI) sweep += 2 * Math.PI
   while (sweep > Math.PI) sweep -= 2 * Math.PI   // 短弧方向

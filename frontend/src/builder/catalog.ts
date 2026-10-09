@@ -111,7 +111,7 @@ export const CATALOG: ElementSpec[] = [
   el('rope', '轻绳', '╱', 'mech', ['2.5D'], '#d9a05a', '不可伸长', [P('L', '长度 L', 0.5, 5, 0.1, 2, 'm'), P('Tmax', '最大承受力 T_max', 10, 200, 10, 40, 'N')], 'constraint', ['绳'], [
     ATTACH(0, 0, '左端'), ATTACH(2, 0, '右端'),
   ]),
-  el('pulley', '滑轮', '◎', 'mech', ['2.5D'], '#5c5c7a', '定滑轮/动滑轮', [SEL('kind', '类型', 0, [{ value: 0, label: '定滑轮' }, { value: 1, label: '动滑轮' }])], 'constraint', ['滑轮'], [
+  el('pulley', '滑轮', '◎', 'mech', ['2.5D'], '#5c5c7a', '定滑轮/动滑轮（动滑轮：绳两端连固定锚或物体，本 体升降=绳端半程，2T=Mg）', [SEL('kind', '类型', 0, [{ value: 0, label: '定滑轮' }, { value: 1, label: '动滑轮' }]), P('M', '载重 M（动滑轮，含滑轮）', 0.1, 20, 0.1, 1, 'kg')], 'constraint', ['滑轮'], [
     ATTACH(0, 0, '悬挂点'),
   ]),
   el('projectile_platform', '平抛平台', '⤵', 'mech', ['2.5D'], '#F5C542', '高度 h 的水平抛出', [P('h', '高度 h', 0.5, 8, 0.5, 3, 'm'), V0], 'constraint', ['平抛'], [

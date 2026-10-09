@@ -121,7 +121,14 @@ public class SceneValidator {
                 case "rope", "rod" -> requireTarget(errors, base, e, ids, jointTypes, pr, "jointLength", scene.getElements());
                 case "spring" -> requireTarget(errors, base, e, ids, jointTypes, pr, "stiffness", scene.getElements());
                 case "pulley" -> {
-                    if (e.getConnectTo() == null || e.getConnectTo2() == null) {
+                    // 动滑轮（2026-10-07 决策批准）：绳端允许静态锚——end0x/end1x 世界坐标（RunBridge 生成），
+                    // connectTo 可空；两端都无（无本体且无坐标）才是错误
+                    boolean movableEnd0 = pr.containsKey("end0x") || (e.getConnectTo() != null && ids.contains(e.getConnectTo()));
+                    boolean movableEnd1 = pr.containsKey("end1x") || (e.getConnectTo2() != null && ids.contains(e.getConnectTo2()));
+                    boolean isMovable = pr.containsKey("M") || "2.0".equals(String.valueOf(pr.getOrDefault("ratio", 1.0)));
+                    if (isMovable && movableEnd0 && movableEnd1) {
+                        // 动滑轮路径：跳过定滑轮两端本体校验（L3 绳段校验不适用——端是静态锚或混合）
+                    } else if (e.getConnectTo() == null || e.getConnectTo2() == null) {
                         errors.add(error(base + ".connectTo/connectTo2", "非空", "null", "滑轮需要两个连接本体", "error"));
                     } else if (!ids.contains(e.getConnectTo()) || !ids.contains(e.getConnectTo2())) {
                         errors.add(error(base + ".connectTo", "存在的元件 id", e.getConnectTo() + "/" + e.getConnectTo2(), "连接目标不存在", "error"));
