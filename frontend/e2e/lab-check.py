@@ -63,7 +63,7 @@ def main() -> int:
         log("Tab 2 BuilderView 挂载", page.locator(".free-build-tab .builder").count() == 1)
         log("Tab 2 palette 可见", page.locator(".free-build-tab .palette .item").count() > 0)
         n_tpl = page.evaluate("window.__builder.templates().length")
-        log(f"Tab 2 模板数（64 = 62+方案B迁移2）", n_tpl == 64, f"n={n_tpl}")
+        log(f"Tab 2 模板数（69 = 64+批A天体5）", n_tpl == 69, f"n={n_tpl}")
         page.screenshot(path=str(OUT / "lab-tab2.png"))
 
         if not args.no_run:
