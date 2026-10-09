@@ -82,6 +82,24 @@ def main() -> int:
                     found += 1
         check("S3b 连线像素可见（绳橙色全画布 >20 点）", found > 20, f"橙点={found}")
 
+        # ═══ 追问2 补丁：三态（域/选中/视角）往返保持 ═══
+        page.locator(".tabbar .tab", has_text="搭建").click()
+        page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=8000)
+        page.wait_for_timeout(300)
+        page.evaluate("() => { const B = window.__builder; B.clear(); B.add('ground', {}, 0, -1); const b = B.add('block', {}, -2, 0); B.select(b); }")
+        page.evaluate("() => { [...document.querySelectorAll('.palette .tabs button')].find(x => x.textContent.includes('电磁')).click() }")
+        page.evaluate("() => { [...document.querySelectorAll('.viewswitch button')].find(x => x.textContent.includes('等距')).click() }")
+        page.wait_for_timeout(250)
+        st0 = page.evaluate("window.__builder.uiState()")
+        page.locator(".tabbar .tab", has_text="结果").click(); page.wait_for_timeout(400)
+        page.locator(".tabbar .tab", has_text="搭建").click()
+        page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=8000)
+        page.wait_for_timeout(400)
+        st1 = page.evaluate("window.__builder.uiState()")
+        check("S7 三态往返保持（域=电磁/选中=block/视角=2.5D）",
+              st1["domain"] == "em" and st1["selectedId"] == st0["selectedId"] and st1["viewMode"] == "2.5D",
+              f"往返前={st0} 往返后={st1}")
+
         # 往返 undo：切回搭建 → Ctrl+Z 撤销 ground（首件）
         page.locator(".tabbar .tab", has_text="搭建").click()
         page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=8000)
@@ -89,11 +107,11 @@ def main() -> int:
         page.keyboard.press("Control+z")
         page.wait_for_timeout(200)
         n_after = page.evaluate("window.__builder.elements().length")
-        check("S4 往返后 undo 仍有效（Ctrl+Z 少一件）", n_before == 8 and n_after == 7, f"{n_before}→{n_after}")
+        check("S4 往返后 undo 仍有效（Ctrl+Z 少一件）", n_before >= 2 and n_after == n_before - 1, f"{n_before}→{n_after}")
         page.keyboard.press("Control+y")
         page.wait_for_timeout(150)
         n_redo = page.evaluate("window.__builder.elements().length")
-        check("S5 redo 恢复", n_redo == 8, f"{n_after}→{n_redo}")
+        check("S5 redo 恢复", n_redo == n_before, f"{n_after}→{n_redo}")
         check("S6 全程无页面错误", not errs, str(errs[:1]))
         b.close()
 

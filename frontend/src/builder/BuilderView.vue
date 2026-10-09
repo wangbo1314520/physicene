@@ -26,7 +26,7 @@ const templateGroups = computed(() =>
 import type { RunRecord } from '../sandbox/SandboxData.vue'
 
 const sceneName = ref('未命名场景')
-const domain = ref<Domain>('mech')
+const domain = toRef(workspace, 'domain')   // 追问2 补丁：切 Tab 保留
 const search = ref('')
 // D1 Step1·1.1（2026-10-07）：场景本体迁共享 store（模块级 reactive 单例）——
 // v-if 卸载不丢 elements/undo；结果 Tab 直读同源（LabView syncSharedWorkspace）
@@ -34,7 +34,7 @@ const elements = workspace.elements          // reactive 数组直接引用（�
 const undo = workspace.undo
 const redo = workspace.redo
 const seq = toRef(workspace, 'seq')
-const selectedId = ref<string | null>(null)
+const selectedId = toRef(workspace, 'selectedId')   // 追问2 补丁：切 Tab 保留
 const linkMode = ref(false)
 const linkKind = ref<'rope' | 'rod' | 'spring' | 'wire' | 'pulley-rope'>('rope')
 const linkFrom = ref<{ id: string; anchorId: string } | null>(null)
@@ -89,7 +89,7 @@ const bridge = useRunBridge()
 const sim = bridge.socket.state
 const currentTemplateId = ref<string | null>(null)
 /** 手测 Bug3/Bug4：观看视角（2D 构建 | 2.5D 等距 | 3D 环绕=右键拖转）——物理恒为 2D（x-y 平面） */
-const viewMode = ref<'2D' | '2.5D' | '3D'>('2D')
+const viewMode = toRef(workspace, 'viewMode')   // 追问2 补丁：切 Tab 保留
 // 决策 2（2026-10-03）：首次切维度弹轻提示——维度仅切换观看方式，场景不变
 const VIEW_HINT_KEY = 'ps_view_hint_shown'
 watch(viewMode, (m) => {
@@ -385,6 +385,7 @@ onMounted(() => {
     setParams: (id: string, p: Record<string, number>) => { const e = elements.find((x2) => x2.id === id); if (e) Object.assign(e.params, p) },
     setAngle: (id: string, a: number) => { const e = elements.find((x2) => x2.id === id); if (e) e.angle = a },
     select: (id: string | null) => { selectedId.value = id },
+    uiState: () => ({ domain: workspace.domain, selectedId: workspace.selectedId, viewMode: workspace.viewMode }),   // E2E：追问2 补丁三态断言
     link: (a: string, anchorA: string, b: string, anchorB: string, kind?: string) => {
       const ea = elements.find((e) => e.id === a)
       if (ea) ea.links.push({ toId: b, kind: (kind ?? 'rope') as typeof linkKind.value, anchorA, anchorB })

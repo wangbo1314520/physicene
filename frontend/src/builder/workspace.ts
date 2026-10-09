@@ -1,5 +1,5 @@
 import { reactive } from 'vue'
-import type { GeoElement } from './catalog'
+import type { GeoElement, Domain } from './catalog'
 
 /**
  * D1 Step1·1.1（2026-10-07）：共享场景 store——模块级 reactive 单例（useSimulationSocket 同先例）。
@@ -12,9 +12,17 @@ export interface WorkspaceState {
   undo: string[]
   redo: string[]
   seq: number   // 元件 id 序号（跨 Tab 卸载连续）
+  /** 追问2 补丁（2026-10-07）：视图/会话层三件入 store——切 Tab（v-if 卸载）不再丢。
+   *  相机 pan/zoom 仍在 BuilderCanvas 内部（切 Tab 重置，Step 2 单页化后整类消失） */
+  viewMode: '2D' | '2.5D' | '3D'
+  selectedId: string | null
+  domain: Domain
 }
 
-export const workspace = reactive<WorkspaceState>({ elements: [], undo: [], redo: [], seq: 1 })
+export const workspace = reactive<WorkspaceState>({
+  elements: [], undo: [], redo: [], seq: 1,
+  viewMode: '2D', selectedId: null, domain: 'mech',
+})
 
 export function wsSnapshot() {
   workspace.undo.push(JSON.stringify(workspace.elements))
