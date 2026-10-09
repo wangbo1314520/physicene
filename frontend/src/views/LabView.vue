@@ -8,6 +8,7 @@ import { http } from '../api/http'
 import {
   useSimulationSocket, type PhysicsElementInput,
 } from '../composables/useSimulationSocket'
+import { workspace } from '../builder/workspace'
 import { toPhysicsElements } from '../builder/run/RunBridge'
 import type { GeoElement } from '../builder/catalog'
 
@@ -82,7 +83,7 @@ async function sendChat() {
 const scene = reactive({
   sceneId: null as number | null,
   name: '',
-  elements: [] as PhysicsElementInput[],
+  elements: [] as (GeoElement | PhysicsElementInput)[],   // D1·1.3 双格式（直读搭建 Tab 原件）,
   config: {
     gravity: { x: 0, y: -9.8 },
     maxDuration: 10,
@@ -99,7 +100,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const ocr = reactive({
   previewing: false,
   previewToken: '',
-  elements: [] as PhysicsElementInput[],
+  elements: [] as (GeoElement | PhysicsElementInput)[],   // D1·1.3 双格式（直读搭建 Tab 原件）,
   confidence: 0,
   rawText: '',
 })
@@ -233,20 +234,18 @@ function syncRenderer() {
 // BuilderView persistWorkspace() 在切 Tab 时把 elements 存 ps_builder_workspace。
 // Tab 1 激活时读取 → toPhysicsElements 转换 → threeScene syncElements 渲染。
 // 运行时帧位姿由 sharedState.subjects 驱动（updateStates 在 threeScene 渲染循环内）。
+// D1 Step1·1.3（2026-10-07）：直读共享 workspace store（GeoElement 原件）——
+// 替代"卸载时 localStorage 快照 + toPhysicsElements 物理包过滤"旧 handoff。
+// 旧路径丢五类件（固定端/未连接件/未绑传感器/显示件/全部连线）+ 身份畸变（电容器→地面等），
+// 为"搭建的东西结果看不到"之根因。
 function syncFromBuilderTab() {
-  try {
-    const raw = localStorage.getItem('ps_builder_workspace')
-    if (!raw) return
-    const j = JSON.parse(raw) as { elements: GeoElement[] }
-    if (!j.elements?.length) return
-    const pkg = toPhysicsElements(j.elements)
-    scene.elements = pkg.list
-    syncRenderer()
-    // 运行中/结束后：把 WS 帧位姿应用到画布（threeScene updateStates）
-    if (state.subjects.length > 0) {
-      renderer?.updateStates(state.subjects)
-    }
-  } catch { /* 损坏数据静默丢弃 */ }
+  if (!workspace.elements.length) return
+  scene.elements = workspace.elements
+  syncRenderer()
+  // 运行中/结束后：把 WS 帧位姿应用到画布（threeScene updateStates）
+  if (state.subjects.length > 0) {
+    renderer?.updateStates(state.subjects)
+  }
 }
 
 watch(() => scene.elements, syncRenderer, { deep: true })

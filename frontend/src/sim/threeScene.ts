@@ -1,5 +1,8 @@
 import * as THREE from 'three'
 import type { PhysicsElementInput, SubjectState } from '../composables/useSimulationSocket'
+import type { GeoElement } from '../builder/catalog'
+import { buildConnectionLine, updateLine, updateHelix } from '../builder/render/Renderer'
+import { resolveAnchors } from '../builder/model/anchors'
 import { buildBFieldLines3D, buildEFieldArrows3D, buildChargeFieldLines } from './fieldLines3d'
 import { buildUnifiedMesh } from '../builder/render/Renderer'
 
@@ -16,9 +19,10 @@ import { buildUnifiedMesh } from '../builder/render/Renderer'
 export type SimDimension = '2D' | '2.5D' | '3D'
 
 export interface SimRenderer {
-  syncElements(elements: PhysicsElementInput[]): void
+  syncElements(elements: (GeoElement | PhysicsElementInput)[]): void   // D1·1.3 双格式直入
+  syncLinks(): void   // D1·1.4：连线渲染（rope/spring/pulley-rope/wire/rod）
   updateStates(subjects: SubjectState[]): void
-  updateElement(id: string, patch: Partial<PhysicsElementInput>): void
+  updateElement(id: string, patch: Partial<PhysicsElementInput> & Record<string, unknown>): void
   screenToWorld(clientX: number, clientY: number): { x: number; y: number } | null
   pickElement(clientX: number, clientY: number): string | null
   setSelected(id: string | null): void
@@ -84,7 +88,7 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
   const viewTarget = new THREE.Vector3(0, 2, 0)
 
   // 最近一次同步的元件（模式切换需按新维度重建网格）
-  let currentElements: PhysicsElementInput[] = []
+  let currentElements: (GeoElement | PhysicsElementInput)[] = []
 
   /** 自动取景：按场景包围盒调整相机（塔高 25m 的自由落体也能全看到） */
   function frameAll() {
@@ -155,19 +159,21 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     }
   }
 
-  function buildMesh(el: PhysicsElementInput): THREE.Mesh {
+  function buildMesh(el: GeoElement | PhysicsElementInput): THREE.Mesh {   // D1·1.3：双格式（buildUnifiedMesh 内部适配）
     // ── 方案 B（2026-10-03）：废弃原 11 个"实验性"case，改调 buildUnifiedMesh（42 个 case）──
     // 保留：场符号叠加（buildFieldSymbols/3D）、场色/透明度、z 错层、halfW/H 自动取景
     const result = buildUnifiedMesh(el)
     const unified = result.mesh as THREE.Object3D
     // 场色覆盖（e_field/b_field 在 Renderer 中已映射到 e_region/b_region）
     const isField = el.type === 'e_field' || el.type === 'b_field'
-    const sx = el.scale?.x ?? 1
-    const sy = el.scale?.y ?? 1
+    // D1·1.3：GeoElement 无 scale/properties——场尺寸经 params（L/W）表达，PhysicsElementInput 经 scale
+    const pe = el as PhysicsElementInput
+    const sx = pe.scale?.x ?? 1
+    const sy = pe.scale?.y ?? 1
     if (isField) {
       let color = '#4A90D9', opacity = 0.13
       if (el.type === 'e_field') color = '#3ecf8e'
-      else if (el.type === 'b_field') color = (el.properties?.bDirection === 'in') ? '#6cd9e8' : '#b06ce6'
+      else if (el.type === 'b_field') color = (pe.properties?.bDirection === 'in') ? '#6cd9e8' : '#b06ce6'
       unified.traverse((child) => {
         const m = child as THREE.Mesh
         if (m.material) {
@@ -394,7 +400,73 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     frameAll()
   })
 
-  function syncElements(elements: PhysicsElementInput[]) {
+  // ── D1·1.4（2026-10-07）：连线渲染——复用 Renderer 导出的 buildConnectionLine/updateLine/
+  //    updateHelix（零第二份几何）。端点 = mesh.position（编辑位姿或运行态帧位姿）+ 旋转锚偏移。
+  //    v1 范围：绳（绷紧实线/松弛虚线）·弹簧（螺旋+拉压着色）·跨轮绳/导线/杆=直线；
+  //    断绳垂挂贝塞尔与绕缘弧暂不移植（结果 Tab v1 口径，登记遗留）。
+  const linkGroup = new THREE.Group()
+  scene.add(linkGroup)   // D1·1.4：连线层
+  const linkMap = new Map<string, THREE.Line>()
+  function anchorWorldOfMesh(el: GeoElement, anchorId: string): { x: number; y: number } {
+    const mesh = meshes.get(el.id)
+    const pose = mesh ? { x: mesh.position.x, y: mesh.position.y } : { x: el.position.x, y: el.position.y }
+    const ang = mesh ? mesh.rotation.z : el.angle
+    const a = resolveAnchors(el).find((t) => t.id === anchorId) ?? { local: { x: 0, y: 0 } }
+    const c = Math.cos(ang), s2 = Math.sin(ang)
+    return { x: pose.x + c * a.local.x - s2 * a.local.y, y: pose.y + s2 * a.local.x + c * a.local.y }
+  }
+  function syncLinksImpl() {
+    const seen = new Set<string>()
+    for (const e of currentElements) {
+      if (!('links' in e) || !(e as GeoElement).links) continue
+      const geo = e as GeoElement
+      for (const l of geo.links) {
+        const key = `${e.id}:${l.anchorA}->${l.toId}:${l.anchorB}`
+        seen.add(key)
+        let line = linkMap.get(key)
+        if (!line) {
+          line = buildConnectionLine(l.kind)
+          linkGroup.add(line)
+          linkMap.set(key, line)
+        }
+        const target = currentElements.find((t) => t.id === l.toId) as GeoElement | undefined
+        if (!target) continue
+        const pa = anchorWorldOfMesh(geo, l.anchorA), pb = anchorWorldOfMesh(target, l.anchorB)
+        if (l.kind === 'spring') {
+          updateHelix(line, pa.x, pa.y, pb.x, pb.y)
+        } else if (l.kind === 'rope') {
+          updateLine(line, pa.x, pa.y, pb.x, pb.y)
+          const dist = Math.hypot(pb.x - pa.x, pb.y - pa.y)
+          const L = geo.params.L ?? 2
+          const slack = dist < L - 0.02
+          const mat = line.material as THREE.Material
+          if (slack !== ((line.material as THREE.LineDashedMaterial).isLineDashedMaterial ?? false)) {
+            const nm = slack
+              ? new THREE.LineDashedMaterial({ color: 0xd9a05a, dashSize: 0.12, gapSize: 0.08, transparent: true, opacity: 0.85 })
+              : new THREE.LineBasicMaterial({ color: 0xd9a05a })
+            mat.dispose()
+            line.material = nm
+            if (slack) line.computeLineDistances()
+          } else if (slack) {
+            line.computeLineDistances()
+          }
+        } else {
+          updateLine(line, pa.x, pa.y, pb.x, pb.y)
+        }
+      }
+    }
+    for (const [key, line] of linkMap) {
+      if (!seen.has(key)) {
+        linkGroup.remove(line)
+        line.geometry.dispose()
+        ;(line.material as THREE.Material).dispose()
+        linkMap.delete(key)
+      }
+    }
+  }
+  function syncLinks() { syncLinksImpl() }
+
+  function syncElements(elements: (GeoElement | PhysicsElementInput)[]) {
     // 释放旧网格的 GPU 资源（参数编辑触发频繁重建，不释放会持续泄漏显存；含场符号子对象）
     for (const mesh of meshes.values()) {
       scene.remove(mesh)
@@ -408,7 +480,7 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     meshes.clear()
     currentElements = elements
     for (const el of elements) {
-      if (el.visible === false) continue
+      if ((el as PhysicsElementInput).visible === false) continue
       const mesh = buildMesh(el)
       meshes.set(el.id, mesh)
       scene.add(mesh)
@@ -416,13 +488,13 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     // 3D 模式：固定点电荷画辐射状电场线（叠加场流线；运动电荷作检验粒子不画）
     if (viewMode === 'orbit3d') {
       const sources = elements.filter((el) => el.type === 'point_charge'
-        && el.fixed && Math.abs(el.properties?.charge ?? 0) > 1e-6)
+        && (el as PhysicsElementInput).fixed && Math.abs((el as PhysicsElementInput).properties?.charge ?? 0) > 1e-6)
       if (sources.length) {
         let bound = 12
         for (const mesh of meshes.values()) {
           bound = Math.max(bound, Math.abs(mesh.position.x) + 4, Math.abs(mesh.position.y) + 4)
         }
-        const src = sources.map((s) => ({ x: s.position.x, y: s.position.y, q: s.properties!.charge! }))
+        const src = sources.map((e2) => ({ x: e2.position.x, y: e2.position.y, q: (e2 as PhysicsElementInput).properties!.charge! }))
         for (const el of sources) {
           meshes.get(el.id)?.add(buildChargeFieldLines(src, bound))
         }
@@ -430,6 +502,7 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
     }
     frameAll()
     applySelection()
+    syncLinksImpl()   // D1·1.4：元素同步后连线上屏
   }
 
   /** 切换渲染模式：2D 关雾+正交；3D 开坐标轴；场区厚度/场线形态随模式重建网格 */
@@ -445,6 +518,7 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
 
   return {
     syncElements,
+    syncLinks,
     updateStates(subjects) {
       for (const s of subjects) {
         const mesh = meshes.get(s.id)
@@ -453,6 +527,7 @@ export function createSimRenderer(canvas: HTMLCanvasElement): SimRenderer {
           if (s.angle !== undefined) mesh.rotation.z = s.angle
         }
       }
+      syncLinksImpl()   // D1·1.4：帧位姿后连线端点跟随
     },
     updateElement(id, patch) {
       const mesh = meshes.get(id)

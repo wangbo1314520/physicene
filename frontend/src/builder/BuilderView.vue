@@ -4,9 +4,10 @@
  * 顶栏 | 元件面板 · three.js 画布（锚点吸附） · 属性面板 | 运行条 | 数据面板 + AI 助手
  * 运行桥（阶段三⑤ RunBridge）与分析卡（⑥ EngineAnalyzer）本版为占位。
  */
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch , toRef} from 'vue'
 import { CATALOG, DOMAINS, byType, defaultsOf, type Dim, type Domain, type GeoElement } from './catalog'
 import { linkConflict } from './model/link-conflict'
+import { workspace, wsSnapshot, wsRestore, wsUndo, wsRedo } from './workspace'
 import { findSnap, applySnap } from './model/snap'
 import { resolveAnchorById } from './model/anchors'
 import BuilderCanvas from './render/BuilderCanvas.vue'
@@ -27,26 +28,27 @@ import type { RunRecord } from '../sandbox/SandboxData.vue'
 const sceneName = ref('未命名场景')
 const domain = ref<Domain>('mech')
 const search = ref('')
-const elements = reactive<GeoElement[]>([])
+// D1 Step1·1.1（2026-10-07）：场景本体迁共享 store（模块级 reactive 单例）——
+// v-if 卸载不丢 elements/undo；结果 Tab 直读同源（LabView syncSharedWorkspace）
+const elements = workspace.elements          // reactive 数组直接引用（模板/侦听器响应不变）
+const undo = workspace.undo
+const redo = workspace.redo
+const seq = toRef(workspace, 'seq')
 const selectedId = ref<string | null>(null)
 const linkMode = ref(false)
 const linkKind = ref<'rope' | 'rod' | 'spring' | 'wire' | 'pulley-rope'>('rope')
 const linkFrom = ref<{ id: string; anchorId: string } | null>(null)
 const records = ref<RunRecord[]>([])
 const toast = ref('')
-let seq = 1
 
-const undo: string[] = []
-const redo: string[] = []
-function snapshot() { undo.push(JSON.stringify(elements)); if (undo.length > 60) undo.shift(); redo.length = 0 }
+function snapshot() { wsSnapshot() }
 function restore(json: string) {
-  const arr = JSON.parse(json) as GeoElement[]
-  elements.splice(0, elements.length, ...arr)
+  wsRestore(json)
   selectedId.value = null
   linkFrom.value = null
 }
-function doUndo() { const s = undo.pop(); if (s === undefined) return; redo.push(JSON.stringify(elements)); restore(s) }
-function doRedo() { const s = redo.pop(); if (s === undefined) return; undo.push(JSON.stringify(elements)); restore(s) }
+function doUndo() { if (wsUndo()) { selectedId.value = null; linkFrom.value = null } }
+function doRedo() { if (wsRedo()) { selectedId.value = null; linkFrom.value = null } }
 function say(t: string) { toast.value = t; window.setTimeout(() => { if (toast.value === t) toast.value = '' }, 2200) }
 
 // ── 批 1 快捷键（2026-10-03 交互批 1）：Ctrl+Z/Y/Delete/C/V/D + Esc ──
@@ -118,6 +120,8 @@ function restoreWorkspace() {
       undo: string[]; redo: string[]
     }
     if (!j.elements?.length) return
+    // D1·1.1：store 非空 = 同页 Tab 往返（模块单例存活），勿重复导入；空 = 整页刷新才回读
+    if (workspace.elements.length) return
     elements.splice(0, elements.length, ...j.elements)
     sceneName.value = j.sceneName ?? '未命名场景'
     currentTemplateId.value = j.templateId
@@ -187,7 +191,7 @@ function addElement(type: string, x?: number, y?: number): GeoElement {
   if (!spec) throw new Error(`unknown element ${type}`)
   snapshot()
   const e: GeoElement = {
-    id: `${type}-${seq++}`, type,
+    id: `${type}-${workspace.seq++}`, type,
     position: { x: +(x ?? -6 + (elements.length % 5) * 2.5).toFixed(2), y: +(y ?? 2 - Math.floor(elements.length / 5) * 2.5).toFixed(2) },
     angle: 0,
     params: { ...defaultsOf(spec) },
@@ -235,7 +239,7 @@ function loadTemplate(id: string) {
   snapshot()
   currentTemplateId.value = id
   elements.splice(0, elements.length, ...els)
-  seq = elements.length + 1000
+  seq.value = elements.length + 1000
   selectedId.value = null
   linkFrom.value = null
   showTemplates.value = false
@@ -330,7 +334,7 @@ function saveScene() {
   persist()
   say('已保存到本机')
 }
-function loadScene(s: Saved) { snapshot(); sceneName.value = s.name; restore(JSON.stringify(s.elements)); seq = elements.length + 1; say(`已载入「${s.name}」`); anchorFixNotice() }
+function loadScene(s: Saved) { snapshot(); sceneName.value = s.name; restore(JSON.stringify(s.elements)); seq.value = elements.length + 1; say(`已载入「${s.name}」`); anchorFixNotice() }
 function deleteScene(s: Saved) { saved.value = saved.value.filter((x) => x.id !== s.id); persist() }
 /** 锚点解析修正提示：仅「加载已保存/导入」时触发（新拖放实时解析无快照差异）。
  *  判据 = 8 个锚点参数化元件之一且对应几何参数偏离默认（|p−def|>1e-9，10 个参数对）。 */
@@ -356,7 +360,7 @@ function importJson(ev: Event) {
       snapshot()
       sceneName.value = j.name ?? sceneName.value
       restore(JSON.stringify(j.elements ?? []))
-      seq = elements.length + 1
+      seq.value = elements.length + 1
       say('已导入')
       anchorFixNotice()
     } catch { say('JSON 无法解析') }
