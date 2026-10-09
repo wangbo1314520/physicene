@@ -9,7 +9,7 @@
 import { solveAC, cabs } from './ac-circuit'
 import type { AcCircuit, AcComp } from './ac-circuit'
 
-export const CIRCUIT_BASIC_TYPES = new Set(['battery', 'resistor', 'rheostat', 'switch_spst', 'switch_spdt'])
+export const CIRCUIT_BASIC_TYPES = new Set(['battery', 'resistor', 'rheostat', 'switch_spst', 'switch_spdt', 'ammeter', 'voltmeter', 'multimeter'])
 
 export interface CircuitBody {
   id: string
@@ -32,7 +32,7 @@ function pinOf(e: CircuitBody, anchor: string): [string, number] | null {
       if (anchor === '正极') return [e.id + '#src', 0]
       if (anchor === '负极') return [e.id + '#r', 1]
       return null
-    case 'resistor': case 'rheostat': case 'switch_spst':
+    case 'resistor': case 'rheostat': case 'switch_spst': case 'ammeter': case 'voltmeter': case 'multimeter':
       if (anchor === '左端') return [e.id, 0]
       if (anchor === '右端') return [e.id, 1]
       return null
@@ -68,6 +68,26 @@ export function buildCircuit(els: CircuitBody[]): { circuit: AcCircuit } | { err
         break
       }
       case 'switch_spst': components.push(R2(e.id, (e.params.state ?? 1) === 1 ? R_ON : R_OFF)); break
+      case 'ammeter': {
+        // 内阻同 CircuitEngine AMMETER_R：0.6A→0.125Ω、3A→0.025Ω
+        const RA = (e.params.range ?? 0) === 1 ? 0.025 : 0.125
+        components.push(R2(e.id, RA))
+        break
+      }
+      case 'voltmeter': {
+        // 内阻同 CircuitEngine VOLTMETER_R：3V→3000Ω、15V→15000Ω
+        const RV = (e.params.range ?? 0) === 1 ? 15000 : 3000
+        components.push(R2(e.id, RV))
+        break
+      }
+      case 'multimeter': {
+        // 挡位：0=直流电压(RV=3000)、1=直流电流(RA=0.125)、2=欧姆（R_OFF 近开路，欧姆挡读数后续）
+        const mode = (e.params.mode ?? 0)
+        if (mode === 0) components.push(R2(e.id, (e.params.range ?? 0) === 1 ? 15000 : 3000))
+        else if (mode === 1) components.push(R2(e.id, (e.params.range ?? 0) === 1 ? 0.025 : 0.125))
+        else components.push(R2(e.id, 1e9))
+        break
+      }
       case 'switch_spdt': {
         const sel = (e.params.sel ?? 0) === 1 ? 1 : 0
         components.push(R2(e.id + '#A', sel === 0 ? R_ON : R_OFF), R2(e.id + '#B', sel === 1 ? R_ON : R_OFF))
@@ -121,6 +141,21 @@ export function runCircuitBasics(els: CircuitBody[], maxDuration = 2): CircuitFr
       readings[`U_${e.id}`] = +(cur * rEff).toFixed(4)
     } else if (e.type === 'switch_spst') {
       readings[`I_${e.id}`] = +(i[`${e.id}#I`] ?? 0).toFixed(4)
+    } else if (e.type === 'ammeter' || e.type === 'voltmeter' ||
+               (e.type === 'multimeter' && (e.params.mode ?? 0) !== 2)) {
+      const rEff = i[`${e.id}#I`] !== undefined
+        ? 1 / Math.max(1e-12, 1 / 0.125)  // 读数由 MNA 电流/电压给出
+        : 0
+      const cur = i[`${e.id}#I`] ?? 0
+      readings[`I_${e.id}`] = +cur.toFixed(4)
+      // 电压表读数 = 两端电压（= I × R_V）；电流表读数 = I
+      const rangeKey = e.params.range ?? 0
+      const rMeter = e.type === 'ammeter'
+        ? (rangeKey === 1 ? 0.025 : 0.125)
+        : e.type === 'voltmeter'
+          ? (rangeKey === 1 ? 15000 : 3000)
+          : ((e.params.mode ?? 0) === 1 ? (rangeKey === 1 ? 0.025 : 0.125) : (rangeKey === 1 ? 15000 : 3000))
+      readings[`U_${e.id}`] = +(cur * rMeter).toFixed(4)
     } else if (e.type === 'switch_spdt') {
       const sel = (e.params.sel ?? 0) === 1 ? 'B' : 'A'
       readings[`I_${e.id}`] = +(i[`${e.id}#${sel}#I`] ?? 0).toFixed(4)

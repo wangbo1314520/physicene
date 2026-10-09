@@ -798,6 +798,32 @@ export function buildUnifiedMesh(e: GeoElement | PhysicsElementInput): UnifiedMe
       g.add(textSprite('U_H', '#F5C542', 0.3, 0.42, 0.4))
       return { mesh: g, baseAngle: 0 }
     }
+    // ── P4（2026-10-10）：测量电表三件 ──
+    case 'ammeter': case 'voltmeter': case 'multimeter': {
+      // 电表：圆形表盘 + 指针 + 端子标记（A/V/Ω 符号由 multimeter mode 决定）
+      const g = new THREE.Group()
+      const dial = new THREE.Mesh(new THREE.CircleGeometry(0.5, 32), mat('#1d1d33'))
+      g.add(dial)
+      const bezel = new THREE.Mesh(new THREE.RingGeometry(0.48, 0.52, 32), mat('#4A90D9'))
+      g.add(bezel)
+      // 刻度线
+      for (let k = 0; k < 9; k++) {
+        const a = (Math.PI * 3 / 4) + (Math.PI / 2) * (k / 8)
+        const r0 = 0.36, r1 = 0.44
+        g.add(seg2(r0 * Math.cos(a), r0 * Math.sin(a), r1 * Math.cos(a), r1 * Math.sin(a), 0xe8e8f0))
+      }
+      // 指针
+      const needleAngle = Math.PI * 3 / 4 + Math.PI / 4  // 指向约 45°（运行态由 tsRun 驱动）
+      g.add(seg2(0, 0, 0.35 * Math.cos(needleAngle), 0.35 * Math.sin(needleAngle), 0xE05555))
+      // 符号标签
+      const sym = e.type === 'ammeter' ? 'A' : e.type === 'voltmeter' ? 'V'
+        : (p.mode ?? 0) === 0 ? 'V' : (p.mode ?? 0) === 1 ? 'A' : 'Ω'
+      g.add(textSprite(sym, '#4A90D9', 0, 0.18, 0.6))
+      // 量程标签
+      const rng = (p.range ?? 0) === 1 ? '大量程' : '小量程'
+      g.add(textSprite(rng, '#8a8aa0', 0, -0.3, 0.35))
+      return { mesh: g, baseAngle: 0 }
+    }
     // ── 批A（2026-10-10）：天体运动四件 ──
     case 'central_star': {
       // 中心天体：自发光球（半径按质量视觉缩放：R=0.3+0.1·√M）+ 光晕 sprite + 质量标注

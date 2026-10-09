@@ -99,6 +99,36 @@ describe('B1 批1 · 电路基础引擎（MNA vs 闭式两法）', () => {
     expect(s1.la).toBeLessThan(1e-6)
   })
 
+  it('电流表串联：I 表≈回路电流（RA=0.125Ω 小内阻不影响精度）', () => {
+    const b = bat('b1', 1.5, 0.5), r = res('r1', 10), am = { id: 'am1', type: 'ammeter', x: 0, y: 0, angle: 0, params: { range: 0 }, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    am.links = [
+      { toId: 'b1', kind: 'wire', anchorA: '左端', anchorB: '正极' },
+      { toId: 'r1', kind: 'wire', anchorA: '右端', anchorB: '左端' },
+    ]
+    r.links = [{ toId: 'b1', kind: 'wire', anchorA: '右端', anchorB: '负极' }]
+    const rd = runCircuitBasics([b, r, am as never]).at(-1)!.readings
+    const I = 1.5 / (10 + 0.5 + 0.125)
+    expect(rd['I_am1']).toBeCloseTo(I, 3)
+  })
+
+  it('电压表并联：U 表≈电阻端电压（RV=3000Ω 大内阻）', () => {
+    const b = bat('b1', 3, 0.2), r = res('r1', 10)
+    const vm = { id: 'vm1', type: 'voltmeter', x: 0, y: 0, angle: 0, params: { range: 0 }, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    vm.links = [
+      { toId: 'r1', kind: 'wire', anchorA: '左端', anchorB: '左端' },
+      { toId: 'r1', kind: 'wire', anchorA: '右端', anchorB: '右端' },
+    ]
+    // 主回路：电池负极→电阻左端→电阻右端→电池正极
+    r.links = [
+      { toId: 'b1', kind: 'wire', anchorA: '左端', anchorB: '负极' },
+      { toId: 'b1', kind: 'wire', anchorA: '右端', anchorB: '正极' },
+    ]
+    const rd = runCircuitBasics([b, r, vm as never]).at(-1)!.readings
+    const I = 3 / (10 + 0.2 + 10 / 3000 * 0)  // RV >> R，近似
+    expect(rd['I_vm1']).toBeLessThan(0.002)  // 电压表电流 ≈U/RV≈3/3000=0.001（远小于主路 0.29A）
+    expect(rd['U_vm1']).toBeCloseTo(3 * 10 / (10 + 0.2), 1)  // ≈电阻端电压
+  })
+
   it('无电源：报错不崩', () => {
     expect('error' in buildCircuit([res('r1', 10)])).toBe(true)
   })
