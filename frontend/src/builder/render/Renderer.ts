@@ -798,6 +798,81 @@ export function buildUnifiedMesh(e: GeoElement | PhysicsElementInput): UnifiedMe
       g.add(textSprite('U_H', '#F5C542', 0.3, 0.42, 0.4))
       return { mesh: g, baseAngle: 0 }
     }
+    // ── P6（2026-10-10）：装置 B 类六件简笔符号 ──
+    case 'transformer': {
+      // 变压器：矩形铁芯（口字）+ 左右线圈（简笔螺旋）+ 匝数标签
+      const g = new THREE.Group()
+      const core = new THREE.Mesh(new THREE.RingGeometry(0.3, 0.5, 4, 1, Math.PI / 4), mat('#8a8aa0', { opacity: 0.6 }))
+      g.add(core)
+      for (let k = 0; k < 4; k++) {
+        g.add(seg2(-0.65, -0.4 + k * 0.25, -0.65, -0.2 + k * 0.25, 0xd9a05a))
+        g.add(seg2(0.65, -0.4 + k * 0.25, 0.65, -0.2 + k * 0.25, 0xd9a05a))
+      }
+      g.add(textSprite('n₁:n₂', '#b0b0cc', 0, 0.7, 0.5))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'cyclotron': {
+      // 回旋加速器：两个 D 形盒（半圆）+ 缝隙 + B 场标记
+      const g = new THREE.Group()
+      const d1 = new THREE.Mesh(new THREE.CircleGeometry(0.6, 16, Math.PI / 2, Math.PI), mat('#4A90D9', { opacity: 0.35 }))
+      const d2 = new THREE.Mesh(new THREE.CircleGeometry(0.6, 16, Math.PI * 3 / 2, Math.PI), mat('#4A90D9', { opacity: 0.35 }))
+      g.add(d1, d2)
+      g.add(seg2(0, -0.6, 0, 0.6, 0xE05555))  // 缝隙
+      g.add(textSprite('B', '#4A90D9', 0.75, 0.45, 0.5))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'meter_conversion': {
+      // 电表改装：表盘+指针+分流/分压锯齿
+      const g = new THREE.Group()
+      const dial = new THREE.Mesh(new THREE.CircleGeometry(0.45, 24), mat('#1d1d33'))
+      g.add(dial)
+      g.add(seg2(0, 0, 0.3, 0.25, 0xE05555))  // 指针
+      // 分流电阻（锯齿）
+      for (let k = 0; k < 5; k++) g.add(seg2(0.55 + k * 0.1, 0.15, 0.62 + k * 0.1, -0.15, 0xF5C542))
+      g.add(textSprite('改装', '#F5A623', 0, 0.6, 0.4))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'voltammetry': {
+      // 伏安法：Ⓐ—Ⓥ—电阻锯齿 电路符号
+      const g = new THREE.Group()
+      const a = new THREE.Mesh(new THREE.RingGeometry(0.15, 0.2, 20), mat('#4A90D9'))
+      a.position.set(-0.7, 0.2, 0)
+      const v = new THREE.Mesh(new THREE.RingGeometry(0.15, 0.2, 20), mat('#4A90D9'))
+      v.position.set(0.7, 0.2, 0)
+      g.add(a, v)
+      g.add(textSprite('A', '#4A90D9', -0.7, 0.2, 0.4))
+      g.add(textSprite('V', '#4A90D9', 0.7, 0.2, 0.4))
+      for (let k = 0; k < 5; k++) g.add(seg2(-0.2 + k * 0.1, -0.2, -0.15 + k * 0.1, -0.35, 0xd9a05a))
+      g.add(seg2(-0.7, 0, -0.25, -0.25, 0x8a8aa0))
+      g.add(seg2(0.25, -0.25, 0.7, 0, 0x8a8aa0))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'black_box': {
+      // 电学黑箱：方框+?+端子
+      const g = new THREE.Group()
+      const box = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.7, 0.3), mat('#3a3a5e', { opacity: 0.9 }))
+      g.add(box)
+      g.add(textSprite('?', '#F5C542', 0, 0, 0.8))
+      for (const sx of [-0.5, 0.5]) {
+        const term = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), mat('#b0b0cc'))
+        term.position.set(sx, 0, 0.16)
+        g.add(term)
+      }
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'mhd_generator': {
+      // 磁流体发电：通道+上下电极+流向箭头+⊗
+      const g = new THREE.Group()
+      const top = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.06, 0.25), mat(color))
+      top.position.y = 0.25
+      const bot = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.06, 0.25), mat(color))
+      bot.position.y = -0.25
+      g.add(top, bot)
+      g.add(seg2(-0.5, 0, 0.5, 0, 0x3ecf8e))
+      g.add(seg2(0.5, 0, 0.4, 0.08, 0x3ecf8e)); g.add(seg2(0.5, 0, 0.4, -0.08, 0x3ecf8e))
+      g.add(textSprite('⊗', '#4A90D9', 0, 0.5, 0.5))
+      return { mesh: g, baseAngle: 0 }
+    }
     // ── P4（2026-10-10）：测量电表三件 ──
     case 'ammeter': case 'voltmeter': case 'multimeter': {
       // 电表：圆形表盘 + 指针 + 端子标记（A/V/Ω 符号由 multimeter mode 决定）

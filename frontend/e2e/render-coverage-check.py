@@ -14,8 +14,8 @@ NO_BODY = {"trail", "timeline", "vector_arrow", "graph_tag"}
 # 装置类方块债（手测 2026-10-06 抓获：20 类型全为 default 方块；批A 已清偿 10）——
 # 剩余为 B 类（几何是装饰，简笔符号，批B 清偿，期限 2026-10-20）
 ALLOWLIST = {
-    "transformer", "powerline", "ac_four_values", "transformer_powerline",
-    "cyclotron", "mhd_generator", "meter_conversion", "voltammetry", "black_box",  # B 类电磁（批B）
+    "powerline", "ac_four_values", "transformer_powerline",
+     # B 类电磁（批B）
     "wave_multi", "wave_graphs", "wave_super",                                              # B 类波动（批B）
     "nuclear_react", "micro_integral",                                                      # B 类近代（批B）
     "elevator_scale", "energy_meter",                                                       # B 类（批B）
