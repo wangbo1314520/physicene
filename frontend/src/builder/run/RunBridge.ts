@@ -13,6 +13,7 @@ import { useSimulationSocket, type PhysicsElementInput } from '../../composables
 import { THERMO_DEVICE_TYPES, AC_DEVICE_TYPES } from '../analysis/EngineAnalyzer'
 import { CYCLOTRON_TYPES, DC_DEVICE_TYPES, WAVE_DEVICE_TYPES, MISC_DEVICE_TYPES } from '../analysis/EngineAnalyzer'
 import { CIRCUIT_BASIC_TYPES, runCircuitBasics } from '../../physics/circuit-basics'
+import { CELESTIAL_TYPES, runCelestial } from '../../physics/celestial'
 import { byType, BELT_RADIUS, type GeoElement } from '../catalog'
 import { resolveAnchorById, anchorWorldOf , resolveAnchors} from '../model/anchors'
 import type { Analysis } from '../analysis/EngineAnalyzer'
@@ -33,13 +34,15 @@ const TS_ENGINE_TYPES = new Set(['light_source', 'prism', 'optic_screen', 'photo
   ...DC_DEVICE_TYPES,
   // B1 批1（2026-10-07）：电路基础五件（wire 拓扑→MNA，circuit-basics）
   ...CIRCUIT_BASIC_TYPES,
+  // 批A（2026-10-10）：天体运动（Verlet，celestial.ts）
+  ...CELESTIAL_TYPES,
   // 批4：波3 + 杂项装置
   ...WAVE_DEVICE_TYPES, ...MISC_DEVICE_TYPES])
 /** 不建刚体的显示/检测类（静默跳过）；bracket/pole = 理想固定端（无碰撞体，绳/弹簧连接端折算固定悬点） */
 // NO_BODY 分类制度（十轮追问2——防第 4 次静默丢弃）：不建刚体的元件必须属于下方三类之一，
 // v2 CI 校验 NO_BODY ⊆ 三类并集（新成员未分类即红——被迫做归类决策）
 const FIXED_ANCHOR_TYPES = new Set(['bracket', 'pole', 'anchor_point'])   // 固定端：绳/弹簧悬点（rope 分支消费）
-const DISPLAY_TYPES = new Set(['trail', 'timeline', 'vector_arrow', 'graph_tag'])  // 纯显示：前端渲染即全部功能
+const DISPLAY_TYPES = new Set(['trail', 'timeline', 'vector_arrow', 'graph_tag', 'orbit_ring'])  // 纯显示：前端渲染即全部功能
 const NO_BODY = new Set([...FIXED_ANCHOR_TYPES, ...DISPLAY_TYPES])
 // 检测器（Java SensorElement 消费——发射为无体元件，connectTo=绑定目标，读数走 probes 通道）。
 // P5b-3 接线 3 件；photogate/force_sensor/energy_meter 于 2026-10-01（十轮追问3，原列 P6 提前）补齐
@@ -342,7 +345,9 @@ export function useRunBridge() {
     readings: Record<string, number>
     rays: { x0: number; y0: number; x1: number; y1: number; kind: string }[]
     frames: unknown[]
-  }>({ status: 'idle', t: 0, readings: {}, rays: [], frames: [] })
+    /** 批A：TS 帧位姿（天体等运动型 TS 引擎）——BuilderCanvas 据此驱动网格+尾迹 */
+    poses: { id: string; x: number; y: number; vx: number; vy: number }[]
+  }>({ status: 'idle', t: 0, readings: {}, rays: [], frames: [], poses: [] })
   /** 最近一次 run() 的非阻断提示（连接缺失等）——BuilderView toast 展示，不再静默（2026-09-30 追问3） */
   const lastNotes = ref<string[]>([])
   let tsTimer: ReturnType<typeof setInterval> | null = null
@@ -355,7 +360,7 @@ export function useRunBridge() {
   /** 批 3·6.5 复位：TS 引擎播放态回 idle（与 socket.reset 配对，"运行前"语义） */
   function resetTs() {
     if (tsTimer) { clearInterval(tsTimer); tsTimer = null }
-    tsRun.value = { status: 'idle', t: 0, readings: {}, rays: [], frames: [] }
+    tsRun.value = { status: 'idle', t: 0, readings: {}, rays: [], frames: [], poses: [] }
   }
 
   async function run(els: GeoElement[], analysis: Analysis, maxDuration = 12, gravityY = -9.8, substepsOverride?: number): Promise<string | null> {
@@ -366,6 +371,7 @@ export function useRunBridge() {
     if (els.every((e) => TS_ENGINE_TYPES.has(e.type) || NO_BODY.has(e.type))) {
       const isWave = els.some((e) => WAVE_DEVICE_TYPES.has(e.type))
       const isMisc = els.some((e) => MISC_DEVICE_TYPES.has(e.type))
+      const isCelestial = els.some((e) => CELESTIAL_TYPES.has(e.type))
       const isCircuit = els.some((e) => CIRCUIT_BASIC_TYPES.has(e.type))
       const isDc = !isCircuit && !isWave && !isMisc && els.some((e) => DC_DEVICE_TYPES.has(e.type))
       const isCyc = !isDc && els.some((e) => CYCLOTRON_TYPES.has(e.type))
@@ -383,8 +389,18 @@ export function useRunBridge() {
       const bodies = els.filter((e) => TS_ENGINE_TYPES.has(e.type)).map((e) => ({
         id: e.id, type: e.type, x: e.position.x, y: e.position.y, angle: e.angle, params: e.params,
       }))
+      // 批A：天体需要 x/y 全坐标（含中心天体），frames 含 poses 位姿通道
+      const isCelestialRun = isCelestial && !isCircuit && !isWave && !isMisc && !isDc && !isCyc && !isAc && !isThermo && !isOptics
+      const celestialBodies = els.filter((e) => CELESTIAL_TYPES.has(e.type)).map((e) => ({
+        id: e.id, type: e.type, x: e.position.x, y: e.position.y, angle: e.angle, params: e.params,
+      }))
+      // timeScale 来源：元件 params.timeScale（卡模板写入首元件）——引擎级时间压缩
+      const celestialTimeScale = celestialBodies[0]?.params.timeScale
       // B1：电路基础件需要 links（wire 拓扑），bodies 映射剥离了 links——单独构造
-      const frames = isCircuit
+      const frames = isCelestialRun
+        ? runCelestial(celestialBodies as Parameters<typeof runCelestial>[0],
+            { maxDuration, timeScale: celestialTimeScale })
+        : isCircuit
         ? runCircuitBasics(els.filter((e) => CIRCUIT_BASIC_TYPES.has(e.type)).map((e) => ({
             id: e.id, type: e.type, x: e.position.x, y: e.position.y, angle: e.angle,
             params: e.params, links: e.links.map((l) => ({ toId: l.toId, kind: l.kind, anchorA: l.anchorA, anchorB: l.anchorB })),
@@ -406,17 +422,18 @@ export function useRunBridge() {
           : runModern(bodies as Parameters<typeof runModern>[0], maxDuration)
       if (frames.length) {
         // P1.1·TS 引擎播放：30fps 逐帧推进（与 Java WS 同节奏），BuilderView 消费 tsRun
-        tsRun.value = { status: 'running', t: 0, readings: {}, rays: [], frames }
+        tsRun.value = { status: 'running', t: 0, readings: {}, rays: [], frames, poses: [] }
         const stepMs = 1000 / 30
         let idx = 0
         if (tsTimer) clearInterval(tsTimer)
         tsTimer = setInterval(() => {
-          const f = frames[idx] as { t: number; readings?: Record<string, number>; rays?: typeof tsRun.value.rays; transitions?: unknown[] }
+          const f = frames[idx] as { t: number; readings?: Record<string, number>; rays?: typeof tsRun.value.rays; transitions?: unknown[]; poses?: typeof tsRun.value.poses }
           tsRun.value = {
             ...tsRun.value,
             t: f.t,
             readings: f.readings ?? {},
             rays: (f as { rays?: typeof tsRun.value.rays }).rays ?? [],
+            poses: f.poses ?? tsRun.value.poses,
           }
           idx++
           if (idx >= frames.length) stopTs()

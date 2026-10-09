@@ -9,7 +9,7 @@ import { byType, BELT_RADIUS, BRACKET_POST, BRACKET_ARM, POLE_WIDTH } from '../c
 import type { PhysicsElementInput } from '../../composables/useSimulationSocket'
 
 export interface UnifiedMeshResult {
-  mesh: THREE.Mesh | THREE.Group
+  mesh: THREE.Mesh | THREE.Group | THREE.Line
   /** 元件固有倾角（弧度），目前仅 belt 用 params.th 生成；画布旋转需叠加此角 */
   baseAngle: number
   /** 每帧回调（belt 条纹滚动）；dt 为帧间隔秒 */
@@ -797,6 +797,65 @@ export function buildUnifiedMesh(e: GeoElement | PhysicsElementInput): UnifiedMe
       g.add(textSprite('I', '#e8e8f0', -0.55, 0.12, 0.4))
       g.add(textSprite('U_H', '#F5C542', 0.3, 0.42, 0.4))
       return { mesh: g, baseAngle: 0 }
+    }
+    // ── 批A（2026-10-10）：天体运动四件 ──
+    case 'central_star': {
+      // 中心天体：自发光球（半径按质量视觉缩放：R=0.3+0.1·√M）+ 光晕 sprite + 质量标注
+      const M = p.M ?? 5.97
+      const R = 0.3 + 0.1 * Math.sqrt(M)
+      const g = new THREE.Group()
+      const core = new THREE.Mesh(new THREE.SphereGeometry(R, 24, 18), mat(color, { emissive: 0.9 }))
+      g.add(core)
+      g.add(textSprite(`M=${M}×10²⁴kg`, '#F5A623', 0, R + 0.35, 0.4))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'satellite': {
+      // 卫星：小球（r=0.12）+ 速度方向箭头（v0>0 时沿 ang 方向）
+      const g = new THREE.Group()
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 12), mat(color, { emissive: 0.4 }))
+      g.add(body)
+      const v0 = p.v0 ?? 0, ang = ((p.ang ?? 0) * Math.PI) / 180
+      if (v0 > 0) {
+        const arrowLen = 0.3 + Math.min(0.4, v0 / 5000)
+        const dir = new THREE.Group()
+        const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, arrowLen, 6), mat('#3ecf8e'))
+        shaft.rotation.z = -Math.PI / 2
+        shaft.position.x = 0.12 + arrowLen / 2
+        const tip2 = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.08, 8), mat('#3ecf8e'))
+        tip2.rotation.z = -Math.PI / 2
+        tip2.position.x = 0.12 + arrowLen + 0.04
+        dir.add(shaft, tip2)
+        dir.rotation.z = ang
+        g.add(dir)
+      }
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'binary_star': {
+      // 双星系统（编辑态概览）：中心标记 + 两星示意 + 共质心 ✛（运行时由 poses 通道驱动两星）
+      const g = new THREE.Group()
+      const r1 = 0.4, r2 = 0.4
+      const M1 = p.M1 ?? 1, M2 = p.M2 ?? 1
+      const x1 = -((p.L ?? 3) * M2) / (M1 + M2), x2 = ((p.L ?? 3) * M1) / (M1 + M2)
+      const A = new THREE.Mesh(new THREE.SphereGeometry(0.15 + 0.05 * M1, 16, 12), mat('#F5A623', { emissive: 0.8 }))
+      A.position.x = x1
+      const B = new THREE.Mesh(new THREE.SphereGeometry(0.15 + 0.05 * M2, 16, 12), mat('#b06ce6', { emissive: 0.8 }))
+      B.position.x = x2
+      g.add(A, B)
+      g.add(seg2(-0.2, 0, 0.2, 0, 0x565675)); g.add(seg2(0, -0.2, 0, 0.2, 0x565675))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'orbit_ring': {
+      // 轨道标记：虚线圆环（纯参考，无物理）
+      const R = Math.max(0.3, p.radius ?? 2)
+      const pts: THREE.Vector3[] = []
+      for (let i = 0; i <= 64; i++) {
+        const a = (i / 64) * Math.PI * 2
+        pts.push(new THREE.Vector3(R * Math.cos(a), R * Math.sin(a), 0.05))
+      }
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineDashedMaterial({ color: 0x565675, dashSize: 0.15, gapSize: 0.1, transparent: true, opacity: 0.7 }))
+      line.computeLineDistances()
+      return { mesh: line, baseAngle: 0 }
     }
     // ── B1 批1（2026-10-07）：电路基础五件——端子锚点与 catalog ATTACH 坐标对齐 ──
     case 'battery': {

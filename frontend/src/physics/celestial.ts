@@ -52,7 +52,7 @@ export function buildPoints(els: CelestialBody[]): { pts: Point[]; error?: strin
       pts.push({ id: e.id, m: Math.max(1, p.m ?? 100), x: e.x * SCALE_M, y: e.y * SCALE_M,
         vx: v0 * Math.cos(ang), vy: v0 * Math.sin(ang), fixed: false, ax: 0, ay: 0 })
     } else if (e.type === 'binary_star') {
-      const m1 = Math.max(1e20, (p.M1 ?? 1) * 1e24), m2 = Math.max(1e20, (p.M2 ?? 1) * 1e24)
+      const m1 = Math.max(1e20, (e.params.M1 ?? 1) * 1e24), m2 = Math.max(1e20, (e.params.M2 ?? 1) * 1e24)
       const L = Math.max(SCALE_M * 0.2, (p.L ?? 2) * SCALE_M)
       // 圆轨道 IC：共质心在原点（元件位置），r₁=L·M₂/(M₁+M₂)，ω=√(G(M₁+M₂)/L³)
       const r1 = (L * m2) / (m1 + m2), r2 = (L * m1) / (m1 + m2)
