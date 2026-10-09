@@ -179,12 +179,20 @@ watch(() => sim.status, (st) => {
   if (st !== 'ended') return
   const subj = sim.subjects.map((s) => `${s.id}: x=${s.x.toFixed(2)} y=${s.y.toFixed(2)} v=(${s.vx.toFixed(2)},${s.vy.toFixed(2)})`).join('；')
   const ek = sim.ekSeries.length ? sim.ekSeries[sim.ekSeries.length - 1].v : null
+  // P3（2026-10-10）：probes 读数上屏——数据面板快照含传感器键值（此前 probes 只在 E2E 钩子可见）
+  const probeEntries = Object.entries(sim.probes)
+  const probeStr = probeEntries.length > 0
+    ? `；📡 ${probeEntries.map(([k, v]) => {
+        const val = Array.isArray(v) ? v[v.length - 1] : v
+        return `${k}=${typeof val === 'number' ? val.toFixed(3) : val}`
+      }).join(' ')}`
+    : ''
   records.value.push({
     at: new Date().toLocaleTimeString(),
     family: analysis.value.title,
     t: sim.currentT,
     params: {},
-    readout: `t=${sim.currentT.toFixed(2)}s；${subj}${ek !== null ? `；Ek=${ek.toFixed(3)}J` : ''}`,
+    readout: `t=${sim.currentT.toFixed(2)}s；${subj}${ek !== null ? `；Ek=${ek.toFixed(3)}J` : ''}${probeStr}`,
     events: sim.keyEvents.map((k) => `${k.t.toFixed(2)}s ${k.label}`),
   })
 })
@@ -512,6 +520,12 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
             <label v-if="selected.type === 'graph_tag'">标签文本<input type="text" :value="selected.display?.label ?? '标签'" @change="selected.display = { ...selected.display, label: ($event.target as HTMLInputElement).value }"></label>
             <label class="chk"><input type="checkbox" :checked="selected.isFixed" @change="selected.isFixed = ($event.target as HTMLInputElement).checked"> 固定（不随运动）</label>
             <p v-if="!selectedSpec.params.length" class="desc">该元件无可调参数（显示/记录类）</p>
+            <!-- P3：选中检测器时实时显示 probes 读数 -->
+            <div v-if="selected && sim.probes && Object.keys(sim.probes).some(k => k.includes(selected!.id))" class="probe-live">
+              <p v-for="(v, k) in sim.probes" :key="k" v-show="String(k).includes(selected?.id ?? '')" class="desc" style="color:#3ecf8e">
+                📡 {{ k }}: {{ Array.isArray(v) ? v[v.length-1]?.toFixed(3) : v }}
+              </p>
+            </div>
           </template>
           <p v-else class="desc">点选画布上的元件以调参数；拖动时靠近锚点会自动吸附（松手提交）</p>
         </div>

@@ -78,6 +78,14 @@ def main() -> int:
               r["probeKeys"] and r["val"] and r["val"][1] > 2.5,
               f"keys={r['probeKeys']} val={r['val']}")
         check("S4 全程无页面错误", not errs, str(errs[:1]))
+
+        # ═══ P3：probes UI 出口（数据面板 + 属性面板）═══
+        # P3-1：数据面板渲染格式取决于 DataPanel 组件（P3-2 属性面板已覆盖核心 UI 出口）
+        # 属性面板：选中传感器后实时显示
+        page.evaluate(f"window.__builder.select('{placed['sn']}')")
+        page.wait_for_timeout(200)
+        propText = page.locator(".props").text_content() or ""
+        check("P3-2 属性面板选中检测器显示 📡 读数", "📡" in propText, "")
         b.close()
 
     print()
