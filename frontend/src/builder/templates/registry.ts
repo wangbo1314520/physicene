@@ -1289,6 +1289,113 @@ function gkInductionOde70(): GeoTemplate {
   }
 }
 
+
+// ── 批A（2026-10-10）：天体运动 A 档五卡——celestial.ts Verlet（引擎标注：TS 天体）──
+// 单位口径：1 画布单位 = 1e7 m；μ地球 = G·5.97e24 = 3.986e14；周期闭式 T=2π√(r³/μ)
+const CE_MU = 6.674e-11 * 5.97e24
+const CE_SCALE = 1e7
+const CE_TS = (periods: number, dur: number, theoryT: number) => (theoryT * periods) / dur
+
+/** T1 卫星圆周运动：v=√(μ/r)（r=2 单位） */
+function celSatelliteT1(): GeoTemplate {
+  const r = 2, v = Math.sqrt(CE_MU / (r * CE_SCALE))
+  const theoryT = 2 * Math.PI * Math.sqrt((r * CE_SCALE) ** 3 / CE_MU)
+  return {
+    id: 'cel-satellite-t1', card: '天体', group: '力学',
+    name: '卫星圆周运动（v=√(μ/r)·T=2π√(r³/μ)）',
+    tags: ['天体', '圆轨道', '万有引力'],
+    elements: [
+      mk('central_star', 0, 0, { M: 5.97, timeScale: CE_TS(6, 8, theoryT) }),
+      mk('satellite', r, 0, { m: 100, v0: +v.toFixed(0), ang: 90 }),
+      mk('orbit_ring', 0, 0, { radius: r }),
+    ],
+    criticalChecks: [
+      { label: '圆轨道速度 v=√(μ/r)=2387 m/s（r=2e7m）', theory: v, tol: 0.05, from: { kind: 'tsreading', key: 'v_satellite-2' } },
+      { label: '周期 T=2π√(r³/μ)≈28150s（过零插值测得）', theory: theoryT, tol: 0.05, from: { kind: 'tsreading', key: 'T_satellite-2' } },
+    ],
+    solutionId: 'celSatelliteT1', maxDuration: 8,
+  }
+}
+
+/** T2 同步卫星：r=4.22e7m（4.22 单位），T=24h */
+function celGeostatT2(): GeoTemplate {
+  const r = 4.22, T = 86400
+  const v = (2 * Math.PI * r * CE_SCALE) / T
+  return {
+    id: 'cel-geostat-t2', card: '天体', group: '力学',
+    name: '同步卫星（T=24h·r=4.22e7m）',
+    tags: ['天体', '同步卫星', '万有引力'],
+    elements: [
+      mk('central_star', 0, 0, { M: 5.97, timeScale: (T * 6) / 8 }),
+      mk('satellite', r, 0, { m: 100, v0: +v.toFixed(0), ang: 90 }),
+      mk('orbit_ring', 0, 0, { radius: r }),
+    ],
+    criticalChecks: [
+      { label: '同步轨道半径 r=4.22e7m 处 T=86400s（定点条件）', theory: T, tol: 0.05, from: { kind: 'tsreading', key: 'T_satellite-2' } },
+      { label: '同步速度 v=2πr/T≈3070 m/s', theory: v, tol: 0.05, from: { kind: 'tsreading', key: 'v_satellite-2' } },
+    ],
+    solutionId: 'celGeostatT2', maxDuration: 8,
+  }
+}
+
+/** T4 双星系统：r₁/r₂=M₂/M₁；共质心不漂 */
+function celBinaryT4(): GeoTemplate {
+  const L = 3, M1 = 2, M2 = 1
+  const theoryT = 2 * Math.PI * Math.sqrt((L * CE_SCALE) ** 3 / (6.674e-11 * (M1 + M2) * 1e24))
+  return {
+    id: 'cel-binary-t4', card: '天体', group: '力学',
+    name: '双星系统（r₁/r₂=M₂/M₁·共质心）',
+    tags: ['天体', '双星', '万有引力'],
+    elements: [
+      mk('binary_star', 0, 0, { M1, M2, L, timeScale: (theoryT * 6) / 8 }),
+      mk('orbit_ring', 0, 0, { radius: L * 0.5 }),
+    ],
+    criticalChecks: [
+      { label: '双星共质心位移 <1e-6 单位（动量守恒）', theory: 0, tol: 0.1, tolAbs: 1e-4, from: { kind: 'tsreading', key: 'bary_dx' } },
+      { label: '同周期 T=2π√(L³/G·ΣM)', theory: theoryT, tol: 0.05, from: { kind: 'tsreading', key: 'T_binary_star-1#A' } },
+    ],
+    solutionId: 'celBinaryT4', maxDuration: 8,
+  }
+}
+
+/** T7 宇宙速度：v₁=7.9km/s 近地圆 / v₂=11.2 逃逸 */
+function celEscapeT7(): GeoTemplate {
+  const r = 1, vCirc = Math.sqrt(CE_MU / (r * CE_SCALE))
+  const vEsc = Math.sqrt(2) * vCirc
+  return {
+    id: 'cel-escape-t7', card: '天体', group: '力学',
+    name: '宇宙速度（v₁=7.9km/s 圆轨道·v₂=11.2 逃逸）',
+    tags: ['天体', '宇宙速度', '万有引力'],
+    elements: [
+      mk('central_star', 0, 0, { M: 5.97, timeScale: 5000 }),
+      mk('satellite', r, 0, { m: 100, v0: +vEsc.toFixed(0), ang: 90 }),
+    ],
+    criticalChecks: [
+      { label: '逃逸判据：rmax > r·2（v=v₂=√2·v₁ 轨道发散）', theory: r * 2, tol: 0.3, from: { kind: 'tsreading', key: 'rmax_satellite-2' } },
+    ],
+    solutionId: 'celEscapeT7', maxDuration: 8,
+  }
+}
+
+/** T8 卫星 vs 赤道物体：同角速度 ω=2π/T（赤道物体 v=ωR） */
+function celEquatorT8(): GeoTemplate {
+  const r = 4.22, T = 86400
+  const v = (2 * Math.PI * r * CE_SCALE) / T
+  return {
+    id: 'cel-equator-t8', card: '天体', group: '力学',
+    name: '卫星与赤道物体（同角速度 ω=2π/T_自转）',
+    tags: ['天体', '同步卫星', '角速度'],
+    elements: [
+      mk('central_star', 0, 0, { M: 5.97, timeScale: (T * 6) / 8 }),
+      mk('satellite', r, 0, { m: 100, v0: +v.toFixed(0), ang: 90 }),
+    ],
+    criticalChecks: [
+      { label: '同步轨道 T=T_自转=86400s（ω 相同）', theory: T, tol: 0.05, from: { kind: 'tsreading', key: 'T_satellite-2' } },
+    ],
+    solutionId: 'celEquatorT8', maxDuration: 8,
+  }
+}
+
 const FACTORIES: (() => GeoTemplate)[] = [
   gkSlopeSpring, gkSlopeSpringCorrect, gkConveyorBoard, gkBoardBlock, gkCollisionSpring,
   gkCollisionChain, gkCircularCritical, gkProjectileLoop, gkConnectedBodies,
@@ -1305,6 +1412,7 @@ const FACTORIES: (() => GeoTemplate)[] = [
   gkNoninertial68, gkRigidBody69, gkRailRod14, gkRodFree38, gkRodForce39,
   gkDoubleRod40, gkRodCapacitor41, gkFrameThroughB42, gkRodSpring43, gkRodInclineB44, gkInductionOde70,
   gkBounceDecay71, gkDipoleField72,
+  celSatelliteT1, celGeostatT2, celBinaryT4, celEscapeT7, celEquatorT8,
 ]
 
 export const TEMPLATES: GeoTemplate[] = FACTORIES.map((f) => f())

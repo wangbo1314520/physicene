@@ -70,6 +70,6 @@ describe('数字口径闸门', () => {
     const { TEMPLATES } = await import('./registry')
     expect(PLAN_COUNT).toBe(CATALOG.length)
     expect(PLAN_COUNT).toBe(78)   // 74 + 批A 天体四件（central_star/satellite/binary_star/orbit_ring，2026-10-10）  // 变更须同步数字口径审计
-    expect(TEMPLATES.length).toBe(64)   // 62 + 方案B Step3 迁移 2（卡71反弹/卡72电偶极子）
+    expect(TEMPLATES.length).toBe(69)   // 64 + 批A 天体五卡（2026-10-10）   // 62 + 方案B Step3 迁移 2（卡71反弹/卡72电偶极子）
   })
 })
