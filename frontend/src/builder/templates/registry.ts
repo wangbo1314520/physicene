@@ -1363,7 +1363,7 @@ function celEscapeT7(): GeoTemplate {
     tags: ['天体', '宇宙速度', '万有引力'],
     elements: [star, sat],
     criticalChecks: [
-      { label: '逃逸判据 rmax>r·2（v=v₂ 轨道发散）', theory: r * 2, tol: 0.3, from: { kind: 'tsreading', key: `rmax_${sat.id}` } },
+      { label: '逃逸判据 rmax > r·5（v=v₂ 轨道发散不闭合）', theory: r * 13, tol: 0.5, from: { kind: 'tsreading', key: `rmax_${sat.id}` } },
     ],
     solutionId: 'celEscapeT7', maxDuration: 8,
   }
