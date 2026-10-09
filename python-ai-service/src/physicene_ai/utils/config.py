@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     # 仓库外资源（项目磁盘约束：默认落在 E:\Program，换机器/容器用环境变量覆盖）
     bge_m3_path: str = r"E:\Program\models\bge-m3"
     chroma_dir: str = "data/chroma"
-    textbooks_dir: str = r"E:\学习\10.论文项目"
+    textbooks_dir: str = r"E:\Program\resources\textbooks"
 
     class Config:
         env_file = ".env"
