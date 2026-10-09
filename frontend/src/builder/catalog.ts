@@ -209,13 +209,25 @@ export const CATALOG: ElementSpec[] = [
   el('rigid_roller', '转动惯量滚子', '◎', 'mech', ['2D', '2.5D'], '#F5A623', 'I=k·mR²：圆环(1)/圆盘(0.5)/球(0.4)，滚下斜面验证 a=g·sinθ/(1+k)', [MASS, P('k', 'I 系数 k', 0.1, 1, 0.1, 0.5), P('mu', '摩擦 μ', 0, 1, 0.05, 0.2)], 'body', ['滚子', '转动惯量'], [
     ATTACH(0, -0.5, '底'), ATTACH(0, 0.5, '顶'),
   ]),
-  el('accel_sensor', '加速度传感器', 'Ⓐ', 'util', ['2D', '2.5D'], '#E05555', '指定刚体加速度（差分），probes 通道 30fps 上帧', [], 'detector', ['传感器']),
-  el('speed_sensor', '速度传感器', 'Ⓥ', 'util', ['2D', '2.5D'], '#3ecf8e', '指定刚体速度模，probes 通道 30fps 上帧', [], 'detector', ['传感器']),
-  el('range_finder', '距离传感器', 'Ⓛ', 'util', ['2D', '2.5D'], '#4A90D9', '到参考点距离，probes 通道 30fps 上帧', [], 'detector', ['传感器']),
-  el('photogate', '光电门', 'Ⓥ', 'util', ['2.5D'], '#3ecf8e', '计时：目标越过门线（传感器 x）记时刻——probes 读数为过门时刻 t', [], 'detector', ['传感器', '光电门']),
-  el('force_sensor', '力传感器', 'Ⓕ', 'util', ['2.5D'], '#3ecf8e', '接触力模（postSolve 累积）——静置读数 N=mg', [], 'detector', ['传感器', '力']),
+  el('accel_sensor', '加速度传感器', 'Ⓐ', 'util', ['2D', '2.5D'], '#E05555', '指定刚体加速度（差分），probes 通道 30fps 上帧', [], 'detector', ['传感器'], [
+    ATTACH(0, -0.3, '探头'),
+  ]),
+  el('speed_sensor', '速度传感器', 'Ⓥ', 'util', ['2D', '2.5D'], '#3ecf8e', '指定刚体速度模，probes 通道 30fps 上帧', [], 'detector', ['传感器'], [
+    ATTACH(0, -0.3, '探头'),
+  ]),
+  el('range_finder', '距离传感器', 'Ⓛ', 'util', ['2D', '2.5D'], '#4A90D9', '到参考点距离，probes 通道 30fps 上帧', [], 'detector', ['传感器'], [
+    ATTACH(0, -0.3, '探头'),
+  ]),
+  el('photogate', '光电门', 'Ⓥ', 'util', ['2.5D'], '#3ecf8e', '计时：目标越过门线（传感器 x）记时刻——probes 读数为过门时刻 t', [], 'detector', ['传感器', '光电门'], [
+    ATTACH(0, -0.3, '探头'),
+  ]),
+  el('force_sensor', '力传感器', 'Ⓕ', 'util', ['2.5D'], '#3ecf8e', '接触力模（postSolve 累积）——静置读数 N=mg', [], 'detector', ['传感器', '力'], [
+    ATTACH(0, -0.3, '探头'),
+  ]),
   el('trail', '轨迹追踪', '⋯', 'util', ['2.5D'], '#8a8a0', '显示轨迹', [], 'display', ['轨迹']),
-  el('energy_meter', '能量条', '▮▮', 'util', ['2.5D'], '#3ecf8e', '机械能 E=½mv²+mg(y−y_ref)，零势能面=放置高度', [], 'detector', ['能量']),
+  el('energy_meter', '能量条', '▮▮', 'util', ['2.5D'], '#3ecf8e', '机械能 E=½mv²+mg(y−y_ref)，零势能面=放置高度', [], 'detector', ['能量'], [
+    ATTACH(0, -0.3, '探头'),
+  ]),
   el('timeline', '时间轴', '⏳', 'util', ['2.5D'], '#4A90D9', '多过程', [], 'display', ['时间轴']),
   el('vector_arrow', '矢量箭头', '➤', 'util', ['2D', '2.5D'], '#3ecf8e', '速度/加速度/静态矢量可视化：连线绑定主体即实时跟随（速度=帧直读，加速度=帧差分）；不连线为静态箭头', [SEL('mode', '模式', 0, [{ value: 0, label: '静态箭头' }, { value: 1, label: '跟随速度' }, { value: 2, label: '跟随加速度' }]), P('len', '静态长度', 0.2, 3, 0.1, 1, 'm'), P('th', '静态角度', -180, 180, 5, 0, '°'), P('scale', '缩放系数', 0.05, 1, 0.05, 0.3)], 'display', ['矢量', '箭头'], [
     ATTACH(0, 0, '尾'),
