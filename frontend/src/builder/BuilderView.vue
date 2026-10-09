@@ -132,7 +132,10 @@ restoreWorkspace()
 let beforeUnloadHandler: ((e: BeforeUnloadEvent) => void) | null = null
 if (typeof window !== 'undefined') {
   beforeUnloadHandler = (e: BeforeUnloadEvent) => {
-    if (elements.length) { e.preventDefault(); e.returnValue = '' }
+    if (elements.length) {
+      persistWorkspace()   // 追问3 缺口修复：从未切 Tab 直接刷新时，快照停留在旧现场——刷新前同步落盘
+      e.preventDefault(); e.returnValue = ''
+    }
   }
   window.addEventListener('beforeunload', beforeUnloadHandler)
 }
