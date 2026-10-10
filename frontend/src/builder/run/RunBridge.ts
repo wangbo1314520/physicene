@@ -14,6 +14,7 @@ import { THERMO_DEVICE_TYPES, AC_DEVICE_TYPES } from '../analysis/EngineAnalyzer
 import { CYCLOTRON_TYPES, DC_DEVICE_TYPES, WAVE_DEVICE_TYPES, MISC_DEVICE_TYPES } from '../analysis/EngineAnalyzer'
 import { CIRCUIT_BASIC_TYPES, runCircuitBasics } from '../../physics/circuit-basics'
 import { CELESTIAL_TYPES, runCelestial } from '../../physics/celestial'
+import { workspace } from '../workspace'
 import { byType, BELT_RADIUS, type GeoElement } from '../catalog'
 import { resolveAnchorById, anchorWorldOf , resolveAnchors} from '../model/anchors'
 import type { Analysis } from '../analysis/EngineAnalyzer'
@@ -435,6 +436,8 @@ export function useRunBridge() {
             rays: (f as { rays?: typeof tsRun.value.rays }).rays ?? [],
             poses: f.poses ?? tsRun.value.poses,
           }
+          // A+B（2026-10-10）：TS 帧位姿写入共享 store——BuilderCanvas runStates 合并消费 + threeScene watch
+          workspace.tsPoses = tsRun.value.poses
           idx++
           if (idx >= frames.length) stopTs()
         }, stepMs)
@@ -463,11 +466,20 @@ export function useRunBridge() {
 
   /** 帧姿态（id → 世界位姿）；仅 running/paused 时非空 */
   const runStates = computed<Map<string, RunPose> | null>(() => {
-    const st = socket.state
-    if (st.status !== 'running' && st.status !== 'paused') return null
     const m = new Map<string, RunPose>()
-    for (const s of st.subjects) m.set(s.id, { x: s.x, y: s.y, angle: s.angle })
-    return m
+    // Java WS 路径
+    const st = socket.state
+    if (st.status === 'running' || st.status === 'paused') {
+      for (const s of st.subjects) m.set(s.id, { x: s.x, y: s.y, angle: s.angle })
+    }
+    // A（2026-10-10）：TS 路径（天体等）——poses 写入共享 workspace.tsPoses，
+    // 此处合并进同一 Map → BuilderCanvas poseOf() 单通道消费，两路帧位姿无分叉
+    if (tsRun.value.status === 'running') {
+      for (const tse of tsRun.value.poses) {
+        if (!m.has(tse.id)) m.set(tse.id, { x: tse.x, y: tse.y, angle: 0 })
+      }
+    }
+    return m.size ? m : null
   })
 
   return { socket, run, runStates, tsRun, lastNotes, resetTs }

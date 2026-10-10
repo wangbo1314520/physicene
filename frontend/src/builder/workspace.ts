@@ -17,11 +17,14 @@ export interface WorkspaceState {
   viewMode: '2D' | '2.5D' | '3D'
   selectedId: string | null
   domain: Domain
+  /** A+B（2026-10-10）：TS 引擎帧位姿——天体等运动型 TS 场景，BuilderCanvas/threeScene 共同消费。
+   *  RunBridge setInterval 每帧写入；LabView watch 后调 threeScene.updateStates */
+  tsPoses: { id: string; x: number; y: number; vx: number; vy: number }[]
 }
 
 export const workspace = reactive<WorkspaceState>({
   elements: [], undo: [], redo: [], seq: 1,
-  viewMode: '2D', selectedId: null, domain: 'mech',
+  viewMode: '2D', selectedId: null, domain: 'mech', tsPoses: [],
 })
 
 export function wsSnapshot() {

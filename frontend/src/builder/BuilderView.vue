@@ -392,7 +392,8 @@ onMounted(() => {
     setParams: (id: string, p: Record<string, number>) => { const e = elements.find((x2) => x2.id === id); if (e) Object.assign(e.params, p) },
     setAngle: (id: string, a: number) => { const e = elements.find((x2) => x2.id === id); if (e) e.angle = a },
     select: (id: string | null) => { selectedId.value = id },
-    uiState: () => ({ domain: workspace.domain, selectedId: workspace.selectedId, viewMode: workspace.viewMode }),   // E2E：追问2 补丁三态断言
+    uiState: () => ({ domain: workspace.domain, selectedId: workspace.selectedId, viewMode: workspace.viewMode }),
+    tsPoses: () => JSON.parse(JSON.stringify(workspace.tsPoses)),   // E2E：A+B TS 帧位姿动画断言   // E2E：追问2 补丁三态断言
     link: (a: string, anchorA: string, b: string, anchorB: string, kind?: string) => {
       const ea = elements.find((e) => e.id === a)
       if (ea) ea.links.push({ toId: b, kind: (kind ?? 'rope') as typeof linkKind.value, anchorA, anchorB })

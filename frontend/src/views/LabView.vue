@@ -246,7 +246,22 @@ function syncFromBuilderTab() {
   if (state.subjects.length > 0) {
     renderer?.updateStates(state.subjects)
   }
+  // B（2026-10-10）：TS 帧位姿（天体等运动型 TS 场景）——切到结果 Tab 时应用末态
+  if (workspace.tsPoses.length > 0) {
+    renderer?.updateStates(workspace.tsPoses.map((p) => ({
+      id: p.id, x: p.x, y: p.y, angle: 0, vx: p.vx, vy: p.vy,
+    } as typeof state.subjects[number])))
+  }
 }
+
+// B（2026-10-10）：TS 运行中实时驱动 threeScene（搭建 Tab 跑天体→切结果 Tab 能看到运动）
+watch(() => workspace.tsPoses, (poses) => {
+  if (poses.length && activeTab.value === 'lab') {
+    renderer?.updateStates(poses.map((p) => ({
+      id: p.id, x: p.x, y: p.y, angle: 0, vx: p.vx, vy: p.vy,
+    } as typeof state.subjects[number])))
+  }
+}, { deep: true })
 
 watch(() => scene.elements, syncRenderer, { deep: true })
 
