@@ -247,7 +247,9 @@ def main() -> int:
             results_pairs.append((t, r))  # C·动画扫描存储
 
             # C·3 件日志（定性：真断链 vs 采样假报）——subjects 数据在但画布不动？
-            if tid in ("gk-slope-spring-on-slope", "gk-conveyor-board", "gk-projectile-loop"):
+            if tid in ("gk-slope-spring-on-slope", "gk-conveyor-board", "gk-projectile-loop",
+                       "gk-composite-field", "gk-rod-spring", "gk-clothesline",
+                       "cel-geostat-t2", "cel-binary-t4", "cel-equator-t8"):
                 dbg = r.get("animDebug") or {}
                 print(f"   🔍 [{tid}] subCount={dbg.get('subCount')} animMoved={r.get('animMoved')}")
                 if dbg.get("p1"):
