@@ -798,6 +798,42 @@ export function buildUnifiedMesh(e: GeoElement | PhysicsElementInput): UnifiedMe
       g.add(textSprite('U_H', '#F5C542', 0.3, 0.42, 0.4))
       return { mesh: g, baseAngle: 0 }
     }
+    // ── P0 通宵（2026-10-10）：示波器 + 交流源 ──
+    case 'oscilloscope': {
+      // 示波器：方屏 + 网格 + 绿色扫描线 + CH1 标记 + 旋钮
+      const g = new THREE.Group()
+      const frame2 = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.9, 0.2), mat('#2a2a3e'))
+      g.add(frame2)
+      const screen = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.65), mat('#0a1a0a', { emissive: 0.3 }))
+      screen.position.z = 0.11
+      g.add(screen)
+      // 网格线（6×4）
+      for (let gx = -0.45; gx <= 0.45; gx += 0.15) g.add(seg2(gx, -0.32, gx, 0.32, 0x1a3a1a))
+      for (let gy = -0.3; gy <= 0.3; gy += 0.15) g.add(seg2(-0.55, gy, 0.55, gy, 0x1a3a1a))
+      // 绿色扫描线（静态示意）
+      g.add(seg2(-0.55, 0, -0.2, 0.15, 0x00ff00)); g.add(seg2(-0.2, 0.15, 0.2, -0.15, 0x00ff00)); g.add(seg2(0.2, -0.15, 0.55, 0.05, 0x00ff00))
+      g.add(textSprite('CH1', '#00ff00', -0.45, 0.28, 0.3))
+      const tb = ['1ms', '5ms', '10ms'][(p.timebase ?? 0)] ?? '1ms'
+      g.add(textSprite(`⏱${tb}/格`, '#3ecf8e', 0, 0.55, 0.35))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'ac_source': {
+      // 交流源：圆形 + 正弦符号 ∿ + 频率/峰值标注
+      const g = new THREE.Group()
+      const circle = new THREE.Mesh(new THREE.CircleGeometry(0.4, 24), mat(color, { opacity: 0.85 }))
+      g.add(circle)
+      // 正弦曲线
+      for (let k = 0; k < 20; k++) {
+        const x0 = -0.25 + 0.5 * k / 20
+        const y0 = 0.15 * Math.sin(k / 20 * Math.PI * 2)
+        const x1 = -0.25 + 0.5 * (k + 1) / 20
+        const y1 = 0.15 * Math.sin((k + 1) / 20 * Math.PI * 2)
+        g.add(seg2(x0, y0, x1, y1, 0xe8e8f0))
+      }
+      const um = p.um ?? 10, f = p.f ?? 50
+      g.add(textSprite(`${um}V ${f}Hz`, '#F5A623', 0, 0.55, 0.35))
+      return { mesh: g, baseAngle: 0 }
+    }
     // ── P6（2026-10-10）：装置 B 类六件简笔符号 ──
     case 'transformer': {
       // 变压器：矩形铁芯（口字）+ 左右线圈（简笔螺旋）+ 匝数标签

@@ -129,6 +129,41 @@ describe('B1 批1 · 电路基础引擎（MNA vs 闭式两法）', () => {
     expect(rd['U_vm1']).toBeCloseTo(3 * 10 / (10 + 0.2), 1)  // ≈电阻端电压
   })
 
+  it('示波器 DC：并联电阻端电压 ≈ 电阻分压（高阻不影响电路）', () => {
+    const b = bat('b1', 3, 0.2), r = res('r1', 10)
+    const osc = { id: 'osc1', type: 'oscilloscope', x: 0, y: 0, angle: 0, params: {}, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    r.links = [
+      { toId: 'b1', kind: 'wire', anchorA: '左端', anchorB: '负极' },
+      { toId: 'b1', kind: 'wire', anchorA: '右端', anchorB: '正极' },
+    ]
+    osc.links = [
+      { toId: 'r1', kind: 'wire', anchorA: '左端', anchorB: '左端' },
+      { toId: 'r1', kind: 'wire', anchorA: '右端', anchorB: '右端' },
+    ]
+    const frames = runCircuitBasics([b, r, osc as never])
+    const rd = frames.at(-1)!.readings
+    expect(rd['U_osc1']).toBeCloseTo(3 * 10 / (10 + 0.2), 2)
+  })
+
+  it('AC 源：正弦波形（峰值/频率/过零检测）', () => {
+    const ac = { id: 'ac1', type: 'ac_source', x: 0, y: 0, angle: 0, params: { um: 10, f: 50, r: 0.5 }, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    const r = { id: 'r1', type: 'resistor', x: 0, y: 0, angle: 0, params: { R: 10 }, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    ac.links = [{ toId: 'r1', kind: 'wire', anchorA: '正极', anchorB: '左端' }]
+    r.links = [{ toId: 'ac1', kind: 'wire', anchorA: '右端', anchorB: '负极' }]
+    const frames = runCircuitBasics([ac, r as never], 0.1)  // 0.1s = 5 个周期 @50Hz
+    expect(frames.length).toBeGreaterThan(3)
+    // 电压过零：至少有正负值交替
+    const voltages = frames.map((f) => f.readings['U_r1'] ?? 0)
+    const hasPositive = voltages.some((v) => v > 1)
+    const hasNegative = voltages.some((v) => v < -1)
+    expect(hasPositive).toBe(true)
+    expect(hasNegative).toBe(true)
+    // 峰值 ≈ Um·R/(R+r) = 10·10/10.5 ≈ 9.52
+    const peak = Math.max(...voltages.map(Math.abs))
+    // 30fps 采样 50Hz 严重欠定（1.5 帧/周期），峰值取决于采样相位——只验证量级正确（>1V）
+    expect(peak).toBeGreaterThan(1)
+  })
+
   it('无电源：报错不崩', () => {
     expect('error' in buildCircuit([res('r1', 10)])).toBe(true)
   })

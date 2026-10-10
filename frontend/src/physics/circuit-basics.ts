@@ -9,7 +9,7 @@
 import { solveAC, cabs } from './ac-circuit'
 import type { AcCircuit, AcComp } from './ac-circuit'
 
-export const CIRCUIT_BASIC_TYPES = new Set(['battery', 'resistor', 'rheostat', 'switch_spst', 'switch_spdt', 'ammeter', 'voltmeter', 'multimeter'])
+export const CIRCUIT_BASIC_TYPES = new Set(['battery', 'resistor', 'rheostat', 'switch_spst', 'switch_spdt', 'ammeter', 'voltmeter', 'multimeter', 'oscilloscope', 'ac_source'])
 
 export interface CircuitBody {
   id: string
@@ -32,9 +32,13 @@ function pinOf(e: CircuitBody, anchor: string): [string, number] | null {
       if (anchor === '正极') return [e.id + '#src', 0]
       if (anchor === '负极') return [e.id + '#r', 1]
       return null
-    case 'resistor': case 'rheostat': case 'switch_spst': case 'ammeter': case 'voltmeter': case 'multimeter':
+    case 'resistor': case 'rheostat': case 'switch_spst': case 'ammeter': case 'voltmeter': case 'multimeter': case 'oscilloscope':
       if (anchor === '左端') return [e.id, 0]
       if (anchor === '右端') return [e.id, 1]
+      return null
+    case 'ac_source':
+      if (anchor === '正极') return [e.id + '#src', 0]
+      if (anchor === '负极') return [e.id + '#r', 1]
       return null
     case 'switch_spdt':
       if (anchor === '刀端') return [e.id + '#A', 0]
@@ -50,7 +54,7 @@ export function buildCircuit(els: CircuitBody[]): { circuit: AcCircuit } | { err
   const byId = new Map(els.map((e) => [e.id, e]))
   const components: AcComp[] = []
   const wires: { a: [string, number]; b: [string, number] }[] = []
-  if (!els.some((e) => e.type === 'battery')) return { error: '电路缺少电源（干电池）' }
+  if (!els.some((e) => e.type === 'battery' || e.type === 'ac_source')) return { error: '电路缺少电源（干电池/交流源）'}
 
   for (const e of els) {
     const p = e.params
@@ -68,6 +72,22 @@ export function buildCircuit(els: CircuitBody[]): { circuit: AcCircuit } | { err
         break
       }
       case 'switch_spst': components.push(R2(e.id, (e.params.state ?? 1) === 1 ? R_ON : R_OFF)); break
+      case 'oscilloscope': {
+        // 示波器 = 高阻采样器（RV=1MΩ）——与 voltmeter 同建模但读数以时序输出
+        components.push(R2(e.id, 1e6))
+        break
+      }
+      case 'ac_source': {
+        // 交流源：正弦 u(t)=Um·sin(2πft)——MNA 按瞬时值求解，每帧步进相位
+        const um = Math.max(0.1, e.params.um ?? 10)
+        const f = Math.max(0.1, e.params.f ?? 50)
+        const ri = Math.max(0.01, e.params.r ?? 0.5)
+        // t=0 时源值 = 0（sin(0)=0）——buildCircuit 建 t=0 拓扑
+        components.push(SRC(e.id + '#src', 0), R2(e.id + '#r', ri))
+        wires.push(W([e.id + '#src', 1], [e.id + '#r', 0]))
+        ;(e as unknown as { _acParams?: { um: number; f: number } })._acParams = { um, f }
+        break
+      }
       case 'ammeter': {
         // 内阻同 CircuitEngine AMMETER_R：0.6A→0.125Ω、3A→0.025Ω
         const RA = (e.params.range ?? 0) === 1 ? 0.025 : 0.125
@@ -116,11 +136,48 @@ function solveDC(circuit: AcCircuit): { i: Record<string, number>; u: Record<str
   return { i, u }
 }
 
-/** 读数帧：每元件电流/端电压（DC 稳态；30fps × 2s，同 dc-devics 节奏）。 */
+/** 读数帧：每元件电流/端电压。DC 源=稳态；AC 源=每帧步进相位（30fps 时序波形）。 */
 export function runCircuitBasics(els: CircuitBody[], maxDuration = 2): CircuitFrame[] {
   const built = buildCircuit(els)
   if ('error' in built) return []
-  const { i } = solveDC(built.circuit)
+  const hasAc = els.some((e) => e.type === 'ac_source')
+  const frames: CircuitFrame[] = []
+  const nFrames = Math.floor(maxDuration * 30)
+  for (let k = 0; k <= nFrames; k++) {
+    const t = k / 30
+    if (hasAc) {
+      // AC 模式：每帧更新源值后重解 MNA（正弦瞬时值）
+      for (const e of els) {
+        if (e.type !== 'ac_source') continue
+        const um = Math.max(0.1, e.params.um ?? 10)
+        const f = Math.max(0.1, e.params.f ?? 50)
+        const u = um * Math.sin(2 * Math.PI * f * t)
+        const srcComp = built.circuit.components.find((c) => c.id === e.id + '#src')
+        if (srcComp) srcComp.props.um = u * Math.SQRT2  // SRC 约定 um=U·√2
+      }
+    }
+    let i: Record<string, number>
+    if (hasAc) {
+      // AC 路径：直取相量实部（有符号——波形需正负交替，cabs 全正）
+      const sol = solveAC(built.circuit, 0)
+      i = {}
+      for (const k of Object.keys(sol.iPhasors)) i[k] = sol.iPhasors[k].re
+    } else {
+      const dc = solveDC(built.circuit)
+      i = dc.i
+    }
+    const readings = buildReadings(els, i, built)
+    frames.push({ t, readings })
+    if (!hasAc && k === 0) {
+      // DC 模式：稳态只算一次，后续帧复制
+      for (let j = 1; j <= nFrames; j++) frames.push({ t: j / 30, readings })
+      break
+    }
+  }
+  return frames
+}
+
+function buildReadings(els: CircuitBody[], i: Record<string, number>, _built: { circuit: unknown }): Record<string, number> {
   const readings: Record<string, number> = {}
   for (const e of els) {
     const p = e.params
@@ -141,6 +198,16 @@ export function runCircuitBasics(els: CircuitBody[], maxDuration = 2): CircuitFr
       readings[`U_${e.id}`] = +(cur * rEff).toFixed(4)
     } else if (e.type === 'switch_spst') {
       readings[`I_${e.id}`] = +(i[`${e.id}#I`] ?? 0).toFixed(4)
+    } else if (e.type === 'oscilloscope') {
+      // 示波器读数 = 两端电压（= I × 1MΩ），时序帧形成波形
+      const cur = i[`${e.id}#I`] ?? 0
+      readings[`U_${e.id}`] = +(cur * 1e6).toFixed(4)
+      readings[`I_${e.id}`] = +cur.toExponential(3)
+      readings[`tb_${e.id}`] = e.params.timebase ?? 0   // v2 消费（渲染标注）
+      readings[`vs_${e.id}`] = e.params.vscale ?? 0
+    } else if (e.type === 'ac_source') {
+      const cur = i[`${e.id}#src#I`] ?? 0
+      readings[`I_${e.id}`] = +cur.toFixed(4)
     } else if (e.type === 'ammeter' || e.type === 'voltmeter' ||
                (e.type === 'multimeter' && (e.params.mode ?? 0) !== 2)) {
       const rEff = i[`${e.id}#I`] !== undefined
@@ -161,7 +228,5 @@ export function runCircuitBasics(els: CircuitBody[], maxDuration = 2): CircuitFr
       readings[`I_${e.id}`] = +(i[`${e.id}#${sel}#I`] ?? 0).toFixed(4)
     }
   }
-  const frames: CircuitFrame[] = []
-  for (let k = 0; k <= 60; k++) frames.push({ t: k / 30, readings })
-  return frames
+  return readings
 }
