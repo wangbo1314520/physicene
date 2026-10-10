@@ -89,6 +89,7 @@ def main() -> int:
         want = [t for t in tpls if not args.ids or t["id"] in args.ids.split(",")]
         print(f"模板 {len(want)}/{len(tpls)} 个待验证")
 
+        results_pairs = []  # C·动画扫描存储（第23条）
         for t in want:
             tid = t["id"]
             ok_all = True
@@ -99,6 +100,7 @@ def main() -> int:
               const wait = (ms) => new Promise(r => setTimeout(r, ms));
               const maxY = [], maxX = [];
               let tsDone = false;
+              let animP1 = null, animP2 = null;
               // 状态残留防污染：上一模板的 ended/runstate 会残留——Java 须先见 running/connecting
               // 再等 ended；TS 须 runstate 相对初始值发生变化且含"已结束"
               let started = false, tsStarted = false;
@@ -117,7 +119,31 @@ def main() -> int:
                   maxY[k] = Math.max(maxY[k] ?? -99, s.y);
                   maxX[k] = Math.max(maxX[k] ?? -99, s.x);
                 });
+                // C·画布动画采样（2026-10-10）：i=30/60 各取一次位姿（Java subjects + TS tsPoses），
+                // 返回 animMoved 供 E2E 断言"物体在动"——第 23 条"必须验渲染不只验数据"的执行端
+                if (i === 30 && (started || tsStarted)) {
+                  animP1 = B.subjects().map(s => ({ id: s.id, x: s.x, y: s.y }));
+                  const tsp = B.tsPoses ? B.tsPoses() : [];
+                  if (tsp.length) animP1 = tsp.map(p => ({ id: p.id, x: p.x, y: p.y }));
+                }
+                if (i === 60 && (started || tsStarted)) {
+                  animP2 = B.subjects().map(s => ({ id: s.id, x: s.x, y: s.y }));
+                  const tsp = B.tsPoses ? B.tsPoses() : [];
+                  if (tsp.length) animP2 = tsp.map(p => ({ id: p.id, x: p.x, y: p.y }));
+                }
                 if ((started && st === 'ended') || tsDone) break;
+              }
+              // C·动画判定：任一 subject 位移 >0.02 单位（含 TS 天体/Java 力学）
+              let animMoved = false;
+              let animDetail = '';
+              if (animP1 && animP2) {
+                for (const a of animP1) {
+                  const b2 = animP2.find(q => q.id === a.id);
+                  if (b2) {
+                    const dx = Math.abs(b2.x - a.x), dy = Math.abs(b2.y - a.y);
+                    if (dx > 0.02 || dy > 0.02) { animMoved = true; animDetail = `${a.id}: d=(${dx.toFixed(3)},${dy.toFixed(3)})`; break; }
+                  }
+                }
               }
               // 卡68 定性正修（2026-10-05）：max-y/max-x 改读 WS 帧流真值（vSeries 按帧累计）。
               // 根因：socket.run() POST 后才建 WS，attach 时服务端 lastFrames(150) 重放突发，
@@ -140,7 +166,8 @@ def main() -> int:
               return { status: B.simStatus(), t: B.simT(), events: B.keyEvents(),
                        subjects: B.subjects(), maxY, maxX,
                        tsDone, tsReadings: B.tsReadings ? B.tsReadings() : null,
-                       probes: B.probes ? B.probes() : {} };
+                       probes: B.probes ? B.probes() : {},
+                       animMoved, animDetail };
             }""", tid)
             page.screenshot(path=f"{args.shot_dir}\\{tid}.png")
             is_ts = any(c["from"]["kind"] == "tsreading" for c in t["checks"])
@@ -150,6 +177,13 @@ def main() -> int:
             if not is_ts and r["status"] != "ended":
                 ok_all = False
                 details.append(f"未结束 status={r['status']} t={r['t']:.1f}")
+
+            # C·画布动画报告（2026-10-10·第23条）：物体应动但没动 → ⚠️（不阻断物理断言，扫描用）
+            has_subjects = len(r.get("subjects") or []) > 0 or r.get("animMoved") is not None
+            if has_subjects and not r.get("animMoved") and not r.get("animDetail"):
+                details.append("⚠️ 动画：有主体但未见位移（静态/装置/或渲染断链）")
+            elif r.get("animMoved"):
+                pass  # 动画正常，不打印（减少噪声）——汇总表统一报告
 
             def within(got, c):
                 lim = abs(c["theory"]) * c["tol"] + c.get("tolAbs", 0) + 1e-9
@@ -196,6 +230,7 @@ def main() -> int:
             print(f"{'✅' if ok_all else '❌'} {tid}（卡 {t['card']}）")
             for d in details:
                 print("   " + d)
+            results_pairs.append((t, r))  # C·动画扫描存储
             if not ok_all:
                 failures.append(tid)
 
@@ -242,6 +277,21 @@ def main() -> int:
         b.close()
 
     passed = len(want) - len([f for f in failures if f in [t["id"] for t in want]])
+    # C·动画扫描汇总（2026-10-10）：分类报告所有模板的画布动画状态
+    print("\n── C·画布动画扫描（第23条：必须验渲染不只验数据）──")
+    anim_ok, anim_warn, anim_skip = [], [], []
+    for t, r in results_pairs:
+        tid = t["id"]
+        if r.get("animMoved"):
+            anim_ok.append(tid)
+        elif r.get("subjects") and len(r["subjects"]) > 0:
+            anim_warn.append(tid)
+        else:
+            anim_skip.append(tid)
+    print(f"  动画确认: {len(anim_ok)} | 有主体未动(⚠️): {len(anim_warn)} | 无主体/装置: {len(anim_skip)}")
+    if anim_warn:
+        print(f"  ⚠️ 未动清单: {anim_warn}")
+
     print(f"\n结果: {passed}/{len(want)} 通过" + (" ✅" if not failures else f" ❌ 失败: {failures}"))
     # P5a after-test：PID 一致性（E2E 中途重启→结果不可信）
     _now_pid, _, _ = __import__("_env").java_proc()
