@@ -121,12 +121,12 @@ def main() -> int:
                 });
                 // C·画布动画采样（2026-10-10）：i=30/60 各取一次位姿（Java subjects + TS tsPoses），
                 // 返回 animMoved 供 E2E 断言"物体在动"——第 23 条"必须验渲染不只验数据"的执行端
-                if (i === 30 && (started || tsStarted)) {
+                if (i === 8 && (started || tsStarted)) {
                   animP1 = B.subjects().map(s => ({ id: s.id, x: s.x, y: s.y }));
                   const tsp = B.tsPoses ? B.tsPoses() : [];
                   if (tsp.length) animP1 = tsp.map(p => ({ id: p.id, x: p.x, y: p.y }));
                 }
-                if (i === 60 && (started || tsStarted)) {
+                if (i === 25 && (started || tsStarted)) {
                   animP2 = B.subjects().map(s => ({ id: s.id, x: s.x, y: s.y }));
                   const tsp = B.tsPoses ? B.tsPoses() : [];
                   if (tsp.length) animP2 = tsp.map(p => ({ id: p.id, x: p.x, y: p.y }));
