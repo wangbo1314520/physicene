@@ -630,6 +630,6 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
 .bottombar-tabs { display: flex; gap: 4px; padding: 6px 16px 0; }
 .bottombar-tabs button { padding: 4px 14px; background: #1d1d33; color: #8a8aa0; border: 1px solid #2f2f4a; border-bottom: none; border-radius: 6px 6px 0 0; cursor: pointer; font-size: 12px; }
 .bottombar-tabs button.on { background: #253a52; color: #7fc3ff; font-weight: 600; }
-.ai-placeholder, .replay-placeholder { padding: 40px; text-align: center; color: #565675; font-size: 13px; }
+.ai-placeholder, .replay-placeholder { padding: 40px; text-align: center; color: #565675; font-size: 13px; cursor: not-allowed; opacity: 0.5; background: repeating-linear-gradient(45deg, #1d1d33, #1d1d33 10px, #23233a 10px, #23233a 20px); }
 @media (max-width: 1100px) { .work { grid-template-columns: 1fr; } .bottom { grid-template-columns: 1fr; } }
 </style>
