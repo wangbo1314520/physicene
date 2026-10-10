@@ -179,20 +179,19 @@ watch(() => sim.status, (st) => {
   if (st !== 'ended') return
   const subj = sim.subjects.map((s) => `${s.id}: x=${s.x.toFixed(2)} y=${s.y.toFixed(2)} v=(${s.vx.toFixed(2)},${s.vy.toFixed(2)})`).join('；')
   const ek = sim.ekSeries.length ? sim.ekSeries[sim.ekSeries.length - 1].v : null
-  // P3（2026-10-10）：probes 读数上屏——数据面板快照含传感器键值（此前 probes 只在 E2E 钩子可见）
-  const probeEntries = Object.entries(sim.probes)
-  const probeStr = probeEntries.length > 0
-    ? `；📡 ${probeEntries.map(([k, v]) => {
-        const val = Array.isArray(v) ? v[v.length - 1] : v
-        return `${k}=${typeof val === 'number' ? val.toFixed(3) : val}`
-      }).join(' ')}`
-    : ''
+  // P3（2026-10-10）：probes 直入 params（SandboxData 自动渲染为独立列——
+  // 此前 readout 文本中 key 含连字符不匹配 NUM_RE 正则，数据在但列不可见）
+  const probeParams: Record<string, number> = {}
+  for (const [k, v] of Object.entries(sim.probes)) {
+    const val = Array.isArray(v) ? v[v.length - 1] : v
+    if (typeof val === 'number') probeParams[`📡${k}`] = +val.toFixed(3)
+  }
   records.value.push({
     at: new Date().toLocaleTimeString(),
     family: analysis.value.title,
     t: sim.currentT,
-    params: {},
-    readout: `t=${sim.currentT.toFixed(2)}s；${subj}${ek !== null ? `；Ek=${ek.toFixed(3)}J` : ''}${probeStr}`,
+    params: probeParams,
+    readout: `t=${sim.currentT.toFixed(2)}s；${subj}${ek !== null ? `；Ek=${ek.toFixed(3)}J` : ''}`,
     events: sim.keyEvents.map((k) => `${k.t.toFixed(2)}s ${k.label}`),
   })
 })
