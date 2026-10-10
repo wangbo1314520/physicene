@@ -27,6 +27,9 @@ import type { RunRecord } from '../sandbox/SandboxData.vue'
 
 const sceneName = ref('未命名场景')
 const domain = toRef(workspace, 'domain')   // 追问2 补丁：切 Tab 保留
+// Step2·2.1（2026-10-10）：单页壳——左栏/底栏可切换
+const leftTab = ref<'palette' | 'ai'>('palette')
+const bottomTab = ref<'props' | 'data' | 'replay'>('props')
 const search = ref('')
 // D1 Step1·1.1（2026-10-07）：场景本体迁共享 store（模块级 reactive 单例）——
 // v-if 卸载不丢 elements/undo；结果 Tab 直读同源（LabView syncSharedWorkspace）
@@ -450,7 +453,12 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
     </header>
 
     <section class="work">
-      <aside class="palette">
+      <aside class="leftbar">
+        <div class="leftbar-tabs">
+          <button :class="{ on: leftTab === 'palette' }" @click="leftTab = 'palette'">🧱 元件库</button>
+          <button :class="{ on: leftTab === 'ai' }" @click="leftTab = 'ai'">🤖 AI 助教</button>
+        </div>
+        <div v-show="leftTab === 'palette'" class="palette">
         <div class="tabs"><button v-for="d in DOMAINS" :key="d.key" :class="{ active: domain === d.key }" @click="domain = d.key">{{ d.icon }} {{ d.label }}</button></div>
         <input v-model="search" class="search" placeholder="搜索元件…">
         <div class="items">
@@ -459,6 +467,10 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
           </div>
         </div>
         <div v-if="saved.length" class="saved"><h4>本机场景</h4><div v-for="s in saved" :key="s.id" class="srow"><a @click="loadScene(s)">{{ s.name }}</a><small>{{ s.at }}</small><button @click="deleteScene(s)">×</button></div></div>
+        </div>
+        <div v-show="leftTab === 'ai'" class="ai-placeholder">
+          <p>AI 助教面板（Step 2.2 迁入）</p>
+        </div>
       </aside>
 
       <section class="canvas-wrap">
@@ -546,9 +558,19 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
       </aside>
     </section>
 
+    <!-- Step2·2.1：底栏 tab（属性 | 数据曲线 | 回放时间轴） -->
+    <div class="bottombar-tabs">
+      <button :class="{ on: bottomTab === 'props' }" @click="bottomTab = 'props'">⚙ 属性</button>
+      <button :class="{ on: bottomTab === 'data' }" @click="bottomTab = 'data'">📊 数据</button>
+      <button :class="{ on: bottomTab === 'replay' }" @click="bottomTab = 'replay'">🎬 回放</button>
+    </div>
     <section class="bottom">
-      <DataPanel :records="records" @clear="records = []" />
-      <BuilderAi :elements="elements" :records="records" :scene-name="sceneName" :engines-title="elements.length ? `统一搭建：${analysis.title}` : undefined" :notes="analysis.warnings" />
+      <DataPanel v-show="bottomTab === 'data'" :records="records" @clear="records = []" />
+      <BuilderAi v-show="leftTab === 'ai'" :elements="elements" :records="records" :scene-name="sceneName" :engines-title="elements.length ? `统一搭建：${analysis.title}` : undefined" :notes="analysis.warnings" />
+      <!-- Step2·2.1：回放占位（2.2 迁入 LabView 回放时间轴） -->
+      <div v-show="bottomTab === 'replay'" class="replay-placeholder">
+        <p>回放时间轴（Step 2.2 迁入）</p>
+      </div>
     </section>
   </main>
 </template>
@@ -601,5 +623,13 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
 .lrow { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #b0b0cc; padding: 3px 0; border-bottom: 1px solid #23233a; }
 .lrow button { background: none; border: none; color: #E05555; cursor: pointer; }
 .bottom { display: grid; grid-template-columns: 1fr 380px; gap: 10px; margin-top: 10px; align-items: start; }
+/* Step2·2.1：单页壳 tab 样式 */
+.leftbar-tabs { display: flex; gap: 4px; padding: 6px 8px 0; border-bottom: 1px solid #2f2f4a; }
+.leftbar-tabs button { flex: 1; padding: 5px 10px; background: #1d1d33; color: #8a8aa0; border: 1px solid #2f2f4a; border-bottom: none; border-radius: 6px 6px 0 0; cursor: pointer; font-size: 12px; }
+.leftbar-tabs button.on { background: #253a52; color: #7fc3ff; font-weight: 600; }
+.bottombar-tabs { display: flex; gap: 4px; padding: 6px 16px 0; }
+.bottombar-tabs button { padding: 4px 14px; background: #1d1d33; color: #8a8aa0; border: 1px solid #2f2f4a; border-bottom: none; border-radius: 6px 6px 0 0; cursor: pointer; font-size: 12px; }
+.bottombar-tabs button.on { background: #253a52; color: #7fc3ff; font-weight: 600; }
+.ai-placeholder, .replay-placeholder { padding: 40px; text-align: center; color: #565675; font-size: 13px; }
 @media (max-width: 1100px) { .work { grid-template-columns: 1fr; } .bottom { grid-template-columns: 1fr; } }
 </style>
