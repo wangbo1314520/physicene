@@ -101,6 +101,7 @@ def main() -> int:
               const maxY = [], maxX = [];
               let tsDone = false;
               let animP1 = null, animP2 = null;
+              let animStartI = -1;
               // 状态残留防污染：上一模板的 ended/runstate 会残留——Java 须先见 running/connecting
               // 再等 ended；TS 须 runstate 相对初始值发生变化且含"已结束"
               let started = false, tsStarted = false;
@@ -119,14 +120,15 @@ def main() -> int:
                   maxY[k] = Math.max(maxY[k] ?? -99, s.y);
                   maxX[k] = Math.max(maxX[k] ?? -99, s.x);
                 });
-                // C·画布动画采样（2026-10-10）：i=30/60 各取一次位姿（Java subjects + TS tsPoses），
-                // 返回 animMoved 供 E2E 断言"物体在动"——第 23 条"必须验渲染不只验数据"的执行端
-                if (i === 8 && (started || tsStarted)) {
+                // C·画布动画采样 v2（2026-10-10）：首帧 started 即采 animP1（非固定 i——WS 握手
+                // ~0.35s 时 i=8 可能 started=false 导致 P1=null→假报"未动"）；P2 = P1 后 15 帧
+                if (!animP1 && started) {
                   animP1 = B.subjects().map(s => ({ id: s.id, x: s.x, y: s.y }));
                   const tsp = B.tsPoses ? B.tsPoses() : [];
                   if (tsp.length) animP1 = tsp.map(p => ({ id: p.id, x: p.x, y: p.y }));
+                  animStartI = i;
                 }
-                if (i === 25 && (started || tsStarted)) {
+                if (animP1 && !animP2 && i >= animStartI + 15 && started) {
                   animP2 = B.subjects().map(s => ({ id: s.id, x: s.x, y: s.y }));
                   const tsp = B.tsPoses ? B.tsPoses() : [];
                   if (tsp.length) animP2 = tsp.map(p => ({ id: p.id, x: p.x, y: p.y }));
@@ -167,7 +169,10 @@ def main() -> int:
                        subjects: B.subjects(), maxY, maxX,
                        tsDone, tsReadings: B.tsReadings ? B.tsReadings() : null,
                        probes: B.probes ? B.probes() : {},
-                       animMoved, animDetail };
+                       animMoved, animDetail,
+                       animDebug: { p1: animP1 ? animP1.slice(0, 3) : null,
+                                   p2: animP2 ? animP2.slice(0, 3) : null,
+                                   subCount: (B.subjects() || []).length } };
             }""", tid)
             page.screenshot(path=f"{args.shot_dir}\\{tid}.png")
             is_ts = any(c["from"]["kind"] == "tsreading" for c in t["checks"])
@@ -231,6 +236,21 @@ def main() -> int:
             for d in details:
                 print("   " + d)
             results_pairs.append((t, r))  # C·动画扫描存储
+
+            # C·3 件日志（定性：真断链 vs 采样假报）——subjects 数据在但画布不动？
+            if tid in ("gk-slope-spring-on-slope", "gk-conveyor-board", "gk-projectile-loop"):
+                dbg = r.get("animDebug") or {}
+                print(f"   🔍 [{tid}] subCount={dbg.get('subCount')} animMoved={r.get('animMoved')}")
+                if dbg.get("p1"):
+                    for q in dbg["p1"][:2]:
+                        print(f"      P1: {q['id'][:20]} x={q['x']:.3f} y={q['y']:.3f}")
+                else:
+                    print(f"      P1: NULL（started 时 subjects 空=WS 未上帧）")
+                if dbg.get("p2"):
+                    for q in dbg["p2"][:2]:
+                        print(f"      P2: {q['id'][:20]} x={q['x']:.3f} y={q['y']:.3f}")
+                else:
+                    print(f"      P2: NULL（15 帧后仍未采到=运行过短或提前 ended）")
             if not ok_all:
                 failures.append(tid)
 
