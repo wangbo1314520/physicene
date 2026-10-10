@@ -120,18 +120,27 @@ def main() -> int:
                   maxY[k] = Math.max(maxY[k] ?? -99, s.y);
                   maxX[k] = Math.max(maxX[k] ?? -99, s.x);
                 });
-                // C·画布动画采样 v3：首帧 subjects 非空时才采 P1（WS started 后首帧延迟 ~0.1s，
-                // 空 subjects 会产生 truthy 空数组→永不重试→假报"未动"——采样 bug 非渲染断链）
-                if (animP1 === null && started && B.subjects().length > 0) {
-                  animP1 = B.subjects().map(s => ({ id: s.id, x: s.x, y: s.y }));
+                // C·画布动画采样 v4：加 TS 通道——Java subjects 空 + TS tsPoses 非空 = TS 引擎
+                // （天体等），需采 tsPoses 而非 subjects（cel-* 5 卡此前全漏）
+                if (animP1 === null && (started || tsStarted)) {
+                  const subs = B.subjects();
                   const tsp = B.tsPoses ? B.tsPoses() : [];
-                  if (tsp.length) animP1 = tsp.map(p => ({ id: p.id, x: p.x, y: p.y }));
-                  animStartI = i;
+                  if (tsp.length > 0) {
+                    animP1 = tsp.map(p => ({ id: p.id, x: p.x, y: p.y }));
+                    animStartI = i;
+                  } else if (subs.length > 0) {
+                    animP1 = subs.map(s => ({ id: s.id, x: s.x, y: s.y }));
+                    animStartI = i;
+                  }
                 }
-                if (animP1 && !animP2 && i >= animStartI + 15 && started) {
-                  animP2 = B.subjects().map(s => ({ id: s.id, x: s.x, y: s.y }));
+                if (animP1 && !animP2 && i >= animStartI + 15 && (started || tsStarted)) {
+                  const subs = B.subjects();
                   const tsp = B.tsPoses ? B.tsPoses() : [];
-                  if (tsp.length) animP2 = tsp.map(p => ({ id: p.id, x: p.x, y: p.y }));
+                  if (tsp.length > 0) {
+                    animP2 = tsp.map(p => ({ id: p.id, x: p.x, y: p.y }));
+                  } else if (subs.length > 0) {
+                    animP2 = subs.map(s => ({ id: s.id, x: s.x, y: s.y }));
+                  }
                 }
                 if ((started && st === 'ended') || tsDone) break;
               }
