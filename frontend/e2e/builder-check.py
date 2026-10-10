@@ -120,9 +120,9 @@ def main() -> int:
                   maxY[k] = Math.max(maxY[k] ?? -99, s.y);
                   maxX[k] = Math.max(maxX[k] ?? -99, s.x);
                 });
-                // C·画布动画采样 v2（2026-10-10）：首帧 started 即采 animP1（非固定 i——WS 握手
-                // ~0.35s 时 i=8 可能 started=false 导致 P1=null→假报"未动"）；P2 = P1 后 15 帧
-                if (!animP1 && started) {
+                // C·画布动画采样 v3：首帧 subjects 非空时才采 P1（WS started 后首帧延迟 ~0.1s，
+                // 空 subjects 会产生 truthy 空数组→永不重试→假报"未动"——采样 bug 非渲染断链）
+                if (animP1 === null && started && B.subjects().length > 0) {
                   animP1 = B.subjects().map(s => ({ id: s.id, x: s.x, y: s.y }));
                   const tsp = B.tsPoses ? B.tsPoses() : [];
                   if (tsp.length) animP1 = tsp.map(p => ({ id: p.id, x: p.x, y: p.y }));
