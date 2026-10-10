@@ -12,10 +12,7 @@ BASE = "http://localhost:5173"
 API = "http://localhost:8080"
 
 # 注记类走画布专属通道（buildUnifiedMesh 不适用）+ 批B 方块债（同 render-coverage ALLOWLIST）
-SKIP = {"trail", "timeline", "vector_arrow", "graph_tag",
-        "powerline", "ac_four_values", "transformer_powerline",
-        "wave_multi", "wave_graphs", "wave_super", "nuclear_react", "micro_integral",
-        "elevator_scale", "energy_meter"}
+SKIP = {"trail", "timeline", "vector_arrow", "graph_tag"}
 
 def login_api():
     req = urllib.request.Request(f"{API}/api/auth/login", method="POST",

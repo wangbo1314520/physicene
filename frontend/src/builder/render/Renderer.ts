@@ -798,6 +798,142 @@ export function buildUnifiedMesh(e: GeoElement | PhysicsElementInput): UnifiedMe
       g.add(textSprite('U_H', '#F5C542', 0.3, 0.42, 0.4))
       return { mesh: g, baseAngle: 0 }
     }
+    // ── P1 通宵（2026-10-10）：装置 B 类剩余十件简笔符号 ──
+    case 'powerline': {
+      // 远距离输电：两塔+导线+功率损失标注
+      const g = new THREE.Group()
+      for (const tx of [-0.5, 0.5]) {
+        g.add(seg2(tx, -0.3, tx - 0.15, 0.4, 0x8a8aa0)); g.add(seg2(tx, -0.3, tx + 0.15, 0.4, 0x8a8aa0))
+        g.add(seg2(tx - 0.15, 0.4, tx + 0.15, 0.4, 0x8a8aa0))
+      }
+      g.add(seg2(-0.45, 0.3, 0.45, 0.3, 0xE05555))
+      g.add(textSprite('P损=I²R', '#8a8aa0', 0, 0.55, 0.35))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'ac_four_values': {
+      // 交变电流四值：正弦波+峰值/有效标注
+      const g = new THREE.Group()
+      for (let k = 0; k < 30; k++) {
+        const x0 = -0.6 + 1.2 * k / 30, x1 = -0.6 + 1.2 * (k + 1) / 30
+        g.add(seg2(x0, 0.25 * Math.sin(k / 30 * Math.PI * 2), x1, 0.25 * Math.sin((k + 1) / 30 * Math.PI * 2), 0x3ecf8e))
+      }
+      g.add(seg2(-0.6, 0.25, -0.5, 0.25, 0xF5C542)); g.add(seg2(-0.6, -0.25, -0.5, -0.25, 0xF5C542))
+      g.add(textSprite('Um', '#F5C542', -0.6, 0.35, 0.3))
+      g.add(textSprite('Um/√2', '#3ecf8e', 0.6, 0.35, 0.3))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'transformer_powerline': {
+      // 变压器输电全链：⊕→升压→线→降压→负载
+      const g = new THREE.Group()
+      const gen = new THREE.Mesh(new THREE.CircleGeometry(0.12, 16), mat('#F5A623'))
+      gen.position.x = -0.7
+      g.add(gen, textSprite('⊕', '#F5A623', -0.7, 0, 0.4))
+      g.add(seg2(-0.55, 0, -0.25, 0, 0x8a8aa0))
+      g.add(textSprite('↑', '#4A90D9', -0.4, 0.15, 0.3))
+      g.add(seg2(-0.25, -0.15, -0.25, 0.15, 0x4A90D9))
+      g.add(seg2(-0.15, 0, 0.15, 0, 0xE05555))
+      g.add(seg2(0.25, -0.15, 0.25, 0.15, 0x4A90D9))
+      g.add(textSprite('↓', '#4A90D9', 0.4, 0.15, 0.3))
+      g.add(seg2(0.35, 0, 0.6, 0, 0x8a8aa0))
+      const load = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.1), mat('#d9a05a'))
+      load.position.x = 0.7
+      g.add(load)
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'wave_multi': {
+      // 波的多解：波形+λ/2 标注（半波损失）
+      const g = new THREE.Group()
+      for (let k = 0; k < 24; k++) {
+        const x0 = -0.6 + 1.2 * k / 24, x1 = -0.6 + 1.2 * (k + 1) / 24
+        g.add(seg2(x0, 0.2 * Math.sin(k / 24 * Math.PI * 3), x1, 0.2 * Math.sin((k + 1) / 24 * Math.PI * 3), 0x3ecf8e))
+      }
+      g.add(seg2(-0.3, 0.3, 0.3, 0.3, 0xF5C542))
+      g.add(textSprite('λ/2', '#F5C542', 0, 0.4, 0.3))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'wave_graphs': {
+      // 振动波动：y-t 图+坐标轴
+      const g = new THREE.Group()
+      g.add(seg2(-0.6, 0, 0.6, 0, 0x565675))
+      g.add(seg2(0, -0.3, 0, 0.3, 0x565675))
+      for (let k = 0; k < 20; k++) {
+        const x0 = -0.5 + 1.0 * k / 20, x1 = -0.5 + 1.0 * (k + 1) / 20
+        g.add(seg2(x0, 0.2 * Math.cos(k / 20 * Math.PI * 4), x1, 0.2 * Math.cos((k + 1) / 20 * Math.PI * 4), 0x3ecf8e))
+      }
+      g.add(textSprite('t', '#565675', 0.65, 0, 0.3))
+      g.add(textSprite('y', '#565675', 0, 0.35, 0.3))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'wave_super': {
+      // 波叠加：两条虚线波+实线合成
+      const g = new THREE.Group()
+      for (let k = 0; k < 24; k++) {
+        const x0 = -0.6 + 1.2 * k / 24, x1 = -0.6 + 1.2 * (k + 1) / 24
+        const y1a = 0.15 * Math.sin(k / 24 * Math.PI * 4)
+        const y1b = 0.15 * Math.sin(k / 24 * Math.PI * 4 + Math.PI / 3)
+        g.add(seg2(x0, y1a, x1, 0.15 * Math.sin((k + 1) / 24 * Math.PI * 4), 0x565675))
+        g.add(seg2(x0, y1b, x1, 0.15 * Math.sin((k + 1) / 24 * Math.PI * 4 + Math.PI / 3), 0x565675))
+        g.add(seg2(x0, y1a + y1b, x1, 0.15 * Math.sin((k + 1) / 24 * Math.PI * 4) + 0.15 * Math.sin((k + 1) / 24 * Math.PI * 4 + Math.PI / 3), 0x3ecf8e))
+      }
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'nuclear_react': {
+      // 核反应：原子核+入射中子+裂变产物
+      const g = new THREE.Group()
+      const nucleus = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 10), mat('#E05555', { emissive: 0.5 }))
+      g.add(nucleus)
+      const neutron = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), mat('#4A90D9'))
+      neutron.position.set(-0.5, 0.15, 0)
+      g.add(neutron)
+      g.add(seg2(-0.4, 0.12, -0.2, 0.05, 0x4A90D9))
+      const frag1 = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), mat('#F5C542'))
+      frag1.position.set(0.4, 0.2, 0)
+      const frag2 = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), mat('#F5C542'))
+      frag2.position.set(0.35, -0.2, 0)
+      g.add(frag1, frag2)
+      g.add(textSprite('n', '#4A90D9', -0.5, 0.3, 0.3))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'micro_integral': {
+      // 微元积分：∫符号+微元小条+标注
+      const g = new THREE.Group()
+      for (let k = 0; k < 8; k++) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1 + 0.3 * Math.sin(k / 7 * Math.PI), 0.05), mat('#3ecf8e', { opacity: 0.5 }))
+        bar.position.set(-0.35 + k * 0.1, 0, 0)
+        g.add(bar)
+      }
+      g.add(seg2(-0.45, -0.25, -0.45, 0.25, 0x565675))
+      g.add(seg2(-0.45, -0.25, 0.45, -0.25, 0x565675))
+      g.add(textSprite('∫dx', '#565675', 0.2, 0.3, 0.4))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'elevator_scale': {
+      // 电梯秤：箱体+秤盘+加速度箭头
+      const g = new THREE.Group()
+      const box = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.7, 0.3), mat('#3a3a5e', { opacity: 0.6 }))
+      g.add(box)
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.2), mat('#4A90D9'))
+      plate.position.y = -0.15
+      g.add(plate)
+      g.add(seg2(0, 0, 0, 0.3, 0xE05555))
+      g.add(seg2(0, 0.3, -0.05, 0.25, 0xE05555)); g.add(seg2(0, 0.3, 0.05, 0.25, 0xE05555))
+      g.add(textSprite('a', '#E05555', 0.12, 0.25, 0.3))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'energy_meter': {
+      // 能量条：双条（Ek/Ep）+守恒标注
+      const g = new THREE.Group()
+      const ekBar = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.1), mat('#3ecf8e'))
+      ekBar.position.set(-0.25, 0.12, 0)
+      const epBar = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.08, 0.1), mat('#F5C542'))
+      epBar.position.set(-0.35, -0.05, 0)
+      g.add(ekBar, epBar)
+      g.add(seg2(-0.55, -0.15, 0.55, -0.15, 0x565675))
+      g.add(textSprite('Ek', '#3ecf8e', 0.45, 0.12, 0.3))
+      g.add(textSprite('Ep', '#F5C542', 0.45, -0.05, 0.3))
+      g.add(textSprite('E=Ek+Ep', '#b0b0cc', 0, 0.35, 0.3))
+      return { mesh: g, baseAngle: 0 }
+    }
     // ── P0 通宵（2026-10-10）：示波器 + 交流源 ──
     case 'oscilloscope': {
       // 示波器：方屏 + 网格 + 绿色扫描线 + CH1 标记 + 旋钮
