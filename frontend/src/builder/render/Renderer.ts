@@ -798,6 +798,28 @@ export function buildUnifiedMesh(e: GeoElement | PhysicsElementInput): UnifiedMe
       g.add(textSprite('U_H', '#F5C542', 0.3, 0.42, 0.4))
       return { mesh: g, baseAngle: 0 }
     }
+    case 'inductor_c': {
+      // 电感：线圈符号（半圆弧 ×4）
+      const g = new THREE.Group()
+      for (let k = 0; k < 4; k++) {
+        const arc = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.02, 8, 12, Math.PI), mat(color))
+        arc.rotation.x = Math.PI / 2
+        arc.position.set(-0.36 + k * 0.24, 0, 0)
+        g.add(arc)
+      }
+      g.add(seg2(-0.6, 0, -0.48, 0, 0x8a8aa0)); g.add(seg2(0.48, 0, 0.6, 0, 0x8a8aa0))
+      g.add(textSprite('L', '#b06ce6', 0, 0.3, 0.4))
+      return { mesh: g, baseAngle: 0 }
+    }
+    case 'capacitor_c': {
+      // 电容：两平行板
+      const g = new THREE.Group()
+      g.add(seg2(-0.1, -0.3, -0.1, 0.3, 0x8a8aa0))
+      g.add(seg2(0.1, -0.3, 0.1, 0.3, 0x8a8aa0))
+      g.add(seg2(-0.6, 0, -0.1, 0, 0x8a8aa0)); g.add(seg2(0.1, 0, 0.6, 0, 0x8a8aa0))
+      g.add(textSprite('C', '#4A90D9', 0, 0.45, 0.4))
+      return { mesh: g, baseAngle: 0 }
+    }
     // ── P1 通宵（2026-10-10）：装置 B 类剩余十件简笔符号 ──
     case 'powerline': {
       // 远距离输电：两塔+导线+功率损失标注

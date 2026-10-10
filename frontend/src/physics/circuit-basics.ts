@@ -9,7 +9,7 @@
 import { solveAC, cabs } from './ac-circuit'
 import type { AcCircuit, AcComp } from './ac-circuit'
 
-export const CIRCUIT_BASIC_TYPES = new Set(['battery', 'resistor', 'rheostat', 'switch_spst', 'switch_spdt', 'ammeter', 'voltmeter', 'multimeter', 'oscilloscope', 'ac_source'])
+export const CIRCUIT_BASIC_TYPES = new Set(['battery', 'resistor', 'rheostat', 'switch_spst', 'switch_spdt', 'ammeter', 'voltmeter', 'multimeter', 'oscilloscope', 'ac_source', 'inductor_c', 'capacitor_c'])
 
 export interface CircuitBody {
   id: string
@@ -32,7 +32,7 @@ function pinOf(e: CircuitBody, anchor: string): [string, number] | null {
       if (anchor === '正极') return [e.id + '#src', 0]
       if (anchor === '负极') return [e.id + '#r', 1]
       return null
-    case 'resistor': case 'rheostat': case 'switch_spst': case 'ammeter': case 'voltmeter': case 'multimeter': case 'oscilloscope':
+    case 'resistor': case 'rheostat': case 'switch_spst': case 'ammeter': case 'voltmeter': case 'multimeter': case 'oscilloscope': case 'inductor_c': case 'capacitor_c':
       if (anchor === '左端') return [e.id, 0]
       if (anchor === '右端') return [e.id, 1]
       return null
@@ -86,6 +86,14 @@ export function buildCircuit(els: CircuitBody[]): { circuit: AcCircuit } | { err
         components.push(SRC(e.id + '#src', 0), R2(e.id + '#r', ri))
         wires.push(W([e.id + '#src', 1], [e.id + '#r', 0]))
         ;(e as unknown as { _acParams?: { um: number; f: number } })._acParams = { um, f }
+        break
+      }
+      case 'inductor_c': {
+        components.push({ id: e.id, kind: 'inductor', pins: 2, props: { L: Math.max(1e-6, e.params.L ?? 0.1) } })
+        break
+      }
+      case 'capacitor_c': {
+        components.push({ id: e.id, kind: 'capacitor', pins: 2, props: { C: Math.max(1e-6, e.params.C ?? 0.001) } })
         break
       }
       case 'ammeter': {
@@ -143,41 +151,51 @@ export function runCircuitBasics(els: CircuitBody[], maxDuration = 2): CircuitFr
   const hasAc = els.some((e) => e.type === 'ac_source')
   const frames: CircuitFrame[] = []
   const nFrames = Math.floor(maxDuration * 30)
+
+  if (!hasAc) {
+    // DC 模式：稳态一次求解，复制帧
+    const dc = solveDC(built.circuit)
+    const readings = buildReadings(els, dc.i, built, dc.u)
+    for (let k = 0; k <= nFrames; k++) frames.push({ t: k / 30, readings })
+    return frames
+  }
+
+  // ═══ AC 相量法（2026-10-10 修正）═══
+  // 正确做法：源设为峰值 → 一次 MNA 求解 at ω=2πf → 相量提取 → 逐帧 sin(ωt+φ)
+  // 此前瞬时重解（每帧 ω=0 重解）对 L/C 全错（L→短路 C→开路）
+  const acEl = els.find((e) => e.type === 'ac_source')!
+  const um = Math.max(0.1, acEl.params.um ?? 10)
+  const f = Math.max(0.1, acEl.params.f ?? 50)
+  const omega = 2 * Math.PI * f
+
+  // 把源设为峰值（SRC 约定 um=peak·√2，solveAC 的 srcVal=um/√2=RMS=peak）
+  const srcComp = built.circuit.components.find((c) => c.id === acEl.id + '#src')
+  if (srcComp) srcComp.props.um = um  // SRC约定 um=peak，srcVal=um/√2=RMS（此前×√2导致源电压√2倍偏高）
+
+  // 一次求解
+  const sol = solveAC(built.circuit, omega)
+
+  // 逐帧生成时域波形
   for (let k = 0; k <= nFrames; k++) {
     const t = k / 30
-    if (hasAc) {
-      // AC 模式：每帧更新源值后重解 MNA（正弦瞬时值）
-      for (const e of els) {
-        if (e.type !== 'ac_source') continue
-        const um = Math.max(0.1, e.params.um ?? 10)
-        const f = Math.max(0.1, e.params.f ?? 50)
-        const u = um * Math.sin(2 * Math.PI * f * t)
-        const srcComp = built.circuit.components.find((c) => c.id === e.id + '#src')
-        if (srcComp) srcComp.props.um = u * Math.SQRT2  // SRC 约定 um=U·√2
-      }
+    const wt = omega * t
+    const i: Record<string, number> = {}
+    const u: Record<string, number> = {}
+    for (const key of Object.keys(sol.uPhasors)) {
+      const ph = sol.uPhasors[key]
+      u[key] = Math.SQRT2 * Math.hypot(ph.re, ph.im) * Math.sin(wt + Math.atan2(ph.im, ph.re))
     }
-    let i: Record<string, number>
-    if (hasAc) {
-      // AC 路径：直取相量实部（有符号——波形需正负交替，cabs 全正）
-      const sol = solveAC(built.circuit, 0)
-      i = {}
-      for (const k of Object.keys(sol.iPhasors)) i[k] = sol.iPhasors[k].re
-    } else {
-      const dc = solveDC(built.circuit)
-      i = dc.i
+    for (const key of Object.keys(sol.iPhasors)) {
+      const ph = sol.iPhasors[key]
+      i[key] = Math.SQRT2 * Math.hypot(ph.re, ph.im) * Math.sin(wt + Math.atan2(ph.im, ph.re))
     }
-    const readings = buildReadings(els, i, built)
+    const readings = buildReadings(els, i, built, u)
     frames.push({ t, readings })
-    if (!hasAc && k === 0) {
-      // DC 模式：稳态只算一次，后续帧复制
-      for (let j = 1; j <= nFrames; j++) frames.push({ t: j / 30, readings })
-      break
-    }
   }
   return frames
 }
 
-function buildReadings(els: CircuitBody[], i: Record<string, number>, _built: { circuit: unknown }): Record<string, number> {
+function buildReadings(els: CircuitBody[], i: Record<string, number>, _built: { circuit: unknown }, u: Record<string, number> = {}): Record<string, number> {
   const readings: Record<string, number> = {}
   for (const e of els) {
     const p = e.params
@@ -205,6 +223,16 @@ function buildReadings(els: CircuitBody[], i: Record<string, number>, _built: { 
       readings[`I_${e.id}`] = +cur.toExponential(3)
       readings[`tb_${e.id}`] = e.params.timebase ?? 0   // v2 消费（渲染标注）
       readings[`vs_${e.id}`] = e.params.vscale ?? 0
+    } else if (e.type === 'inductor_c') {
+      const cur = i[`${e.id}#I`] ?? 0
+      readings[`I_${e.id}`] = +cur.toFixed(4)
+      readings[`U_${e.id}`] = +(u[`${e.id}#U`] ?? 0).toFixed(4)
+      readings[`XL_${e.id}`] = +(2 * Math.PI * 50 * (e.params.L ?? 0.1)).toFixed(2)  // 感抗
+    } else if (e.type === 'capacitor_c') {
+      const cur = i[`${e.id}#I`] ?? 0
+      readings[`I_${e.id}`] = +cur.toFixed(4)
+      readings[`U_${e.id}`] = +(u[`${e.id}#U`] ?? 0).toFixed(4)
+      readings[`XC_${e.id}`] = +(1 / (2 * Math.PI * 50 * (e.params.C ?? 0.001))).toFixed(2)  // 容抗
     } else if (e.type === 'ac_source') {
       const cur = i[`${e.id}#src#I`] ?? 0
       readings[`I_${e.id}`] = +cur.toFixed(4)

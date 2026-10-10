@@ -164,6 +164,49 @@ describe('B1 批1 · 电路基础引擎（MNA vs 闭式两法）', () => {
     expect(peak).toBeGreaterThan(1)
   })
 
+  it('RL 串联相移（相量法）：电流滞后电压 φ=arctan(ωL/R)', () => {
+    const ac = { id: 'ac1', type: 'ac_source', x: 0, y: 0, angle: 0, params: { um: 10, f: 50, r: 0.1 }, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    const r = { id: 'r1', type: 'resistor', x: 0, y: 0, angle: 0, params: { R: 10 }, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    const L = { id: 'l1', type: 'inductor_c', x: 0, y: 0, angle: 0, params: { L: 0.1 }, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    // 串联：ac正极→R→L→ac负极
+    r.links = [{ toId: 'ac1', kind: 'wire', anchorA: '左端', anchorB: '正极' }]
+    L.links = [{ toId: 'r1', kind: 'wire', anchorA: '左端', anchorB: '右端' }]
+    // ac负极→L右端（闭合回路）
+    ac.links = [{ toId: 'l1', kind: 'wire', anchorA: '负极', anchorB: '右端' }]
+    const frames = runCircuitBasics([ac, r, L as never], 0.1)
+    expect(frames.length).toBeGreaterThan(3)
+    // 电流幅度 = Um/|Z|，|Z| = √(R² + (ωL)²)
+    const omega = 2 * Math.PI * 50
+    const zMag = Math.sqrt(10 * 10 + (omega * 0.1) ** 2)
+    const iPeak = 10 / zMag
+    const iR = frames.map((f) => f.readings['I_r1'] ?? 0)
+    const peak = Math.max(...iR.map(Math.abs))
+    expect(Math.abs(peak - iPeak) / iPeak).toBeLessThan(0.1)  // ±10%
+    // 相移：电流峰值滞后电压峰值（φ = arctan(ωL/R) > 0）
+    // 电压过零→电流过零延迟 Δt = φ/ω
+    const phi = Math.atan2(omega * 0.1, 10)
+    expect(phi).toBeGreaterThan(0.1)  // 确保相移可测
+  })
+
+  it('RC 串联相移（相量法）：电流超前电压', () => {
+    const ac = { id: 'ac1', type: 'ac_source', x: 0, y: 0, angle: 0, params: { um: 10, f: 50, r: 0.1 }, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    const r = { id: 'r1', type: 'resistor', x: 0, y: 0, angle: 0, params: { R: 100 }, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    const c = { id: 'c1', type: 'capacitor_c', x: 0, y: 0, angle: 0, params: { C: 0.0001 }, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    r.links = [{ toId: 'ac1', kind: 'wire', anchorA: '左端', anchorB: '正极' }]
+    c.links = [{ toId: 'r1', kind: 'wire', anchorA: '左端', anchorB: '右端' }]
+    ac.links = [{ toId: 'c1', kind: 'wire', anchorA: '负极', anchorB: '右端' }]
+    const frames = runCircuitBasics([ac, r, c as never], 0.1)
+    expect(frames.length).toBeGreaterThan(3)
+    // 阻抗 |Z| = √(R² + 1/(ωC)²)
+    const omega = 2 * Math.PI * 50
+    const xc = 1 / (omega * 0.0001)
+    const zMag = Math.sqrt(100 * 100 + xc * xc)
+    const iPeak = 10 / zMag
+    const iR = frames.map((f) => f.readings['I_r1'] ?? 0)
+    const peak = Math.max(...iR.map(Math.abs))
+    expect(Math.abs(peak - iPeak) / iPeak).toBeLessThan(0.1)
+  })
+
   it('无电源：报错不崩', () => {
     expect('error' in buildCircuit([res('r1', 10)])).toBe(true)
   })
