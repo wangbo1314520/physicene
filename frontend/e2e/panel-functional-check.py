@@ -118,12 +118,11 @@ def main() -> int:
                 for _ in range(120):
                     page.wait_for_timeout(100)
                     if page.evaluate("window.__builder.simStatus()") == "ended": break
-            # 回放需要 recordId（运行时保存场景产生）。当前 BuilderView 直接运行不保存
-            # → recordId=null → 按钮禁用。这是预期行为（2.3 保存合一后启用）。
-            # 如实断言：按钮存在 + 禁用状态与 recordId 一致
+            # 2.3 双轨契约落地（RunBridge 转发 sceneId，2026-10-11）：先存后跑必产生 recordId
+            # → 运行结束后回放按钮应可用（旧断言"禁用为预期"是 recordId 从未生效时代的口径）
             btn_disabled = page.locator(".replay-panel button", has_text="加载回放").is_disabled()
-            check("F3b 回放按钮存在且禁用逻辑正确（无 record 时禁用，2.3 保存后启用）",
-                  btn_disabled, f"disabled={btn_disabled}（2.3 修 BuilderView 保存场景后 record 产生）")
+            check("F3b 运行后回放按钮可用（recordId 已产生——2.3 先存后跑真正落地）",
+                  not btn_disabled, f"disabled={btn_disabled}")
 
         # ═══ F4 OCR：上传图 → 元件加入画布 ═══
         print("F4 OCR 拍照识题功能")

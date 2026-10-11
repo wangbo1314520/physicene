@@ -460,7 +460,7 @@ export function useRunBridge() {
       gravity: { x: 0, y: gravityY },
       maxDuration,
       substeps: substepsOverride ?? (hasBeltOrLoop ? 4 : hasMovablePulley ? 8 : 2), // 模板可覆盖（磁场色散敏感场景 8）；SceneValidator：带/圆轨道建议 ≥4
-    })
+    }, sceneId)   // 2.3 声称的先存后跑——此前漏传致 recordId/回放从未生效（2026-10-11 E2E 拦截实锤）
     return socket.error.value ? String(socket.error.value) : null
   }
 

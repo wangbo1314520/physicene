@@ -12,6 +12,8 @@ export interface WorkspaceState {
   undo: string[]
   redo: string[]
   seq: number   // 元件 id 序号（跨 Tab 卸载连续）
+  /** 当前画布对应的后端场景 id（深链/云端加载时设置——运行前保存走 PUT 更新而非重复 POST） */
+  backendSceneId: number | null
   /** 追问2 补丁（2026-10-07）：视图/会话层三件入 store——切 Tab（v-if 卸载）不再丢。
    *  相机 pan/zoom 仍在 BuilderCanvas 内部（切 Tab 重置，Step 2 单页化后整类消失） */
   viewMode: '2D' | '2.5D' | '3D'
@@ -23,7 +25,7 @@ export interface WorkspaceState {
 }
 
 export const workspace = reactive<WorkspaceState>({
-  elements: [], undo: [], redo: [], seq: 1,
+  elements: [], undo: [], redo: [], seq: 1, backendSceneId: null,
   viewMode: '2D', selectedId: null, domain: 'mech', tsPoses: [],
 })
 

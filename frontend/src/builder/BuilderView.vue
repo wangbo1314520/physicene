@@ -76,7 +76,7 @@ async function onImageChosen(ev: Event) {
 }
 const bottomTab = ref<'props' | 'data' | 'replay'>('props')
 // Step2·2.3：保存合一——后端场景（recordId 来源）+ 本机场景并列
-const backendSceneId = ref<number | null>(null)
+const backendSceneId = toRef(workspace, 'backendSceneId')   // 共享 store：深链加载时由 FreeBuildTab 设置
 const backendScenes = ref<{ id: number; name: string }[]>([])
 async function saveToBackend(silent = false): Promise<number | null> {
   try {

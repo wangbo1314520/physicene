@@ -20,6 +20,7 @@ onMounted(async () => {
       const { workspace, wsRestore } = await import('./workspace')
       if (resp.elements?.length) {
         wsRestore(JSON.stringify(resp.elements))
+        workspace.backendSceneId = Number(qid)   // 运行前保存走 PUT 更新原场景（防深链后重复 POST 新场景）
       }
     } catch { /* 深链场景加载失败不阻断 */ }
   }
