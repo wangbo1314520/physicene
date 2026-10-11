@@ -104,7 +104,7 @@
 - walkthrough 圆轨道"脱离"为**脚本参数债**（`gap` 默认 40° 缺口未显式关），loop-entry-check 6/6 佐证引擎无恙 → 补 `gap:0` 后 10/10
 - builder-redo 80/81：余 E4 为探针口径（断绳后块落地静止，末段 a≈0 被误判"未下落"；断绳事件链路正常）
 - 新钩子：`__builder.tsT()`（引擎时间轴）
-- 重跑全绿：phase-shift 7/7 · free-build 14/14 · lab 15/15 · panel 11/11 · f13 14/14 · reconnect · p0 11/11 · f11 · celestial · tab-sync 8/8 · verify-resize 5/5 · p1-11cards 14/14 · p2 6/6 · p11 10/10 · p21 8/8 · smoke/payload/probe* · stress 10 学生 · builder-check 见提交后补记
+- 重跑全绿：phase-shift 7/7 · free-build 14/14 · lab 15/15 · panel 11/11 · f13 14/14 · reconnect · p0 11/11 · f11 · celestial · tab-sync 8/8 · verify-resize 5/5 · p1-11cards 14/14 · p2 6/6 · p11 10/10 · p21 8/8 · smoke/payload/probe* · stress 10 学生 · **builder-check 69/69 ✅**（动画扫描 36 动/4 警示未动/29 无主体，与基线一致；Java PID 运行前后一致）
 
 ### 6.3 新登记（阶段 2 高优）
 
