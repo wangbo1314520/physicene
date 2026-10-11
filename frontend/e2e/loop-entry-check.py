@@ -131,7 +131,7 @@ def main() -> int:
           return { fin, t }; }""")
         if r6["fin"]:
             t = r6["t"]
-            x_pred = 3.5 + 3 * t          # ang=0 → vx=+3（实测 ang=180 亦为 +x——sphere ang 语义另查，此处取 0）
+            x_pred = 3.5 + 3 * t          # sphere 无 ang 参数：v0 恒沿 +x（追问5 已定性并登记审计表）
             y_pred = 1.4 - 0.5 * G * t * t  # 自由落体
             check("⑤c 圈外球直线飞离（抛物线预测 ±0.5m，无导轨吸力）",
                   abs(r6["fin"]["x"] - x_pred) < 0.5 and abs(r6["fin"]["y"] - y_pred) < 0.5,
