@@ -200,7 +200,9 @@ def _handle_question(request: ChatRequest, entities: dict) -> ChatResponse:
     except Exception:  # noqa: BLE001 LLM 失败 + 有检索结果 → 直接展示教材片段
         if hits:
             lines = [f"📖 {h['source']} {h['chapter']} P{h['page']}：\n{h['content'][:200]}…" for h in hits[:3]]
-            return ChatResponse(reply="AI 暂时繁忙，先给你找到了教材相关片段：\n\n" + "\n\n".join(lines))
+            # 追问5（2026-10-11）：降级 RAG 片段显式标 fallback——前端在线灯/回退标注与
+            # 用户所见一致（此前 reply 带"AI 暂时繁忙"但 fallback=False，在线灯仍绿）
+            return ChatResponse(reply="AI 暂时繁忙，先给你找到了教材相关片段：\n\n" + "\n\n".join(lines), fallback=True, error_type="LLM_UNAVAILABLE")
         raise
 
     if hits:
