@@ -85,7 +85,60 @@ def main() -> int:
         d_fin = math.hypot(r["fin"]["x"] - 2, r["fin"]["y"] - 0.2)
         check("④ 左侧飞入经缺口捕获（末态在圈附近继续运动，非弹飞远处）",
               d_fin < 6 and r["maxY"] > apex - 0.15, f"末态距圆心={d_fin:.2f} maxY={r['maxY']}")
-        check("⑤ 全程无页面错误", not errs, str(errs[:1]))
+        # ⑤b 精确脱离角（2026-10-11 第23条补——复刻单测几何：球出生在球道圈底部、无地面无
+        # 沿程损耗，θ=acos((2g·r_c−v₀²)/(3g·r_c)) 闭式可算）。A1 事件机制曾致 158.5° 测量伪影
+        r5 = page.evaluate("""async () => {
+          const B = window.__builder;
+          B.clear();
+          B.add('loop_track', { radius: 1.2, side: 0, gap: 0 }, 0, 1.4);
+          B.add('sphere', { m: 0.5, v0: 5.5, ang: 0, e: 1, mus: 0 }, 0, 0.7);
+          B.run();
+          const wait = (ms) => new Promise(r => setTimeout(r, ms));
+          let started = false, theta = null;
+          for (let i = 0; i < 400; i++) {
+            await wait(50);
+            const st = B.simStatus();
+            if (st === 'running' || st === 'connecting') started = true;
+            const d = B.keyEvents().find(k => k.eventType === 'detach');
+            if (d && theta === null) theta = d.payload.theta;
+            if (started && st === 'ended') break;
+          }
+          return { theta }; }""")
+        rc = R - RC   # 球心轨迹半径 0.7
+        theta_th = math.degrees(math.acos((2 * G * rc - 5.5 ** 2) / (3 * G * rc)))
+        check("⑤b 精确脱离角 θ=acos((2g·rc−v₀²)/(3g·rc))（±6°）",
+              r5["theta"] is not None and abs(r5["theta"] - theta_th) < 6,
+              f"实测={r5['theta']} 理论={theta_th:.1f}°（rc={rc}）")
+
+        # ⑤c 圈外球直线飞离（第23条补——loopGateOutside 单测的 E2E 对应物）：
+        # 球从圈外水平飞过，无导轨吸力 → 抛物线预测位置（A1 曾致末 x=0.16 被吸入）
+        r6 = page.evaluate("""async () => {
+          const B = window.__builder;
+          B.clear();
+          B.add('loop_track', { radius: 1.2, side: 0, gap: 0 }, 0, 1.4);
+          B.add('sphere', { m: 0.5, v0: 3, ang: 0, e: 1, mus: 0 }, 3.5, 1.4);
+          B.run();
+          const wait = (ms) => new Promise(r => setTimeout(r, ms));
+          let started = false, fin = null, t = 0;
+          for (let i = 0; i < 500; i++) {
+            await wait(50);
+            const st = B.simStatus();
+            if (st === 'running' || st === 'connecting') started = true;
+            const s = B.subjects()[0];
+            if (s) fin = { x: s.x, y: s.y, vx: s.vx, vy: s.vy };
+            if (started && st === 'ended') { t = B.simT(); break; }
+          }
+          return { fin, t }; }""")
+        if r6["fin"]:
+            t = r6["t"]
+            x_pred = 3.5 + 3 * t          # ang=0 → vx=+3（实测 ang=180 亦为 +x——sphere ang 语义另查，此处取 0）
+            y_pred = 1.4 - 0.5 * G * t * t  # 自由落体
+            check("⑤c 圈外球直线飞离（抛物线预测 ±0.5m，无导轨吸力）",
+                  abs(r6["fin"]["x"] - x_pred) < 0.5 and abs(r6["fin"]["y"] - y_pred) < 0.5,
+                  f"末=({r6['fin']['x']:.2f},{r6['fin']['y']:.2f}) 预测=({x_pred:.2f},{y_pred:.2f}) t={t:.1f}s")
+        else:
+            check("⑤c 圈外球直线飞离", False, "无球数据")
+        check("⑥ 全程无页面错误", not errs, str(errs[:1]))
 
         page.locator(".free-build-tab .bcanvas canvas").first.screenshot(path="e2e/shots/render-bugs/loop-gap.png")
         b.close()
