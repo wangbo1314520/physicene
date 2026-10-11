@@ -15,6 +15,8 @@ import DataPanel from './components/DataPanel.vue'
 import BuilderAi from './components/BuilderAi.vue'
 import { analyze } from './analysis/EngineAnalyzer'
 import CriticalPanel from './analysis/CriticalPanel.vue'
+import CurvePanel from './components/CurvePanel.vue'
+import ReplayPanel from './components/ReplayPanel.vue'
 import { useRunBridge } from './run/RunBridge'
 import { TEMPLATES, instantiate, templateById } from './templates/registry'
 
@@ -29,6 +31,49 @@ const sceneName = ref('未命名场景')
 const domain = toRef(workspace, 'domain')   // 追问2 补丁：切 Tab 保留
 // Step2·2.1（2026-10-10）：单页壳——左栏/底栏可切换
 const leftTab = ref<'palette' | 'ai'>('palette')
+// Step2·2.2：OCR 拍照识题（从 LabView 迁入——ghost 预览后续批做）
+const fileInput = ref<HTMLInputElement>()
+const ocrBusy = ref(false)
+function pickImage() { fileInput.value?.click() }
+async function onImageChosen(ev: Event) {
+  const input = ev.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  ocrBusy.value = true
+  say('正在识别题目…（OCR + 解析约需 10-15 秒）')
+  try {
+    const form = new FormData()
+    form.append('file', file)
+    const { http } = await import('../api/http')
+    const resp = (await http.post('/ocr/upload', form, {
+      headers: { 'Content-Type': 'multipart/form-form' }, timeout: 60_000,
+    })) as { degraded?: boolean; fallbackHint?: string; recommendedElements?: any[]; confidence?: number }
+    ocrBusy.value = false
+    if (resp.degraded) { say(`识别未成功：${resp.fallbackHint ?? '建议手动搭建'}`); return }
+    const els = resp.recommendedElements ?? []
+    if (els.length) {
+      snapshot()
+      for (const pe of els) {
+        const spec = byType.get(pe.type)
+        if (spec) {
+          elements.push({
+            id: `${pe.type}-${workspace.seq++}`, type: pe.type,
+            position: { x: pe.position?.x ?? 0, y: pe.position?.y ?? 0 },
+            angle: pe.angle ?? 0,
+            params: { ...defaultsOf(spec), ...(pe.params ?? {}) },
+            isFixed: spec.role === 'constraint' || spec.role === 'field',
+            role: spec.role, links: [],
+          })
+        }
+      }
+      say(`📷 AI 推荐场景已加入（${els.length} 件，置信度 ${((resp.confidence ?? 0) * 100).toFixed(0)}%）`)
+    } else { say('识别成功但无推荐元件') }
+  } catch (e) {
+    ocrBusy.value = false
+    say('识题失败：' + String(e).replace('Error: ', ''))
+  }
+}
 const bottomTab = ref<'props' | 'data' | 'replay'>('props')
 const search = ref('')
 // D1 Step1·1.1（2026-10-07）：场景本体迁共享 store（模块级 reactive 单例）——
@@ -468,8 +513,8 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
         </div>
         <div v-if="saved.length" class="saved"><h4>本机场景</h4><div v-for="s in saved" :key="s.id" class="srow"><a @click="loadScene(s)">{{ s.name }}</a><small>{{ s.at }}</small><button @click="deleteScene(s)">×</button></div></div>
         </div>
-        <div v-show="leftTab === 'ai'" class="ai-placeholder">
-          <p>AI 助教面板（Step 2.2 迁入）</p>
+        <div v-show="leftTab === 'ai'" class="ai-content">
+          <BuilderAi :elements="elements" :records="records" :scene-name="sceneName" :engines-title="elements.length ? `统一搭建：${analysis.title}` : undefined" :notes="analysis.warnings" />
         </div>
       </aside>
 
@@ -487,6 +532,8 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
           <button :disabled="sim.status === 'idle' && bridge.tsRun.value.status === 'idle'" @click="resetRun" title="清除运行状态，场景回到运行前（不清空画布）">🔄 复位</button>
           <button @click="canvasRef?.resetView()" title="平移/缩放/环绕回到初始视角（不动元件）">⌖ 复位视角</button>
           <button :class="{ active: showTemplates }" @click="showTemplates = !showTemplates">📚 模板</button>
+          <button :disabled="ocrBusy" @click="pickImage" title="拍照/上传题目图片 → AI 识别推荐场景">📷 拍照识题</button>
+          <input ref="fileInput" type="file" accept="image/jpeg,image/png" style="display:none" @change="onImageChosen">
           <span class="spacer"></span>
           <span v-if="sim.status !== 'idle'" class="runstate">
             {{ sim.status === 'running' ? `▶ 运行中 t=${sim.currentT.toFixed(2)}s` : sim.status === 'paused' ? `⏸ 已暂停 t=${sim.currentT.toFixed(2)}s` : `⏹ 已结束 t=${sim.currentT.toFixed(2)}s（${sim.keyEvents.length} 事件）` }}
@@ -566,11 +613,9 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
     </div>
     <section class="bottom">
       <DataPanel v-show="bottomTab === 'data'" :records="records" @clear="records = []" />
-      <BuilderAi v-show="leftTab === 'ai'" :elements="elements" :records="records" :scene-name="sceneName" :engines-title="elements.length ? `统一搭建：${analysis.title}` : undefined" :notes="analysis.warnings" />
-      <!-- Step2·2.1：回放占位（2.2 迁入 LabView 回放时间轴） -->
-      <div v-show="bottomTab === 'replay'" class="replay-placeholder">
-        <p>回放时间轴（Step 2.2 迁入）</p>
-      </div>
+      <CurvePanel v-show="bottomTab === 'data'" />
+
+      <ReplayPanel v-show="bottomTab === 'replay'" />
     </section>
   </main>
 </template>
@@ -630,6 +675,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
 .bottombar-tabs { display: flex; gap: 4px; padding: 6px 16px 0; }
 .bottombar-tabs button { padding: 4px 14px; background: #1d1d33; color: #8a8aa0; border: 1px solid #2f2f4a; border-bottom: none; border-radius: 6px 6px 0 0; cursor: pointer; font-size: 12px; }
 .bottombar-tabs button.on { background: #253a52; color: #7fc3ff; font-weight: 600; }
+.ai-content { flex: 1; overflow-y: auto; padding: 4px; }
 .ai-placeholder, .replay-placeholder { padding: 40px; text-align: center; color: #565675; font-size: 13px; cursor: not-allowed; opacity: 0.5; background: repeating-linear-gradient(45deg, #1d1d33, #1d1d33 10px, #23233a 10px, #23233a 20px); }
 @media (max-width: 1100px) { .work { grid-template-columns: 1fr; } .bottom { grid-template-columns: 1fr; } }
 </style>
