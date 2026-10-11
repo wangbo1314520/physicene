@@ -34,6 +34,13 @@ if echo "$STAGED" | grep -qx 'frontend/src/builder/catalog.ts' && ! echo "$STAGE
   echo "❌ catalog.ts 变更但参数链审计表.md 未同步——新参数/SEL 须登记映射行（checklist 第2条，co-change 强制）"
   exit 1
 fi
+# 第 24 条（2026-10-11 动滑轮速度比 1.21 回归制度化）：Java 单测与前端回归同跑——
+# 触及 java-backend 源码的提交必须过 mvn test（此前只跑 vitest，10-09 物理回归红着上线无人见）
+STAGED_ALL=$(git -c core.quotepath=false diff --cached --name-only)
+if echo "$STAGED_ALL" | grep -q '^java-backend/src/'; then
+  echo "── Java 源码已暂存：跑 mvn test（第 24 条）──"
+  (cd "$(git rev-parse --show-toplevel)/java-backend" && mvn -q test) || { echo "❌ mvn test failed（第 24 条：Java 单测必须与前端回归同跑）"; exit 1; }
+fi
 # .gitignore 变更的提交必须过双层扫描自测（防新规则误伤——data/ 事故同型，第二十四轮制度）
 if git diff --cached --name-only | grep -qx '.gitignore'; then
   bash ../.githooks/selftest.sh || exit 1

@@ -260,7 +260,9 @@ export function toPhysicsElements(els: GeoElement[]): ScenePackage {
             ? { x: t.position.x + c2 * a.local.x - s2 * a.local.y, y: t.position.y + s2 * a.local.x + c2 * a.local.y }
             : { x: t.position.x, y: t.position.y }
         }
-        const params: Record<string, number> = { ratio: movable ? 2 : 1 }
+        // kind=动滑轮本体模型开关（Java movable() 判定同源——2026-10-11 修复：此前未发送，
+        // Java 端 ratio()==2 开关误劫持教材式 ratio 约束致速度比 1.21）
+        const params: Record<string, number> = { ratio: movable ? 2 : 1, kind: movable ? 1 : 0 }
         if (movable) {
           params.M = num(p.M, 1)
           const ends = [aEl, bEl]

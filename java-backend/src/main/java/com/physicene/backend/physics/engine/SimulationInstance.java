@@ -671,9 +671,12 @@ public class SimulationInstance {
                         double rb2 = equivalentRadius(dynamicElements.get(i));
                         boolean near = Math.abs(Math.hypot(dx, dy) + rb2 - g[2]) < 0.3;
                         if (leftUpper && near && latch("detach:" + id)) {
+                            // 2026-10-11 回归修复：θ 载荷取末次接触角（真实分离点）——A1 的 3 帧分离窗
+                            // 期间球已自由飞离 ~9°，用触发时刻位置曾致脱离角 149.8°→158.5°（单测红）。
+                            // leftUpper/near 判定维持 A1 语义（防缺口穿越误报）不变。
                             fireKeyEvent(t, "detach",
-                                    id + " 脱离轨道（θ=" + String.format("%.1f", theta) + "°）",
-                                    Map.<String, Object>of("theta", round(theta)));
+                                    id + " 脱离轨道（θ=" + String.format("%.1f", lastAngle) + "°）",
+                                    Map.<String, Object>of("theta", round(lastAngle)));
                         }
                     }
                 }

@@ -130,15 +130,23 @@ public class LoopTrackElement implements ElementBehavior {
             // 内轨/管道只导「圈内」的球（OPEN#3）+ A1 onTrack：球心进 R−r 球道圈才上轨——
             // 墙带 (R−r, R] 的幽灵穿入球（传感器链无外壁，从圈外穿墙进来）不捕获，防罚力垫注入能量。
             // 回归修正：出生在盘内（首见 dist≤R）的球直接入系统（模板球出生位偏离球道圈）。
+            // 2026-10-11 回归修复（定性：A1 真回归，非断言过时——pre-A1 worktree 双绿/HEAD 双红）：
+            // ① dist>R 恢复立即放手（旧截断面=脱离角 149.8° 的标定基础；A1 曾对 onTrack 球导到
+            //    任意远 → 脱离延迟到 158.5°）——同时移出身份集；圈外球因此从首帧起零受力（修复
+            //    圈外球末 x=0.16 未直线飞离：旧结构首见圈外会穿透到 pen>0 施一帧吸力）
+            // ② 圈外首见仍记 firstSeen（防幽灵：后续穿入墙带不再当'出生盘内'捕获）
+            if (dist > R) {
+                firstSeen.add(body);
+                onTrack.remove(body);
+                return null;
+            }
             if (dist <= R - ballRadius + 1e-9) {
                 onTrack.add(body);
             } else if (!onTrack.contains(body)) {
                 if (firstSeen.add(body)) {
-                    if (dist <= R) {
-                        onTrack.add(body);
-                    }
+                    onTrack.add(body);   // 首见即盘内（墙带出生）→ 入系统
                 } else {
-                    return null;
+                    return null;   // 首见圈外、现穿墙带：幽灵不导
                 }
             }
             pen = (dist + ballRadius) - R;  // 球在圆内压向外壁（内轨/管道）

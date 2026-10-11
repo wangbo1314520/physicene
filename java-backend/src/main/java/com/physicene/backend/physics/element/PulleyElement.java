@@ -49,7 +49,7 @@ public class PulleyElement implements ElementBehavior, JointBehavior {
     public Body createBody(World<Body> world) {
         // 动滑轮（决策批准 2026-10-07）：本体为动态体——圆盘质量 M（载重含滑轮），
         // 绳两端可为固定锚（end0x/y、end1x/y 世界坐标静态端）或运动体（connectTo/connectTo2）
-        if (ratio() == 2) {
+        if (movable()) {
             Body b = new Body();
             double r = 0.35;
             b.addFixture(org.dyn4j.geometry.Geometry.createCircle(r));
@@ -67,7 +67,7 @@ public class PulleyElement implements ElementBehavior, JointBehavior {
     public Joint<Body> createJoint(World<Body> world, Map<String, Body> bodies) {
         bodyA = data.getConnectTo() == null ? null : bodies.get(data.getConnectTo());
         bodyB = data.getConnectTo2() == null ? null : bodies.get(data.getConnectTo2());
-        if (ratio() == 2) {
+        if (movable()) {
             // 动滑轮：两端允许静态锚（至少一端有坐标或本体，否则无效）
             pulleyBody = bodies.get(data.getId());
             boolean end0Static = data.getParams() != null && data.getParams().containsKey("end0x");
@@ -122,6 +122,14 @@ public class PulleyElement implements ElementBehavior, JointBehavior {
         return param("ratio", 1.0) == 2 ? 2.0 : 1.0;
     }
 
+    /** 动滑轮本体模型开关：kind==1（前端 RunBridge 同标记——movable 才发 ratio:2）。
+     *  2026-10-11 修复：此前误用 ratio()==2 做开关，把教材式 ratio 约束
+     *  （|A−P₁|+ratio·|B−P₂|=L → |vA|=2|vB|，老单测/直发 API 场景）劫持到
+     *  动态圆盘模型，速度比 2:1 退化为 1.21。kind 缺省=0 → 静态 ratio 约束。 */
+    private boolean movable() {
+        return param("kind", 0) == 1;
+    }
+
     private double currentLength() {
         Vector2D p = data.getPosition();
         double a1x = p.x() + param("pulley1dx", 0.0), a1y = p.y() + param("pulley1dy", 0.0);
@@ -138,7 +146,7 @@ public class PulleyElement implements ElementBehavior, JointBehavior {
      * 返回张力冲量 |λ|（≤0 表示绳松弛未施力）。
      */
     public double applyImpulse(double h) {
-        if (ratio() == 2 && pulleyBody != null) {
+        if (movable() && pulleyBody != null) {
             return applyMovableImpulse(h);
         }
         if (bodyA == null || bodyB == null) {
