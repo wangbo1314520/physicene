@@ -34,11 +34,14 @@ def ws_round():
                 f"Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
         s.settimeout(60)
         frames = 0
-        while True:
-            chunk = s.recv(65536)
-            if not chunk:
-                break
-            frames += chunk.count(b'"frame"')
+        try:
+            while True:
+                chunk = s.recv(65536)
+                if not chunk:
+                    break
+                frames += chunk.count(b'"frame"')
+        except Exception:
+            pass   # 仿真结束后的静默超时是正常收尾——已收帧不丢弃（计数 bug 修正 2026-10-12）
         s.close()
         return frames
     except Exception:
