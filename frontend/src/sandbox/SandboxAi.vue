@@ -35,6 +35,7 @@ function context(ask: string): string {
   return [
     `【自由搭建实验】场景名：${props.sceneName}`,
     `识别结果：${rec.title}（置信度 ${(rec.confidence * 100).toFixed(0)}%）`,
+    rec.notes.length ? `场景诊断信息：${rec.notes.join('；').slice(0, 400)}` : '',
     `画布元件：${elementList.value || '无'}`,
     Object.keys(rec.params).length ? `映射参数：${JSON.stringify(rec.params)}` : '',
     sol.value ? `题型：${sol.value.problemType}；规律：${sol.value.laws.join('；')}` : '',

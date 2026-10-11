@@ -19,6 +19,8 @@ const props = defineProps<{
   /** EngineAnalyzer 产物标题（如「力学·dyn4j + 电路·MNA（耦合）」） */
   enginesTitle?: string
   notes?: string[]
+  /** 方案 §4.5 六件套之"耦合链"（Analyzer 产物；2026-10-11 追问2 补齐） */
+  couplings?: { id: string; engines: string[]; mode: string; found: string[] }[]
 }>()
 
 const placed = computed<Placed[]>(() =>
@@ -34,6 +36,9 @@ const recognition = computed<Recognition>(() => {
   const r = recognize(placed.value)
   const extra: string[] = []
   if (props.enginesTitle) extra.push(`引擎路由：${props.enginesTitle}`)
+  for (const c of props.couplings ?? []) {
+    extra.push(`耦合链：${c.id}（${c.mode === 'strong' ? '强' : '弱'}耦合，参与引擎 ${c.engines.join('+')}，命中元件 ${c.found.join('、')}）`)
+  }
   for (const n of props.notes ?? []) extra.push(`⚠ ${n}`)
   return { ...r, notes: [...r.notes, ...extra] }
 })

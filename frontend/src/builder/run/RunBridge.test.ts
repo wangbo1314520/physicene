@@ -157,7 +157,7 @@ describe('toPhysicsElements 类型映射', () => {
     ]
     const { list } = toPhysicsElements([pulley, mk('sphere', 'a'), mk('sphere', 'b')])
     // 动滑轮新契约（2026-10-07）：+M 载重（两端均为运动体时无静态端坐标）
-    expect(list.find((e) => e.id === 'p1')!.params).toEqual({ ratio: 2, M: 1 })
+    expect(list.find((e) => e.id === 'p1')!.params).toEqual({ ratio: 2, kind: 1, M: 1 })
   })
 
   it('动滑轮：绳端可为固定锚——锚世界坐标入 params（end0x/end0y）', () => {

@@ -563,7 +563,7 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
         <div v-if="saved.length" class="saved"><h4>本机场景</h4><div v-for="s in saved" :key="s.id" class="srow"><a @click="loadScene(s)">{{ s.name }}</a><small>{{ s.at }}</small><button @click="deleteScene(s)">×</button></div></div>
         </div>
         <div v-show="leftTab === 'ai'" class="ai-content">
-          <BuilderAi :elements="elements" :records="records" :scene-name="sceneName" :engines-title="elements.length ? `统一搭建：${analysis.title}` : undefined" :notes="analysis.warnings" />
+          <BuilderAi :elements="elements" :records="records" :scene-name="sceneName" :engines-title="elements.length ? `统一搭建：${analysis.title}` : undefined" :notes="analysis.warnings" :couplings="analysis.couplings" />
         </div>
       </aside>
 
