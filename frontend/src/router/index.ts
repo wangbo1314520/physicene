@@ -10,7 +10,7 @@ const router = createRouter({
     {
       path: '/lab',
       name: 'lab',
-      component: () => import('../views/LabView.vue'),
+      component: () => import('../builder/FreeBuildTab.vue'),
       meta: { requiresAuth: true },
     },
     {

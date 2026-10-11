@@ -1,9 +1,30 @@
 <script setup lang="ts">
 /**
- * F1.1 薄包装（规则 10）：自由搭建 Tab 内嵌 BuilderView 整页组件——共享同一份 builder/ 代码非复制。
- * LabView 顶栏 Tab 切换时 v-if 挂载/卸载（两套时间轴/面板互不共存）。
+ * Step2·2.4：单页入口——/lab 路由直接指向本组件（LabView Tab 壳已移除）。
+ * ?scene=N 深链：从后端加载场景。?tab= 兼容：所有值均为别名（统一页）。
  */
+import { onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import BuilderView from './BuilderView.vue'
+
+const route = useRoute()
+
+onMounted(async () => {
+  // ?scene=N → 从后端加载场景到画布
+  const qid = route.query.scene
+  if (qid) {
+    try {
+      const { http } = await import('../api/http')
+      const resp = (await http.get(`/scenarios/${Number(qid)}`)) as { elements: any[]; name?: string }
+      // 通过 workspace store 写入（BuilderView 同源）
+      const { workspace, wsRestore } = await import('./workspace')
+      if (resp.elements?.length) {
+        wsRestore(JSON.stringify(resp.elements))
+      }
+    } catch { /* 深链场景加载失败不阻断 */ }
+  }
+  // ?tab= 兼容：lab/free/build 均为别名（统一单页，不区分）
+})
 </script>
 
 <template>
