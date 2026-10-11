@@ -56,3 +56,13 @@ frontend/e2e/out/
 # E2E 探针视频分片（playwright 未命名原始产物；正式归档为 save_as 命名的 webm）
 frontend/src/experiments/docs/visual-verification/**/page@*.webm
 e2e/out/
+
+# 版权资料（教材 PDF 不入库——TEXTBOOKS_DIR 本地配置）
+resources/textbooks/
+resources/physics-retypeset/
+resources/
+# 数据与备份
+*.sql.gz
+physicene-backups/
+java-backend/java-*.log
+python-ai-service/py-*.log

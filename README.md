@@ -1,59 +1,52 @@
 # PhysiScene · AI Agent 智能物理实验平台
 
-面向高中物理教育的 AI Agent 智能实验平台毕业设计项目。
-核心初衷（2026-09-17 定稿）：**帮助学习**——老师自由搭建或在库里找实验投屏讲解，学生用同一套东西自学、做题验证、探究；不会的问题与解题思路由 AI 直接解答。不做教师批阅 / 考试评分。
+面向高中物理（人教版 2019）的仿真实验平台：**120 张实验卡**（教材 55 + 高考 65）+
+自由搭建台 + AI 助教/解题讲解。三端架构：Vue3 前端（three.js 渲染）+ Java 后端
+（dyn4j 刚体物理/电路 MNA）+ Python AI 服务（DeepSeek + 教材知识库 RAG）。
 
-三大产品线：实验库 `/exp`（教材 55 实验 + 真 AI 助教）· 高考竞赛场景 `/gaokao`（v3.1 清单 65 卡 + AI 解题讲解器）· 自由搭建实验 `/sandbox`（89 元件 → 场景识别 → 内嵌求解器 + AI 助手；刚体实验台 `/lab`）。
-核心能力：自由搭建场景 + 物理引擎仿真 + AI Agent 对话 + RAG 教材知识库 + OCR 拍照识题 + 数据/坐标纸/导出。
+![搭建台](frontend/e2e/shots/render-bugs/loop-gap.png)
 
-> 需求基线：`docs/01-需求规格说明书_v3.4.1.md`（已冻结，任何需求变更须新开版本号）
+## 功能
 
-## 仓库结构（Monorepo）
+- **实验库**（/exp）：120 卡——教材实验（步骤+AI 助教按问法分流）与高考多过程题
+  （九段解题模板 + 🤖 AI 深讲成文推导）
+- **自由搭建**（/lab）：85 种元件拖拽/连线/设参，多引擎路由（刚体/电磁场/电路 MNA/
+  热学/光学/近代/天体/交变），云端保存/深链/回放时间轴
+- **AI**：意图分流问答（问答案→答案+推理；求方法→分步；验证→纠错）、场景识别诊断
+  （"我搭的对吗"）、OCR 拍照识题、教材出处引用（Chroma RAG）
 
-```
-physicene/
-├── java-backend/          # Java 主后端（Spring Boot 4.1.0 + dyn4j + WebSocket）
-├── python-ai-service/     # Python AI 服务（FastAPI + LangChain + DeepSeek + RAG/OCR）
-├── frontend/              # 前端（Vue3 + TypeScript + Three.js 2.5D）
-├── docs/                  # 设计文档（需求 / 系统设计 / 接口契约 / 任务清单）
-├── scripts/               # 辅助脚本（init-db.sql、start-all 等）
-├── docker-compose.yml     # 一键启动（后续周补全）
-└── README.md
-```
+## 依赖
 
-## 开发环境
+Node ≥24 + pnpm 11 · Java 17 + Maven · MySQL 8 · Python 3.12（poetry）· DeepSeek API key
 
-| 工具 | 版本 | 调用方式 |
-|---|---|---|
-| JDK | 17 | `java`（系统） |
-| Maven | 3.9.9 | `mvn`（系统） |
-| Python | **3.12.7** | `py -3.12`（系统默认 3.14 保留不动） |
-| Poetry | 2.4.3 | `E:\Program\Python312\Scripts\poetry.exe` |
-| Node | 24 / pnpm 11 | `pnpm` |
-| Docker | 28 | 第三周（MySQL 8.4 / Redis 7.4）起使用 |
+## 运行
 
-## 启动命令（三端）
+详见 [docs/deployment.md](docs/deployment.md)（从零安装/配置/冒烟/排查）。速览：
 
 ```bash
-# Java 主后端（8080）
-cd java-backend && mvn spring-boot:run
-
-# Python AI 服务（8000，仅内网）
-cd python-ai-service && poetry run uvicorn physicene_ai.main:app --reload --port 8000
-
-# 前端（Vite 开发服务器）
-cd frontend && pnpm dev
+mysql -e "CREATE DATABASE physicene"                 # ① 建库（Flyway 自动迁移）
+cd java-backend && mvn package -DskipTests && java -jar target/*.jar   # ② 后端 8080
+cd ../python-ai-service && poetry install && .venv/Scripts/python -m uvicorn physicene_ai.main:app --port 8000  # ③ AI（配 .env）
+cd ../frontend && pnpm install && pnpm dev           # ④ 前端 5173
 ```
 
-## 关键约束（来自冻结需求）
+## 目录
 
-- Spring Cloud 必须 **2025.1.2+**，否则与 Spring Boot 4.1.0 启动即报错（V6 验证项）
-- Python 锁 **3.12**（PaddleOCR/sentence-transformers 生态，V5 验证项）
-- API 密钥一律走 `.env`（已 gitignore），不进代码
-- Java 功能分包：scene/physics/analysis/report/profile/teacher/ai/common，跨包只走 DTO 与接口
+```
+frontend/     Vue3 + three.js（搭建台/实验框架/TS 物理引擎/85+ E2E 脚本）
+java-backend/ Spring Boot + dyn4j（物理/场景/回放/WS）
+python-ai-service/ FastAPI（DeepSeek agent/OCR/RAG 知识库）
+docs/         交付文档（部署/监控/安全/回滚/各阶段报告）
+```
 
-## 开发操作红线（事故教训，面向所有 contributor）
+## 测试
 
-- **Windows junction/symlink 目录禁止 `rm -rf`**：会穿透链接删除目标实体（2026-09-20 事故：worktree 清理穿透 node_modules junction，主仓依赖被删，靠 pnpm 本地 store 2.3s 恢复）。正确姿势：先 `rmdir <链接>`（只删链接本身）再处理实体目录。
-- **跨提交对比/基线验证不用 mklink**：标准替代 = `git archive <ref> | tar -x -C <目录>` 导出纯检出 + 在该目录 `pnpm install --prefer-offline`（2 秒级，天然零未跟踪文件，最贴近 CI 真实）。
-- **提交闸门（.githooks/pre-commit）双层源码扫描**：①全仓未跟踪源类文件即红；②源目录里被 .gitignore 命中的源类文件即红（data/ 规则误伤同型防线）。自测：`bash .githooks/selftest.sh`。
+```bash
+cd frontend && npx vitest run          # 373 单测
+cd java-backend && mvn test            # 117 单测
+cd frontend && python e2e/builder-check.py   # 69 模板 E2E（全套清单见 docs）
+```
+
+## License
+
+MIT（教材 PDF 等版权资料不入库，见 .gitignore）
