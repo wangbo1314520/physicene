@@ -1,6 +1,60 @@
 # 部署文档（PhysiScene）
 
-> 状态：AI 章节先行（阶段 2·2E，2026-10-11）；环境要求/安装步骤/监控/回滚由阶段 3 补全。
+## 0. 环境要求（阶段 3.1 补全 · 2026-10-11）
+
+| 组件 | 版本（实测口径） | 说明 |
+|---|---|---|
+| Node.js | ≥24（实测 24.14.1）+ pnpm 11 | 前端构建/Vite dev |
+| Java | 17（pom release 17）+ Maven 3.9 | 后端 + dyn4j 物理 |
+| MySQL | 8.0.x（实测 8.0.37） | Flyway V1 基线+V2 种子自动迁移 |
+| Python | 3.12（锁版本，实测 3.12.7）+ poetry | AI 服务（bge-m3/Chroma/paddle） |
+| 浏览器 | Chrome/Edge 最新 | three.js WebGL |
+
+## 0.1 从零安装
+
+```bash
+git clone <repo> && cd physicene
+# ① MySQL：建库（Flyway 自动建表）+ 应用账号（勿用 root 上线）
+mysql -uroot -p -e "CREATE DATABASE physicene DEFAULT CHARSET utf8mb4;"
+# ② Java 后端（application.properties 配 DB 账密）
+cd java-backend && mvn package -DskipTests && java -jar target/physicene-backend-0.1.0-SNAPSHOT.jar
+# ③ AI 服务（先配 python-ai-service/.env——参照 .env.example，含 DEEPSEEK_API_KEY）
+cd ../python-ai-service && poetry env use <python3.12> && poetry install
+.venv/Scripts/python.exe scripts/build_kb.py     # 教材 PDF 放 TEXTBOOKS_DIR 后建知识库
+.venv/Scripts/python.exe -m uvicorn physicene_ai.main:app --port 8000
+# ④ 前端
+cd ../frontend && pnpm install && pnpm dev       # http://localhost:5173
+```
+
+## 0.2 配置说明
+
+- `python-ai-service/.env`：DEEPSEEK_API_KEY / INTERNAL_KEY / JAVA_BASE_URL / REDIS_URL /
+  LLM_MOCK / TEXTBOOKS_DIR / BGE_M3_PATH / CHROMA_DIR（.env.example 为模板，真实 .env 不入库）
+- `java-backend/src/main/resources/application.properties`：DB 连接（生产改环境变量注入）、
+ INTERNAL_KEY（与 Python 同值）、JWT 密钥
+- 前端经 Vite 代理 /api→8080（vite.config.ts），生产部署可 dist+nginx 反代同规则
+
+## 0.3 首次启动冒烟（顺序即验证链）
+
+1. `curl :8080/actuator/health` → 200
+2. `curl :8000/health` → 200 且 chroma/bge LOADED
+3. `curl :5173/` → 200
+4. 登录 demo → /lab 搭物块+地面 → ▶ 运行 → 曲线出现（对应 e2e/builder-smoke.py 可直接跑）
+5. `/exp/gk-accel-selector-b` → 讲解本题 → AI 深讲（对应 e2e/gk-solver-check.py）
+
+## 0.4 常见问题排查
+
+| 症状 | 原因 | 处置 |
+|---|---|---|
+| 8080 起不来：Port in use | 旧进程未退 | `netstat -ano | findstr :8080` → taskkill /PID |
+| Flyway validate 失败 | 库与迁移版本漂移 | 核对 flyway_schema_history；新库直接重建 |
+| 8000 health 200 但 chroma NOT_LOADED | data/chroma 不存在 | 跑 build_kb.py；查 CHROMA_DIR 指向 |
+| AI 全部 fallback（在线灯红） | DEEPSEEK_API_KEY 缺/失效 | .env 配 key 重启；验证法见 §2 |
+| 页面白屏 console 404 /api | Vite 代理目标不对/Java 未起 | vite.config.ts proxy + :8080 探活 |
+| WS 连接失败 toast | 代理 ws 配置/偶发竞态 | 确认 /ws 代理 ws:true；前端已有自动重连（≤2 次退避） |
+
+---
+
 
 ## AI 服务（python-ai-service · 8000 端口）
 
