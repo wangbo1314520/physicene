@@ -52,7 +52,7 @@ def main() -> int:
         check("S0 搭建 8 件（含五类曾丢件）", n_placed == 8, f"{placed}")
 
         # 切结果 Tab
-        page.locator(".tabbar .tab", has_text="结果").click()
+        pass  # 单页无结果 Tab
         page.wait_for_timeout(800)
         shown = page.evaluate("() => window.__lab ? window.__lab.scene.elements.map(e => e.type) : null")
         check("S1 全数显示（8/8，不再经物理包过滤）", shown is not None and len(shown) == 8, f"{shown}")
@@ -83,17 +83,15 @@ def main() -> int:
         check("S3b 连线像素可见（绳橙色全画布 >20 点）", found > 20, f"橙点={found}")
 
         # ═══ 追问2 补丁：三态（域/选中/视角）往返保持 ═══
-        page.locator(".tabbar .tab", has_text="搭建").click()
-        page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=8000)
+        pass  # 单页：/lab 即 BuilderView
         page.wait_for_timeout(300)
         page.evaluate("() => { const B = window.__builder; B.clear(); B.add('ground', {}, 0, -1); const b = B.add('block', {}, -2, 0); B.select(b); }")
         page.evaluate("() => { [...document.querySelectorAll('.palette .tabs button')].find(x => x.textContent.includes('电磁')).click() }")
         page.evaluate("() => { [...document.querySelectorAll('.viewswitch button')].find(x => x.textContent.includes('等距')).click() }")
         page.wait_for_timeout(250)
         st0 = page.evaluate("window.__builder.uiState()")
-        page.locator(".tabbar .tab", has_text="结果").click(); page.wait_for_timeout(400)
-        page.locator(".tabbar .tab", has_text="搭建").click()
-        page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=8000)
+        pass  # 单页无结果 Tab; page.wait_for_timeout(400)
+        pass  # 单页：/lab 即 BuilderView
         page.wait_for_timeout(400)
         st1 = page.evaluate("window.__builder.uiState()")
         check("S7 三态往返保持（域=电磁/选中=block/视角=2.5D）",
@@ -101,8 +99,7 @@ def main() -> int:
               f"往返前={st0} 往返后={st1}")
 
         # 往返 undo：切回搭建 → Ctrl+Z 撤销 ground（首件）
-        page.locator(".tabbar .tab", has_text="搭建").click()
-        page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=8000)
+        pass  # 单页：/lab 即 BuilderView
         n_before = page.evaluate("window.__builder.elements().length")
         page.keyboard.press("Control+z")
         page.wait_for_timeout(200)

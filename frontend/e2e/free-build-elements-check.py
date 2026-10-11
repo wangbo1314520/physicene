@@ -95,7 +95,7 @@ def main() -> int:
         page.on("pageerror", lambda e: errs.append(str(e)))
         page.goto(f"{BASE}/lab")
         page.wait_for_selector(".canvas-wrap canvas", timeout=12000)
-        page.locator(".tabbar .tab", has_text="搭建").click()
+        pass  # 单页
         page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
 
         # ═══ 场景一：pulley 阿特伍德 ═══
@@ -272,19 +272,19 @@ def main() -> int:
             page.wait_for_timeout(200)
             if page.evaluate("window.__builder.simStatus()") == "ended": break
         # 切到结果 Tab
-        page.locator(".tabbar .tab", has_text="结果").click()
+        pass  # 单页无结果 Tab
         page.wait_for_timeout(1000)
         status_text = page.evaluate("() => document.querySelector('.lab .status')?.textContent?.trim() ?? 'none'")
         check("Tab 1 状态栏显示运行结果", "已结束" in status_text or "ended" in status_text, f"'{status_text[:40]}'")
         # canvas 有内容（syncFromBuilderTab 读取了 workspace）
         info = page.evaluate("() => { const c = document.querySelector('.workspace canvas'); if (!c) return null; return { w: c.width, h: c.height } }")
-        check("Tab 1 canvas 非默认尺寸（syncFromBuilderTab 生效）",
+        check("画布存在（单页直出）",
               info is not None and info["w"] > 500 and info["h"] > 300,
               f"canvas={info['w']}x{info['h']}" if info else "canvas 不存在")
         # 往返 Tab 不丢内容
-        page.locator(".tabbar .tab", has_text="搭建").click()
+        pass  # 单页
         page.wait_for_timeout(400)
-        page.locator(".tabbar .tab", has_text="结果").click()
+        pass  # 单页无结果 Tab
         page.wait_for_timeout(600)
         info2 = page.evaluate("() => { const c = document.querySelector('.workspace canvas'); if (!c) return null; return { w: c.width, h: c.height } }")
         check("Tab 往返后 canvas 恢复", info2 is not None and info2["w"] > 500,

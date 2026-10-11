@@ -54,7 +54,7 @@ def main() -> int:
         page.on("pageerror", lambda e: errs.append(str(e)))
         page.goto(f"{BASE}/lab")
         page.wait_for_selector(".canvas-wrap canvas", timeout=12000)
-        page.locator(".tabbar .tab", has_text="搭建").click()
+        pass  # 单页
         page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
 
         # ═══ 场景 A：固定视觉 3.2 ═══
