@@ -47,6 +47,6 @@ export function withExperimentContext(opts: { experiment: string; step?: string 
     opts.step ? `当前步骤：${opts.step}${opts.goal ? `（目标：${opts.goal}）` : ''}` : '',
     rec,
     `请解释并回答：${opts.ask}`,
-    '要求：面向高中生，先给结论再给推理，公式用文字或简单符号写清楚，必要时给出数值；可以直接给答案与解题思路。',
+    '要求：面向高中生，公式用文字或简单符号写清楚。按问法分流：直接要答案→先给答案再给完整推理；求思路→分步引导（先方向后公式，不替学生算到底）；问"我算的对吗"→明确确认或指出错在哪；概念问题→简洁讲解。',
   ].filter(Boolean).join('\n')
 }

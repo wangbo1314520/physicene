@@ -67,6 +67,44 @@ def main() -> int:
         print(f"  {'✓' if ok2 else '✗'} 直接问答案：{'已回答' if ok2 else '无回复/拒答'}：{ans[:110].replace(chr(10), ' ')}…")
         if not ok2:
             fails.append("问答未回答")
+
+        # ═══ 意图分流（2026-10-11 裁决 A+C）：问答案→答案+推理；求方法→分步；验证→确认/纠正 ═══
+        def ask(q: str) -> str:
+            n = page.locator(".ai-tutor .msg.ai").count()
+            page.locator(".ai-tutor input").fill(q)
+            page.locator(".ai-tutor .input-row button").click()
+            try:
+                page.wait_for_function(f"() => document.querySelectorAll('.ai-tutor .msg.ai').length > {n} && ![...document.querySelectorAll('.ai-tutor .msg.ai')].slice(-1)[0].innerText.includes('思考中')", timeout=60000)
+            except Exception:  # noqa: BLE001
+                pass
+            m = page.locator(".ai-tutor .msg.ai").all_inner_texts()
+            return m[-1] if len(m) > n else ""
+
+        # ① 问答案 → 先答案后完整推理（不是裸答案）
+        a1 = ask("这个实验测出的劲度系数 k 应该是多少？直接告诉我答案")
+        has_reason = any(k in a1 for k in ("因为", "根据", "推导", "步骤", "由", "计算", "＝", "=", "比例"))
+        ok3 = len(a1) >= 60 and has_reason
+        print(f"  {'✓' if ok3 else '✗'} 意图①问答案→答案+推理（{len(a1)} 字，含推理标记={has_reason}）：{a1[:80].replace(chr(10), ' ')}…")
+        if not ok3:
+            fails.append("问答案未带推理")
+
+        # ② 求方法 → 分步引导（不替学生算到底）
+        a2 = ask("我想自己求出 k，给我思路就好，先别告诉我答案")
+        has_steps = any(k in a2 for k in ("第一", "步骤", "先", "①", "1.", "1、"))
+        ok4 = len(a2) >= 40 and has_steps
+        print(f"  {'✓' if ok4 else '✗'} 意图②求方法→分步引导（含分步标记={has_steps}）：{a2[:80].replace(chr(10), ' ')}…")
+        if not ok4:
+            fails.append("求方法未分步引导")
+
+        # ③ 验证对错 → 明确确认或纠正
+        a3 = ask("我算出来 k = 980 N/m，我算的对吗？")
+        confirmed = any(k in a3 for k in ("正确", "对的", "没错", "确认", "准确"))
+        corrected = any(k in a3 for k in ("不对", "不正确", "错", "偏大", "偏小", "应该", "单位", "数量级"))
+        ok5 = len(a3) >= 30 and (confirmed or corrected)
+        print(f"  {'✓' if ok5 else '✗'} 意图③验证对错→确认/纠正（确认={confirmed} 纠正={corrected}）：{a3[:80].replace(chr(10), ' ')}…")
+        if not ok5:
+            fails.append("验证对错未明确表态")
+
         page.screenshot(path="e2e/out/ai-tutor.png", full_page=False)
         browser.close()
     print("\n结果:", "全部通过 ✅" if not fails else f"失败 {len(fails)} 项：{fails}")
