@@ -7,6 +7,7 @@
  */
 import { computed } from 'vue'
 import SandboxAi from '../../sandbox/SandboxAi.vue'
+import { recognize } from '../../sandbox/recognizer'
 import type { Recognition, Placed } from '../../sandbox/recognizer'
 import type { RunRecord } from '../../sandbox/SandboxData.vue'
 import type { GeoElement } from '../catalog'
@@ -23,16 +24,19 @@ const props = defineProps<{
 const placed = computed<Placed[]>(() =>
   props.elements.map((e) => ({ id: e.id, type: e.type, x: e.position.x, y: e.position.y, params: e.params, links: e.links.map((l) => l.toId) })))
 
-const recognition = computed<Recognition>(() => ({
-  family: '统一搭建台',
-  title: props.enginesTitle ?? (props.elements.length ? '自由几何场景' : '空画布'),
-  target: null,
-  params: {},
-  confidence: props.elements.length ? 0.75 : 0,
-  used: [],
-  missing: [],
-  notes: props.notes ?? [],
-}))
+// 2B（2026-10-11）：真识别器替换 mock——五件套上下文齐备：
+// elements（placed 映射）+ recognition（真规则识别：题型/缺件/notes）+ 引擎路由（enginesTitle）
+// + 告警（notes）+ 运行读数/事件（records，SandboxAi.context 已打包）
+const recognition = computed<Recognition>(() => {
+  if (!props.elements.length) {
+    return { family: '统一搭建台', title: '空画布', target: null, params: {}, confidence: 0, used: [], missing: [], notes: [] }
+  }
+  const r = recognize(placed.value)
+  const extra: string[] = []
+  if (props.enginesTitle) extra.push(`引擎路由：${props.enginesTitle}`)
+  for (const n of props.notes ?? []) extra.push(`⚠ ${n}`)
+  return { ...r, notes: [...r.notes, ...extra] }
+})
 </script>
 
 <template>
