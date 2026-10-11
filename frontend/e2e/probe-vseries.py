@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# ⚠ 本脚本为数据采集探针：无断言，exit 0 ≠ 功能通过（正式断言在 builder-redo/p2 套件）
 """卡68 定性探针2：验证 WS 重放是否送达 t≈0 帧——读 vSeries[0] 首 6 条与 max(vy 序列)。
 若 vSeries 从 t≈0 起 → 帧都在，仅轮询观测丢 → 客户端按帧累计 maxY 即可修。"""
 import json, sys, urllib.request

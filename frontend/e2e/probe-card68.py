@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# ⚠ 本脚本为数据采集探针：无断言，exit 0 ≠ 功能通过（正式断言在 builder-redo/p2 套件）
 """卡68 定性探针（一次性）：隔离复现 builder-check 采样循环，逐轮打 (i, wall, simT, status, tsStatus, y0)。
 目的：判定 break 早退是谁——Java ended 早 / tsDone 早 / 采样循环节流。"""
 import json, sys, urllib.request

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# ⚠ 本脚本为数据采集探针：无断言，exit 0 ≠ 功能通过（正式断言在 builder-redo/p2 套件）
 """子任务 C 影响面实验v2：卡22 官方几何（slope th=60, L=chord）——cube(模板原配) vs sphere(同位替换)。
 理论值用模板闭式 vx=√(2gh)cosθ（h=chord·tanθ/2），偏差即能量注入量化；sphere 替换即副作用数据。"""
 import json, math, sys, urllib.request
