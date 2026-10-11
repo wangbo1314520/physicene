@@ -75,6 +75,44 @@ async function onImageChosen(ev: Event) {
   }
 }
 const bottomTab = ref<'props' | 'data' | 'replay'>('props')
+// Step2·2.3：保存合一——后端场景（recordId 来源）+ 本机场景并列
+const backendSceneId = ref<number | null>(null)
+const backendScenes = ref<{ id: number; name: string }[]>([])
+async function saveToBackend(silent = false): Promise<number | null> {
+  try {
+    const { http } = await import('../api/http')
+    const body = { name: sceneName.value || '未命名场景', elements: JSON.parse(JSON.stringify(elements)), config: {} }
+    if (backendSceneId.value) {
+      await http.put(`/scenarios/${backendSceneId.value}`, body)
+      if (!silent) say(`场景已更新 #${backendSceneId.value}`)
+    } else {
+      const resp = (await http.post('/scenarios', body)) as { id: number }
+      backendSceneId.value = resp.id
+      if (!silent) say(`场景已保存到服务器 #${resp.id}`)
+    }
+    return backendSceneId.value
+  } catch (e) { say('保存失败：' + String(e).replace('Error: ', '')); return null }
+}
+async function loadBackendScenes() {
+  try {
+    const { http } = await import('../api/http')
+    const resp = (await http.get('/scenarios?page=0&size=10')) as { content?: { id: number; name: string }[] }
+    backendScenes.value = resp.content ?? []
+  } catch { /* 静默——离线时只显示本机场景 */ }
+}
+async function loadFromBackend(id: number) {
+  try {
+    const { http } = await import('../api/http')
+    const resp = (await http.get(`/scenarios/${id}`)) as { elements: any[]; name?: string }
+    if (resp.elements?.length) {
+      snapshot()
+      elements.splice(0, elements.length, ...JSON.parse(JSON.stringify(resp.elements)))
+      sceneName.value = resp.name ?? `场景 #${id}`
+      backendSceneId.value = id
+      say(`已加载服务器场景 #${id}`)
+    }
+  } catch (e) { say('加载失败：' + String(e).replace('Error: ', '')) }
+}
 const search = ref('')
 // D1 Step1·1.1（2026-10-07）：场景本体迁共享 store（模块级 reactive 单例）——
 // v-if 卸载不丢 elements/undo；结果 Tab 直读同源（LabView syncSharedWorkspace）
@@ -192,10 +230,12 @@ onBeforeUnmount(() => {
   if (beforeUnloadHandler) window.removeEventListener('beforeunload', beforeUnloadHandler)
 })
 async function doRun() {
+  // 2.3：先存后跑——Java 需 sceneId 才产生 recordId（回放依赖）。静默保存，不打断操作。
+  await saveToBackend(true)
   const t = currentTemplateId.value ? templateById(currentTemplateId.value) : null
-  const err = await bridge.run(elements, analysis.value, t?.maxDuration ?? 12, t?.gravityY ?? -9.8, t?.substeps)
+  const err = await bridge.run(elements, analysis.value, t?.maxDuration ?? 12, t?.gravityY ?? -9.8, t?.substeps, backendSceneId.value ? String(backendSceneId.value) : undefined)
   if (err) say(err)
-  else if (bridge.lastNotes.value.length) say(bridge.lastNotes.value.join('；'))  // 非阻断提示上屏（追问3：不再静默）
+  else if (bridge.lastNotes.value.length) say(bridge.lastNotes.value.join('；'))  // 非阻断提示上屏
 }
 /** P1.1·TS 引擎 ended → 数据面板记录（与 Java ended 同入口，读数从 tsRun 取） */
 watch(() => bridge.tsRun.value.status, (st) => {
@@ -491,7 +531,12 @@ watch(() => JSON.stringify(elements.map((e) => [e.type, e.params, e.links])), ()
       <span v-if="viewMode !== '2D'" class="dimnote" title="dyn4j 为二维物理引擎：物理计算与构建恒在 x-y 平面内（方案 B7 同口径）——2.5D/3D 仅是观看方式，不改变物理">⚠ 物理是 2D（x-y 平面）·当前为{{ viewMode === '3D' ? '环绕' : '等距' }}观看方式</span>
       <span class="sub">统一搭建台 · 元件拖入画布、锚点自动吸附、连线成题、一键运行（方案 v1.0）</span>
       <span class="spacer"></span>
-      <button class="ghost" @click="saveScene" title="保存到「我的场景」——刷新/切Tab后不自动恢复，可到「我的场景」页查看">💾 保存</button>
+      <button class="ghost" @click="saveScene" title="保存到本机（localStorage「我的场景」）">💾 本机保存</button>
+      <button class="ghost" @click="saveToBackend()" title="保存到服务器（跨设备可用，运行后自动创建）">☁️ 云端保存</button>
+      <select class="ghost" title="从服务器加载场景" @change="loadFromBackend(+(($event.target) as HTMLSelectElement).value); (($event.target) as HTMLSelectElement).selectedIndex = 0" @click="loadBackendScenes()">
+        <option value="">☁️ 云端场景…</option>
+        <option v-for="bs in backendScenes" :key="bs.id" :value="bs.id">{{ bs.name }} #{{ bs.id }}</option>
+      </select>
       <button class="ghost" @click="exportJson">⇩ JSON</button>
       <label class="ghost file">⇧ 导入<input type="file" accept="application/json" @change="importJson"></label>
       <span v-if="toast" class="toast">{{ toast }}</span>

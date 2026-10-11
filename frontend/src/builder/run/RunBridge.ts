@@ -364,7 +364,7 @@ export function useRunBridge() {
     tsRun.value = { status: 'idle', t: 0, readings: {}, rays: [], frames: [], poses: [] }
   }
 
-  async function run(els: GeoElement[], analysis: Analysis, maxDuration = 12, gravityY = -9.8, substepsOverride?: number): Promise<string | null> {
+  async function run(els: GeoElement[], analysis: Analysis, maxDuration = 12, gravityY = -9.8, substepsOverride?: number, sceneId?: string): Promise<string | null> {
     lastNotes.value = []  // 每次运行重置（TS 路径不经 toPhysicsElements）
     if (els.length === 0) return '画布为空'
     if (analysis.path === 'none') return '没有可运行的元件（只有显示类元件）'
