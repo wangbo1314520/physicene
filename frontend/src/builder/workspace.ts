@@ -33,8 +33,18 @@ export function wsSnapshot() {
   workspace.redo.length = 0
 }
 
+/** 后端场景元件规范化：老数据/外部来源可能缺 links/params 等字段（typed 反序列化
+ *  时代的存量场景无 links）——补默认值防渲染/连线遍历崩溃（2026-10-11 深链根因） */
+export function normalizeGeoElements(arr: GeoElement[]): GeoElement[] {
+  return arr.map((e) => ({
+    ...e,
+    params: e.params ?? {},
+    links: Array.isArray((e as { links?: unknown }).links) ? e.links : [],
+  }))
+}
+
 export function wsRestore(json: string) {
-  const arr = JSON.parse(json) as GeoElement[]
+  const arr = normalizeGeoElements(JSON.parse(json) as GeoElement[])
   workspace.elements.splice(0, workspace.elements.length, ...arr)
 }
 

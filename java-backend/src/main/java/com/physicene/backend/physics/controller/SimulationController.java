@@ -66,6 +66,14 @@ public class SimulationController {
         if (request.getSceneId() != null && !request.getSceneId().isBlank()) {
             scenarioId = Long.valueOf(request.getSceneId());
             scene = sceneService.loadSceneForRun(userId, scenarioId); // 归属校验 403/404
+            // 2.3 双轨契约（2026-10-11）：DB 存 Geo 草稿（含 links，物理类型不在 L1 白名单），
+            // 请求带映射后 elements 时优先用之——sceneId 只担 record 归属/回放，物理形态以请求为准
+            if (request.getElements() != null && !request.getElements().isEmpty()) {
+                scene.setElements(request.getElements());
+                if (request.getConfig() != null) {
+                    scene.setConfig(request.getConfig());
+                }
+            }
         } else {
             scene = new Scene();
             scene.setElements(request.getElements());

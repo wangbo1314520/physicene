@@ -162,8 +162,12 @@ public class OcrController {
                         new TypeReference<List<PhysicsElement>>() {
                         });
         previewTokens.remove(token);
+        List<PhysicsElement> finalElements = adjusted != null ? adjusted : elements;
+        List<Map<String, Object>> rawElements = objectMapper.convertValue(finalElements,
+                new TypeReference<List<Map<String, Object>>>() {
+                });
         return ApiResponse.ok(sceneService.create(UserContext.userId(),
-                adjusted != null ? adjusted : elements, entry.config(), null, "ocr"));
+                rawElements, entry.config(), null, "ocr"));
     }
 
     private static SimulationConfig defaultConfig(String simType) {

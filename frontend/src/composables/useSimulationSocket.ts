@@ -101,7 +101,9 @@ export function useSimulationSocket() {
     error.value = ''
     markStarting()
     try {
-      const body = sceneId ? { sceneId } : { elements, config }
+      // 双轨契约：sceneId 担 record 归属/回放，elements/config 仍随请求发送——
+      // DB 存 Geo 草稿不可直跑（L1 白名单），Java 端以请求的映射后物理形态为准
+      const body = { elements, config, ...(sceneId ? { sceneId } : {}) }
       const resp = (await http.post('/simulations/run', body)) as {
         simId: string
         wsUrl: string

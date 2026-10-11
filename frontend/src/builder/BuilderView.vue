@@ -7,7 +7,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch , toRef} from 'vue'
 import { CATALOG, DOMAINS, byType, defaultsOf, type Dim, type Domain, type GeoElement } from './catalog'
 import { linkConflict } from './model/link-conflict'
-import { workspace, wsSnapshot, wsRestore, wsUndo, wsRedo } from './workspace'
+import { workspace, wsSnapshot, wsRestore, wsUndo, wsRedo, normalizeGeoElements } from './workspace'
 import { findSnap, applySnap } from './model/snap'
 import { resolveAnchorById } from './model/anchors'
 import BuilderCanvas from './render/BuilderCanvas.vue'
@@ -106,7 +106,7 @@ async function loadFromBackend(id: number) {
     const resp = (await http.get(`/scenarios/${id}`)) as { elements: any[]; name?: string }
     if (resp.elements?.length) {
       snapshot()
-      elements.splice(0, elements.length, ...JSON.parse(JSON.stringify(resp.elements)))
+      elements.splice(0, elements.length, ...normalizeGeoElements(JSON.parse(JSON.stringify(resp.elements))))
       sceneName.value = resp.name ?? `场景 #${id}`
       backendSceneId.value = id
       say(`已加载服务器场景 #${id}`)
