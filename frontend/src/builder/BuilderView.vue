@@ -509,6 +509,7 @@ onMounted(() => {
     probes: () => JSON.parse(JSON.stringify(sim.probes)),
     tsRays: () => JSON.parse(JSON.stringify(bridge.tsRun.value.rays)),
     tsReadings: () => JSON.parse(JSON.stringify(bridge.tsRun.value.readings)),
+    tsT: () => bridge.tsRun.value.t,   // E2E：引擎自身时间轴（轮询 wall-clock 会跳帧/重复，勿用帧计数当 t）
     tsStatus: () => bridge.tsRun.value.status,
     clear: clearAll,
     elements: () => JSON.parse(JSON.stringify(elements)),

@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
 """AC 相移 E2E：RL 电流滞后 / RC 电流超前——验证相量法正确性（非纯电阻）。
-频率 1Hz（30fps=30 采样/周期，充分）；相位差 = 零交叉时间差。"""
+频率 1Hz（30fps=30 采样/周期，充分）。
+相位测量（2026-10-11 修正，两层）：
+1) 同帧采样 I_resistor 与 U_ac_source 两通道取相对零交叉——不再假设"源电压 t=0 上穿零"；
+2) 时间轴用引擎自身 t（B.tsT()）——此前用帧计数当 t，wall-clock 轮询在渲染负载下会
+   跳帧/重复帧（转储实测：角度序列 84°→108° 跳过 96°），表观频率 1Hz→1.15Hz，
+   I/U 零点间落一个跳帧时相位差被扭掉整帧（12°）——106°/123° 假偏差皆由此而来。
+引擎相量本身精确（circuit-basics.test.ts「RC/RL 相量 re/im 精确对齐闭式解」1e-4 断言，
+RC 峰值口径 2.9388+j4.2520，审查理论 2.938+j4.250 为对方 XC 取整）。"""
 import _env; _env.banner()
 import json, math, sys, urllib.request
 from playwright.sync_api import sync_playwright
@@ -35,7 +42,9 @@ def pick(page, a, aa, b, ab):
     page.wait_for_timeout(40)
 
 def run_collect(page, duration=2.0):
-    """运行并返回逐帧 {t, I_r, U_src} 列表"""
+    """运行并返回逐帧 {t, I, U}——I=电阻电流，U=源端电压瞬时值（同帧采样）。
+    t 用引擎自身时间轴 B.tsT()：wall-clock 轮询在渲染负载下会跳帧/重复帧，
+    用帧计数当 t 会使表观频率漂移（实测 1Hz→1.15Hz）、相位差被扭掉整帧（12°）。"""
     return page.evaluate("""async (dur) => {
       const B = window.__builder; B.run();
       const wait = (ms) => new Promise(r => setTimeout(r, ms));
@@ -46,10 +55,9 @@ def run_collect(page, duration=2.0):
         if (st === 'running') ts = true;
         if (ts) {
           const rd = B.tsReadings() ?? {};
-          const t = frames.length / 30;
-          // 动态找 I_/U_ key（元件 ID 自动生成非固定）
+          const t = (typeof B.tsT === 'function') ? B.tsT() : frames.length / 30;
           const iKey = Object.keys(rd).find(k => k.startsWith('I_resistor') || k.startsWith('I_r'));
-          const uKey = Object.keys(rd).find(k => k.startsWith('U_resistor') || k.startsWith('U_r'));
+          const uKey = Object.keys(rd).find(k => k.startsWith('U_ac_source'));
           frames.push({ t, I: iKey ? rd[iKey] : 0, U: uKey ? rd[uKey] : 0 });
         }
         if (ts && st === 'ended') break;
@@ -57,14 +65,24 @@ def run_collect(page, duration=2.0):
       return frames; }""", duration)
 
 def find_zero_crossings(data, key):
-    """找正向上穿零点的时间列表"""
+    """找正向上穿零点的时间列表（线性插值）"""
     crossings = []
     for i in range(1, len(data)):
         if data[i-1][key] <= 0 and data[i][key] > 0:
-            # 线性插值
             frac = -data[i-1][key] / (data[i][key] - data[i-1][key])
             crossings.append(data[i-1]['t'] + frac * (data[i]['t'] - data[i-1]['t']))
     return crossings
+
+def relative_phase(frames, period=1.0, skip=3):
+    """I 相对 U 的相位差（度，0..360）：第 k 个上穿零配对取 (tI−tU) mod T 均值。
+    两通道同一帧采样 → 时间原点漂移抵消。>180 表示电流超前 (360−deg)。"""
+    data = frames[skip:]
+    i_zeros = find_zero_crossings(data, 'I')
+    u_zeros = find_zero_crossings(data, 'U')
+    if not i_zeros or not u_zeros:
+        return None, i_zeros, u_zeros
+    diffs = [(i_zeros[k] - u_zeros[k]) % period for k in range(min(len(i_zeros), len(u_zeros)))]
+    return (sum(diffs) / len(diffs)) / period * 360, i_zeros, u_zeros
 
 def main() -> int:
     auth = login_api()
@@ -85,16 +103,14 @@ def main() -> int:
         page.locator(".linkkind").select_option("wire")
 
         # ═══ 场景一：RL 串联——电流滞后电压 ═══
-        print("场景一：AC(1Hz) + R=1Ω + L=1H → 电流滞后 φ=arctan(ωL/R)≈80°")
+        print("场景一：AC(1Hz) + R=1Ω + L=1H → 电流滞后 φ=arctan(ωL/(R+r))≈80.1°")
         page.evaluate("window.__builder.clear()")
         ac = place(page, "交流电源")
         res = place(page, "定值电阻")
         ind = place(page, "电感")
-        # 参数：f=1Hz 低频保证采样充分；R=1Ω L=1H → ωL=2π≫R → φ≈80°
         page.evaluate(f"window.__builder.setParams('{ac}', {{ um: 10, f: 1, r: 0.1 }})")
         page.evaluate(f"window.__builder.setParams('{res}', {{ R: 1 }})")
         page.evaluate(f"window.__builder.setParams('{ind}', {{ L: 1 }})")
-        # 串联：ac正极→R左端，R右端→L左端，L右端→ac负极
         pick(page, ac, "正极", res, "左端")
         pick(page, res, "右端", ind, "左端")
         pick(page, ind, "右端", ac, "负极")
@@ -102,34 +118,23 @@ def main() -> int:
         check("RL1 RL 电路运行有数据帧", len(frames) > 30, f"frames={len(frames)}")
 
         if len(frames) > 30:
-            # 理论：φ = arctan(ωL/(R+r)) = arctan(2π·1/1.1) ≈ 80.1°
             omega = 2 * math.pi * 1
-            phi = math.atan2(omega * 1, 1 + 0.1)  # ≈ 1.299 rad ≈ 74.5°
-            phi_deg = math.degrees(phi)
-            # 电流零交叉（正向上穿）
-            i_zeros = find_zero_crossings(frames[3:], 'I')
-            # 电压零交叉：源电压 u(t)=Um·sin(ωt)，正向上穿在 t=0, T, 2T...
-            # 电流滞后 φ/ω 秒
-            expected_delay = phi / omega  # ≈ 0.207s
-            if i_zeros:
-                # 取第一个正向上穿（应≈expected_delay 或 T+expected_delay）
-                first_zero = i_zeros[0]
-                period = 1.0  # f=1Hz
-                # 电流可能从负值开始，第一个上穿在 expected_delay 或 period+expected_delay
-                actual_delay = first_zero % period
-                # 相位差（度）
-                actual_phi_deg = actual_delay / period * 360
-                check("RL2 电流滞后电压（φ>30°）",
-                      actual_phi_deg > 30,
-                      f"理论φ={phi_deg:.1f}° 实测φ={actual_phi_deg:.1f}° Δt={actual_delay:.3f}s")
-                check("RL3 相位差在理论值±15°内",
-                      abs(actual_phi_deg - phi_deg) < 15,
-                      f"理论={phi_deg:.1f}° 实测={actual_phi_deg:.1f}°")
+            phi_deg = math.degrees(math.atan2(omega * 1, 1 + 0.1))  # ≈ 80.08°
+            deg, i_zeros, u_zeros = relative_phase(frames)
+            if deg is not None:
+                lag = deg if deg <= 180 else deg - 360   # 正=滞后
+                check("RL2 电流滞后电压（30°<φ<95°）",
+                      30 < lag < 95,
+                      f"理论滞后={phi_deg:.1f}° 实测滞后={lag:.1f}°")
+                check("RL3 相位差在理论值±10°内",
+                      abs(lag - phi_deg) < 10,
+                      f"理论={phi_deg:.1f}° 实测={lag:.1f}°（I零点{len(i_zeros)}个 U零点{len(u_zeros)}个）")
             else:
-                check("RL2 电流滞后电压", False, "未找到电流零交叉")
+                check("RL2 电流滞后电压", False,
+                      f"零交叉缺失 I={len(i_zeros)} U={len(u_zeros)}")
 
         # ═══ 场景二：RC 串联——电流超前电压 ═══
-        print("场景二：AC(1Hz) + R=1Ω + C=0.1F → 电流超前 φ=arctan(1/ωCR)≈58°")
+        print("场景二：AC(1Hz) + R=1Ω + C=0.1F → 电流超前 φ=arctan(Xc/(R+r))≈55.3°")
         page.evaluate("window.__builder.clear()")
         ac = place(page, "交流电源")
         res = place(page, "定值电阻")
@@ -145,29 +150,20 @@ def main() -> int:
 
         if len(frames2) > 30:
             omega = 2 * math.pi * 1
-            # φ = -arctan(XC/R) = -arctan(1/(ωC)/(R+r)) → 电流超前
-            xc = 1 / (omega * 0.1)  # ≈ 1.59Ω
-            phi_rc = math.atan2(xc, 1 + 0.1)  # ≈ 55.3° 超前
-            phi_rc_deg = math.degrees(phi_rc)
-            i_zeros2 = find_zero_crossings(frames2[3:], 'I')
-            if i_zeros2:
-                first_zero2 = i_zeros2[0]
-                period = 1.0
-                actual_delay2 = first_zero2 % period
-                actual_phi2_deg = actual_delay2 / period * 360
-                # RC：电流超前 → 电流零交叉应在源电压零交叉之前
-                # 实际测得的 delay 应小于 period - phi_rc/360 * period（超前）
-                # 或者等价地：actual_phi_deg 应接近 360 - phi_rc_deg（因为超前 = 负延迟）
-                check("RC2 电流超前电压（相位差>30°）",
-                      (360 - actual_phi2_deg) > 30 if actual_phi2_deg > 180 else actual_phi2_deg < 180 - 30,
-                      f"理论超前={phi_rc_deg:.1f}° 实测φ={actual_phi2_deg:.1f}° Δt={actual_delay2:.3f}s")
-                # 宽松验证：相位差不为零（即不是纯电阻）
-                phase_diff = min(actual_phi2_deg, 360 - actual_phi2_deg)
-                check("RC3 电流超前（相位差>20° 非纯电阻）",
-                      phase_diff > 20,
-                      f"phase_diff={phase_diff:.1f}° 理论超前={phi_rc_deg:.1f}°")
+            xc = 1 / (omega * 0.1)  # ≈ 1.5915Ω
+            phi_rc_deg = math.degrees(math.atan2(xc, 1 + 0.1))  # ≈ 55.35° 超前
+            deg2, i_zeros2, u_zeros2 = relative_phase(frames2)
+            if deg2 is not None:
+                lead = 360 - deg2 if deg2 > 180 else -deg2   # 正=超前
+                check("RC2 电流超前电压（30°<φ<80°）",
+                      30 < lead < 80,
+                      f"理论超前={phi_rc_deg:.1f}° 实测超前={lead:.1f}°")
+                check("RC3 相位差在理论值±10°内",
+                      abs(lead - phi_rc_deg) < 10,
+                      f"理论={phi_rc_deg:.1f}° 实测={lead:.1f}°（I零点{len(i_zeros2)}个 U零点{len(u_zeros2)}个）")
             else:
-                check("RC2 电流超前电压", False, "未找到电流零交叉")
+                check("RC2 电流超前电压", False,
+                      f"零交叉缺失 I={len(i_zeros2)} U={len(u_zeros2)}")
 
         check("E2E 全程无页面错误", not errs, str(errs[:1]))
         b.close()

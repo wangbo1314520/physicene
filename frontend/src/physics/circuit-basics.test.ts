@@ -207,6 +207,57 @@ describe('B1 批1 · 电路基础引擎（MNA vs 闭式两法）', () => {
     expect(Math.abs(peak - iPeak) / iPeak).toBeLessThan(0.1)
   })
 
+  // ═══ 相量级精确断言（2026-10-11 审查追问：打印 re/im 对比闭式解）═══
+  // E2E phase-shift-check 同场景：um=10V, f=1Hz, r=0.1, R=1, C=0.1
+  // 审查理论（峰值口径）：İ = 10/(1.1−j·1.5915) = 2.938+j4.250（∠55.35°，超前）
+  it('RC 相量 re/im 精确对齐闭式解（审查口径 2.938+j4.250）', () => {
+    const ac = { id: 'ac1', type: 'ac_source', x: 0, y: 0, angle: 0, params: { um: 10, f: 1, r: 0.1 }, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    const r = { id: 'r1', type: 'resistor', x: 0, y: 0, angle: 0, params: { R: 1 }, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    const c = { id: 'c1', type: 'capacitor_c', x: 0, y: 0, angle: 0, params: { C: 0.1 }, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    r.links = [{ toId: 'ac1', kind: 'wire', anchorA: '左端', anchorB: '正极' }]
+    c.links = [{ toId: 'r1', kind: 'wire', anchorA: '左端', anchorB: '右端' }]
+    ac.links = [{ toId: 'c1', kind: 'wire', anchorA: '负极', anchorB: '右端' }]
+    // 与 runCircuitBasics AC 路径同构：build → 源设峰值 → solveAC(ω)
+    const built = buildCircuit([ac, r, c as never])
+    if ('error' in built) throw new Error('不应报错')
+    const srcComp = built.circuit.components.find((x) => x.id === 'ac1#src')!
+    srcComp.props.um = 10
+    const omega = 2 * Math.PI * 1
+    const sol = solveAC(built.circuit, omega)
+    const ph = sol.iPhasors['r1#I']!
+    // 闭式解（峰值）：İ = Um·Z* / |Z|²，Z = (R+r) − j·Xc
+    const zr = 1 + 0.1, xc = 1 / (omega * 0.1), d = zr * zr + xc * xc
+    const iRe = (10 * zr) / d, iIm = (10 * xc) / d   // 容性 → 虚部为正（电流超前）
+    expect(ph.re).toBeCloseTo(iRe / Math.SQRT2, 4)   // solveAC 返回有效值口径
+    expect(ph.im).toBeCloseTo(iIm / Math.SQRT2, 4)
+    expect((Math.atan2(ph.im, ph.re) * 180) / Math.PI).toBeCloseTo(55.35, 1)
+    // 峰值口径对照审查数字：2.938+j4.250（对方 XC≈1.59 取整；精确闭式 2.9388+j4.2520）
+    expect(ph.re * Math.SQRT2).toBeCloseTo(2.9388, 3)
+    expect(ph.im * Math.SQRT2).toBeCloseTo(4.2520, 3)
+  })
+
+  it('RL 相量 re/im 精确对齐闭式解（感性 → 虚部为负，电流滞后）', () => {
+    const ac = { id: 'ac1', type: 'ac_source', x: 0, y: 0, angle: 0, params: { um: 10, f: 1, r: 0.1 }, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    const r = { id: 'r1', type: 'resistor', x: 0, y: 0, angle: 0, params: { R: 1 }, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    const l = { id: 'l1', type: 'inductor_c', x: 0, y: 0, angle: 0, params: { L: 1 }, links: [] as { toId: string; kind: string; anchorA: string; anchorB: string }[] }
+    r.links = [{ toId: 'ac1', kind: 'wire', anchorA: '左端', anchorB: '正极' }]
+    l.links = [{ toId: 'r1', kind: 'wire', anchorA: '左端', anchorB: '右端' }]
+    ac.links = [{ toId: 'l1', kind: 'wire', anchorA: '负极', anchorB: '右端' }]
+    const built = buildCircuit([ac, r, l as never])
+    if ('error' in built) throw new Error('不应报错')
+    const srcComp = built.circuit.components.find((x) => x.id === 'ac1#src')!
+    srcComp.props.um = 10
+    const omega = 2 * Math.PI * 1
+    const sol = solveAC(built.circuit, omega)
+    const ph = sol.iPhasors['r1#I']!
+    // Z = (R+r) + jωL → İ = Um·Z*/|Z|² → 虚部为负（滞后 φ=arctan(ωL/(R+r))≈80.1°）
+    const zr = 1 + 0.1, xl = omega * 1, d = zr * zr + xl * xl
+    expect(ph.re).toBeCloseTo((10 * zr) / d / Math.SQRT2, 4)
+    expect(ph.im).toBeCloseTo((-10 * xl) / d / Math.SQRT2, 4)
+    expect((Math.atan2(ph.im, ph.re) * 180) / Math.PI).toBeCloseTo(-80.08, 1)
+  })
+
+
   it('无电源：报错不崩', () => {
     expect('error' in buildCircuit([res('r1', 10)])).toBe(true)
   })

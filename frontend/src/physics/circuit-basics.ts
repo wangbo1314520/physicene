@@ -236,6 +236,8 @@ function buildReadings(els: CircuitBody[], i: Record<string, number>, _built: { 
     } else if (e.type === 'ac_source') {
       const cur = i[`${e.id}#src#I`] ?? 0
       readings[`I_${e.id}`] = +cur.toFixed(4)
+      // 源端电压瞬时值 u(t)=Um·sin(ωt)——相移 E2E 的参考通道（与 I 同帧采样，相位差免疫时间原点漂移）
+      readings[`U_${e.id}`] = +(u[`${e.id}#src#U`] ?? 0).toFixed(4)
     } else if (e.type === 'ammeter' || e.type === 'voltmeter' ||
                (e.type === 'multimeter' && (e.params.mode ?? 0) !== 2)) {
       const rEff = i[`${e.id}#I`] !== undefined
