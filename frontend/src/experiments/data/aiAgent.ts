@@ -20,7 +20,10 @@ export async function askAgent(message: string, opts: { sessionId?: string; hist
     }, { timeout: opts.timeoutMs ?? 40_000 })) as { reply?: string; fallback?: boolean; errorType?: string | null } | null
     if (!data?.reply) return null
     return { reply: tidyMath(data.reply), fallback: !!data.fallback, errorType: data.errorType ?? null }
-  } catch {
+  } catch (e) {
+    // A2（2026-10-11）：网关显式拒绝（限流文案等）原样透传——不再吞成 null（静默）
+    const msg = String((e as Error)?.message ?? e).replace('Error: ', '')
+    if (msg && msg.length >= 8) return { reply: msg, fallback: true, errorType: 'GATEWAY' }
     return null
   }
 }

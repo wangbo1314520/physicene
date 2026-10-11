@@ -36,7 +36,8 @@ async function askAI(ask: string, fallback: () => string) {
   busy.value = false
   if (r && !r.fallback) { online.value = true; pushAI(r.reply); emit('aiFeedback', `agent:${ask.slice(0, 30)}`); return }
   online.value = false
-  pushAI(fallback() + '\n\n（AI 服务暂不可用，以上为内置讲解；启动 python-ai-service 后可获得完整解答）', true)
+  const gate = r && r.errorType === 'GATEWAY' ? `\n\n（${r.reply}）` : '\n\n（AI 服务暂不可用，以上为内置讲解；启动 python-ai-service 后可获得完整解答）'
+  pushAI(fallback() + gate, true)
 }
 
 /** 逐级提示：内置三级（方法→公式→方向），没有内置时问 AI 要“只给思路”的提示 */

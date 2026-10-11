@@ -50,7 +50,8 @@ async function askAI(ask: string, fallback: () => string) {
   busy.value = false
   if (r && !r.fallback) { online.value = true; push(r.reply); return }
   online.value = false
-  push(fallback() + '\n\n（AI 服务暂不可用，以上为内置讲解）', 'ai', true)
+  const gate = r && r.errorType === 'GATEWAY' ? `\n\n（${r.reply}）` : '\n\n（AI 服务暂不可用，以上为内置讲解）'
+  push(fallback() + gate, 'ai', true)
 }
 function ask() { const q = question.value.trim(); if (!q || busy.value) return; push(q, 'user'); question.value = ''; void askAI(q, () => (sol.value ? `${sol.value.problemType}\n规律：${sol.value.laws.join('；')}\n临界：${sol.value.critical.join('；')}` : props.recognition.notes.join('\n') || '先搭出可识别的组合')) }
 function explainAll() { void askAI('按“场景识别→过程拆解→受力分析→物理规律→临界条件→公式推导→易错点→同类题与竞赛扩展”八项完整讲解这个场景，并用当前参数给出数值结果。', () => (sol.value ? ['过程：' + sol.value.processes.join('；'), '受力：' + sol.value.forces.join('；'), '规律：' + sol.value.laws.join('；'), '临界：' + sol.value.critical.join('；'), '推导：' + sol.value.derivation.join('；'), '数值：' + sol.value.numeric.join('；'), '易错：' + sol.value.pitfalls.join('；'), '同类：' + sol.value.similar.join('、') + '；竞赛：' + sol.value.competition.join('、')].join('\n') : props.recognition.notes.join('\n'))) }
