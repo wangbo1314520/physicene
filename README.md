@@ -30,6 +30,16 @@ cd ../python-ai-service && poetry install && .venv/Scripts/python -m uvicorn phy
 cd ../frontend && pnpm install && pnpm dev           # ④ 前端 5173
 ```
 
+## AI 配置（BYOK——自带 DeepSeek key，费用由部署者承担）
+
+1. 到 https://platform.deepseek.com/ 注册并充值，创建 API key（形如 `sk-xxx`）
+2. 复制模板：`cp python-ai-service/.env.example python-ai-service/.env`，填入
+   `DEEPSEEK_API_KEY=sk-xxx`，重启 AI 服务（`.env` 已被 .gitignore 排除，不会入库）
+3. **不配 key 也能跑**：仿真/实验/内置讲解/解题模板/回放全部可用；点 AI 问答会得到
+   显式提示"请先配置 DeepSeek API key"，不是静默失败
+4. 费用参考：约 1.5-2.2k token/次问答；系统默认限流每学生 50 次/天 +
+   全局并发 10（`AGENT_DAILY_QUOTA` / `AGENT_MAX_CONCURRENCY` 可调），超额有明确提示
+
 ## 目录
 
 ```

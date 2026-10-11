@@ -50,7 +50,10 @@ async function askAI(ask: string, fallback: () => string) {
   busy.value = false
   if (r && !r.fallback) { online.value = true; push(r.reply); return }
   online.value = false
-  const gate = r && r.errorType === 'GATEWAY' ? `\n\n（${r.reply}）` : '\n\n（AI 服务暂不可用，以上为内置讲解）'
+  // BYOK（2026-10-12）：网关拒绝（GATEWAY）或 Python 侧信息性 fallback（KEY_MISSING 配置指引/限流文案）
+  // ≤400 字原样透传——不静默、不误导为'服务故障'
+  const info = r && r.reply && (r.errorType === 'GATEWAY' || r.fallback) && r.reply.length <= 400 ? r.reply : null
+  const gate = info ? `\n\n（${info}）` : '\n\n（AI 服务暂不可用，以上为内置讲解）'
   push(fallback() + gate, 'ai', true)
 }
 function ask() { const q = question.value.trim(); if (!q || busy.value) return; push(q, 'user'); question.value = ''; void askAI(q, () => (sol.value ? `${sol.value.problemType}\n规律：${sol.value.laws.join('；')}\n临界：${sol.value.critical.join('；')}` : props.recognition.notes.join('\n') || '先搭出可识别的组合')) }

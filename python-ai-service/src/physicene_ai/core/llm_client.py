@@ -14,6 +14,9 @@ from physicene_ai.utils.logger import logger
 class LLMUnavailableError(RuntimeError):
     pass
 
+class KeyMissingError(LLMUnavailableError):
+    """BYOK 未配置：DEEPSEEK_API_KEY 缺失（与通用 LLM 故障区分——前端给配置指引而非"繁忙"）"""
+
 
 class LLMResult:
     def __init__(self, content: str, usage: dict):
@@ -42,6 +45,9 @@ class LLMClient:
 
     def chat(self, messages: list[dict], max_tokens: int = 2000,
              temperature: float = 0.7) -> LLMResult:
+        if not settings.deepseek_api_key:
+            # BYOK（2026-10-12 定案）：未配 key 是 clone 后常态——显式指引而非 mock 文案
+            raise KeyMissingError("DEEPSEEK_API_KEY 未配置（BYOK：部署者自带 key，见 README「AI 配置」）")
         if self.mock:
             return LLMResult("[mock] LLM 未接入，仅规则模式可用", {"total_tokens": 0})
 

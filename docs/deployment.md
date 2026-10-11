@@ -73,12 +73,18 @@ poetry install
 - OCR（paddle）懒加载：首次 OCR 请求时加载（health 中 paddle_ocr=NOT_LOADED 属正常）
 - 健康检查：`GET /:8000/health` → 200，components 三项状态
 
-### 2. LLM key
+### 2. LLM key（BYOK · 2026-10-12 定案：部署者自带，费用自付）
 
-- `python-ai-service/.env`：`DEEPSEEK_API_KEY`（**不入库**——.gitignore 已排除 .env，
-  上传 GitHub 前核对）；`INTERNAL_KEY`（Java↔Python 内部鉴权，前端不可见）
-- Java 侧经环境变量/配置注入同值 INTERNAL_KEY（application.properties 不写真实值）
-- 验证：`POST /agent/chat`（X-Internal-Key 头）一次调用，`fallback=false` 即 key 有效
+1. **申请 key**：https://platform.deepseek.com/ 注册 → 充值 → 创建 API key（sk-xxx）
+2. **配置**：`python-ai-service/.env` 写 `DEEPSEEK_API_KEY=sk-xxx`，重启 AI 服务
+   （`.env` 不入库——.gitignore 已排除；步骤详见 README「AI 配置」）
+3. **费用由部署者承担**：参考 1.5-2.2k token/次；限流默认保守（每学生 50 次/天，
+   `AGENT_DAILY_QUOTA` 可调；并发 10，`AGENT_MAX_CONCURRENCY`）
+4. **无 key 时的行为（clone 后常态）**：AI 问答按钮 → 显式提示"请先配置 DeepSeek API
+   key（见 README「AI 配置」章节）"（KEY_MISSING，非"服务繁忙"）；内置讲解/解题模板/
+   仿真/回放全部可用，仅 AI 成文受限
+5. `INTERNAL_KEY`（Java↔Python 内部鉴权，前端不可见）同 .env 配置；验证：
+   `POST /agent/chat` 一次调用 `fallback=false` 即 key 有效
 
 ### 3. 无 key / 服务不可用时的降级
 
@@ -99,10 +105,9 @@ poetry install
 按官方牌价代入公式：`日成本 ≈ 6×输入单价 + 2.5×输出单价`（单价以 DeepSeek 官网当日为准；
 按历史量级 ¥1-4/M 输入、¥2-16/M 输出估算 ≈ **¥10-60/天**）。嵌入检索本地推理零 API 成本。
 
-**限流（阶段 A2 · 2026-10-11 已落地——双管 + 观测）**：
-1. **每学生日配额**：默认 100 次/天（`agent.daily-quota`，环境变量/启动参数可调，
-   `java -jar ... --agent.daily-quota=50`）；按日自动重置
-2. **全局并发上限**：默认 10 in-flight（`agent.max-concurrent`）
+**限流（A2 落地；BYOK 定案后默认保守 · 2026-10-12）**：
+1. **每学生日配额**：默认 **50 次/天**（BYOK 保护部署者；`agent.daily-quota` 属性 / `AGENT_DAILY_QUOTA` 环境变量 / `--agent.daily-quota=N` 启动参数可调）；按日自动重置
+2. **全局并发上限**：默认 10 in-flight（`agent.max-concurrent` / `AGENT_MAX_CONCURRENCY`）
 3. **超额行为（显式不静默）**：配额尽 → 回复"今日 AI 额度已用完（每学生每日 N 次，明日
    自动重置）——仍可使用「直接讲解」内置内容与解题模板"；并发满 → "AI 正忙，请几秒后重试"；
    前端经 GATEWAY 透传原样展示（E2E：ai-quota-check.py 实测第 3 问显式提示）

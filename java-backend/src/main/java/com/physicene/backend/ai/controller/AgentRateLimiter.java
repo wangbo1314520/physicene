@@ -14,9 +14,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  * 超额行为显式（非静默）：配额尽 → QUOTA_EXCEEDED（前端提示"今日额度已用完"）；
  * 并发满 → BUSY（提示稍后再试）。观测计数随日志输出（monitoring.md 口径）。
  *
- * 配置（application.properties / 环境变量）：
- *   agent.daily-quota   每学生每日调用上限（默认 100）
- *   agent.max-concurrent 全局并发上限（默认 10）
+ * 配置（application.properties / 环境变量，Spring 宽松绑定 AGENT_DAILY_QUOTA 同名生效）：
+ *   agent.daily-quota   每学生每日调用上限（默认 50——BYOK 模式下保守保护部署者，2026-10-12）
+ *   agent.max-concurrent 全局并发上限（默认 10，AGENT_MAX_CONCURRENCY）
  */
 @Component
 public class AgentRateLimiter {
@@ -33,7 +33,7 @@ public class AgentRateLimiter {
         }
     }
 
-    public AgentRateLimiter(@Value("${agent.daily-quota:100}") int dailyQuota,
+    public AgentRateLimiter(@Value("${agent.daily-quota:50}") int dailyQuota,
                             @Value("${agent.max-concurrent:10}") int maxConcurrent) {
         this.dailyQuota = Math.max(1, dailyQuota);
         this.slots = new Semaphore(Math.max(1, maxConcurrent), true);

@@ -5,6 +5,7 @@ question 分支 Week 4 直连 LLM（第五周接 RAG 教材引用）；工具失
 """
 from physicene_ai.core.intent_classifier import classify
 from physicene_ai.core.llm_client import LLMUnavailableError, llm_client
+from physicene_ai.core.llm_client import KeyMissingError
 from physicene_ai.models.contract import ChatMessage, ChatRequest, ChatResponse, ToolCall
 from physicene_ai.tools.java_client import JavaApiError
 from physicene_ai.tools import tool_registry
@@ -56,6 +57,13 @@ def handle(request: ChatRequest) -> ChatResponse:
         }
         return router[intent.intent](request, intent.entities)
 
+    except KeyMissingError:
+        logger.warning("BYOK 未配置 key：返回配置指引")
+        return ChatResponse(
+            reply="AI 功能需要 DeepSeek API key（BYOK 自带，费用由部署者承担，约 1.5-2.2k token/次）。"
+                  "请先配置：python-ai-service/.env 里设 DEEPSEEK_API_KEY=sk-xxx 后重启服务——"
+                  "申请与填写步骤见 README「AI 配置」章节。未配置期间：内置讲解/解题模板/仿真回放全部可用，仅 AI 成文问答受限。",
+            fallback=True, error_type="KEY_MISSING")
     except LLMUnavailableError as e:
         logger.error("LLM 不可用: {}", str(e)[:150])
         return ChatResponse(reply="AI 服务暂时繁忙，请稍后再试～",
@@ -197,6 +205,8 @@ def _handle_question(request: ChatRequest, entities: dict) -> ChatResponse:
              {"role": "user", "content": request.message}],
             max_tokens=2000, temperature=0.7)
         reply = result.content
+    except KeyMissingError:
+        raise   # BYOK 未配置须走全局配置指引分支，不落 RAG 降级（2026-10-12）
     except Exception:  # noqa: BLE001 LLM 失败 + 有检索结果 → 直接展示教材片段
         if hits:
             lines = [f"📖 {h['source']} {h['chapter']} P{h['page']}：\n{h['content'][:200]}…" for h in hits[:3]]
