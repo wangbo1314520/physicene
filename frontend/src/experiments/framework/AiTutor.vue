@@ -90,7 +90,7 @@ watch(() => props.step?.id, (id) => {
     <h3>🤖 AI 助教 <span class="dot" :class="online === true ? 'on' : online === false ? 'off' : ''" :title="online === true ? 'AI 在线' : online === false ? 'AI 服务离线，内置讲解' : '未连接'"></span></h3>
     <div class="chat">
       <div v-if="!messages.length" class="welcome">
-        有不会的直接问：原理、公式、答案、解题思路都可以。<br>也可以点「直接讲解」听完整讲解，或「逐级提示」自己先想。
+        有不会的直接问——按你的问法给深度：直接要答案 → 答案+完整推理；想要思路 → 分步引导不替你算；问「我算的对吗」→ 明确确认或纠正。<br>也可以点「直接讲解」或「逐级提示」。
       </div>
       <div v-for="(m, i) in messages" :key="i" :class="['msg', m.role]">
         <span v-html="m.text.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>')"></span>
@@ -106,7 +106,7 @@ watch(() => props.step?.id, (id) => {
       <input v-model="question" placeholder="问任何与这个实验相关的问题…" :disabled="busy" @keyup.enter="ask">
       <button :disabled="!question.trim() || busy" @click="ask">→</button>
     </div>
-    <p class="note">AI 直接讲解 · 可问答案与思路 · DeepSeek + 教材知识库（离线时内置讲解）</p>
+    <p class="note">AI 助教 · 按问法分流（答案+推理 / 分步引导 / 验证纠错）· DeepSeek + 教材知识库（离线时内置讲解）</p>
   </div>
 </template>
 
