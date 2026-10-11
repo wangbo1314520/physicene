@@ -83,12 +83,10 @@ def main() -> int:
             if (st === 'running') ts = true; if (ts && st === 'ended') break; }
         }""")
 
-        # 切结果 Tab：threeScene 是否应用了 TS 末态位姿
-        page.locator(".tabbar .tab", has_text="结果").click()
+        # Step2 单页：无结果 Tab——直接断言 TS 末态位姿已入共享 store（threeScene watch 消费同源）
         page.wait_for_timeout(800)
-        # 验证 workspace.tsPoses 非空
-        ws_poses = page.evaluate("() => window.__lab ? 'poses in store' : 'no __lab'")
-        check("T4 结果 Tab 切换无错误", ws_poses is not None, "")
+        n_poses = page.evaluate("() => { const p = window.__builder.tsPoses(); return p ? Object.keys(p).length : 0 }")
+        check("T4 TS 末态位姿入 store（单页直读）", n_poses > 0, f"poses={n_poses}")
         check("T5 全程无页面错误", not errs, str(errs[:1]))
         b.close()
 

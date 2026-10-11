@@ -27,24 +27,23 @@ def main() -> int:
 
         print("══ P0-1 /exp → /lab redirect")
         pg.goto(f"{BASE}/exp")
-        pg.wait_for_selector(".lab > .topbar", timeout=12000)
+        pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
         url = pg.url
         check("/exp 重定向到 /lab", "/lab" in url and "/exp" not in url, f"url={url}")
 
         print("══ P0-2 /sandbox → /exp → /lab 链式 redirect")
         pg.goto(f"{BASE}/sandbox")
-        pg.wait_for_selector(".lab > .topbar", timeout=12000)
+        pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
         url2 = pg.url
         check("/sandbox 链式到 /lab", "/lab" in url2 and "/sandbox" not in url2, f"url={url2}")
 
-        print("══ P0-3 /lab 实验台 Tab 功能（原 E1）")
-        check("E1 实验台 topbar 可见", pg.locator(".lab > .topbar").is_visible())
-        pg.locator(".lab select.tmpl").select_option("template_projectile")
+        print("══ P0-3 /lab 单页搭建功能（原 E1 实验台——Step2 合并后同页承载）")
+        check("E1 工具栏可见", pg.locator(".free-build-tab .builder .tools").count() > 0)
+        pg.evaluate("window.__builder.loadTemplate('gk-connected-bodies')")
         pg.wait_for_timeout(500)
-        check("E1 模板载入", pg.locator(".lab .workspace li").count() > 0 or pg.locator(".lab .el-item").count() > 0)
+        check("E1 模板载入", pg.evaluate("window.__builder.count()") > 0)
 
         print("══ P0-4 /lab 自由搭建 Tab 功能（原 E2，承接 E3 全部覆盖）")
-        pg.locator(".tabbar .tab", has_text="自由搭建").click()
         pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
         check("E2 BuilderView 挂载", pg.locator(".free-build-tab .builder").count() == 1)
         import _counts
@@ -63,10 +62,10 @@ def main() -> int:
         kes = pg.evaluate("window.__builder.keyEvents()")
         check("E2 keyEvents>0", len(kes) > 0, f"n={len(kes)}")
 
-        print("══ P0-5 E3 过渡入口已移除（/exp 无 BuilderView 直接挂载）")
+        print("══ P0-5 E3 过渡入口已移除（/exp 仅 redirect，不再有独立直入页）")
         pg.goto(f"{BASE}/exp")
-        pg.wait_for_selector(".lab > .topbar", timeout=12000)
-        check("/exp 不再直接挂 BuilderView", pg.locator(".builder").count() == 0 or pg.locator(".free-build-tab .builder").count() == 0)
+        pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
+        check("/exp 重定向后落在 /lab 单页", "/lab" in pg.url and "/exp" not in pg.url, f"url={pg.url}")
 
         check("全程零页面错误", not errs, str(errs[:2]))
         b.close()

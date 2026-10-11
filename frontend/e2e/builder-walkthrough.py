@@ -102,7 +102,6 @@ with sync_playwright() as p:
     # P0 后 builder 迁入 /lab「自由搭建」Tab（/exp→/lab 重定向）；选择器作用域化
     page.goto(f"{BASE}/lab")
     page.wait_for_selector(".canvas-wrap canvas", timeout=12000)
-    page.locator(".tabbar .tab", has_text="搭建").click()
     page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
 
     # ════ 场景一：斜面（θ=30°，μ=0）滑块 ════
@@ -163,7 +162,7 @@ with sync_playwright() as p:
     page.evaluate("window.__builder.clear()")
     page.evaluate("window.__builder.setName('手工录制-圆轨道过顶')")
     loop = place(page, w, "竖直圆轨道", (2, 0))
-    set_params(page, loop, {"radius": 1.5, "side": 0})
+    set_params(page, loop, {"radius": 1.5, "side": 0, "gap": 0})
     ball = place(page, w, "小球", (2, -1.0))        # 球心在 R−r=1.0 圈内底部
     page.evaluate("(a) => window.__builder.setParams(a.id, a.p)", {"id": ball, "p": {"m": 0.5, "v0": 8}})
     page.wait_for_timeout(300)

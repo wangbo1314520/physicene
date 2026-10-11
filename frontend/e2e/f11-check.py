@@ -23,13 +23,10 @@ def main() -> int:
         pg.add_init_script(f"localStorage.setItem('ps_token', {json.dumps(auth['token'])});"
                            f"localStorage.setItem('ps_user', {json.dumps(json.dumps(auth['user']))});")
         pg.goto(f"{BASE}/lab")
-        pg.wait_for_selector(".canvas-wrap canvas", timeout=15000)   # 实验台画布就绪=顶栏已渲染
-        assert pg.locator(".lab > .topbar").is_visible(), "默认应显示实验台顶栏"
-        pg.screenshot(path=str(OUT / "f11-tab-lab.png"))
-        # 2) 切自由搭建
-        pg.locator(".tabbar .tab", has_text="搭建").click()
+        # Step2 单页：/lab 直出 BuilderView（无实验台顶栏/无 Tab）
         pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=15000)
-        assert not pg.locator(".lab > .topbar").is_visible(), "自由搭建页不应显示实验台顶栏（v-if 隔离）"
+        assert pg.locator(".tabbar").count() == 0, "单页后不应再有 Tab 栏"
+        pg.screenshot(path=str(OUT / "f11-tab-lab.png"))
         pg.screenshot(path=str(OUT / "f11-tab-free.png"))
         # 2.5) 模板下拉分组断言（UI 分类 bug 补强——标题不再写死"力学"，按 group 分组渲染）
         tpl_btn = pg.locator(".tools button", has_text="模板")
@@ -69,12 +66,13 @@ def main() -> int:
         assert ended, "模板应可运行至结束"
         subs = pg.evaluate("window.__builder.subjects()")
         assert subs and subs[0]["x"] > 0.5, f"板块共速后位移应为正（x={subs[0]['x'] if subs else '无'}）"
-        # 4) 切回实验台仍可用
-        pg.locator(".tabbar .tab", has_text="结果").click()
-        pg.wait_for_selector(".lab > .topbar", timeout=5000)
-        assert pg.locator(".lab > .topbar").is_visible(), "切回应显示实验台顶栏"
+        # 4) Step2 单页：底栏面板往返（数据↔回放↔属性）后搭建台仍可用——旧"切回实验台"等价物
+        for btn in ("数据", "回放", "属性"):
+            pg.locator(".bottombar-tabs button", has_text=btn).click()
+            pg.wait_for_timeout(250)
+        assert pg.locator(".free-build-tab .builder .palette .item").count() > 0, "面板往返后搭建台应仍在"
         assert not errs, f"页面错误 {errs}"
-        print("F1.1 PASS：Tab 切换 ✓ 自由搭建可搭可跑 ✓ v-if 隔离 ✓ 切回无损 ✓ 零页面错误 ✓")
+        print("F1.1 PASS：单页可搭可跑 ✓ 面板往返无损 ✓ 零页面错误 ✓")
         b.close()
     return 0
 

@@ -57,11 +57,10 @@ with sync_playwright() as p:
     moved = abs(p1["x"] - p0["x"]) > 0.5 or abs(p1["y"] - p0["y"]) > 0.5
     check("B3 能拖元件（物块位置改变）", moved, f"({p0['x']:.2f},{p0['y']:.2f})→({p1['x']:.2f},{p1['y']:.2f})")
 
-    # 切结果 Tab：workspace canvas 非默认 300x150、非 0x0（追问2 修复点）
-    page.locator(".tabbar .tab", has_text="结果").click()
+    # Step2 单页：builder canvas 健康（非默认 300x150、非 0x0——追问2 修复点的单页等价物）
     page.wait_for_timeout(700)
-    sz = page.evaluate("() => { const c = document.querySelector('.lab .workspace canvas'); return c ? c.width + 'x' + c.height : null }")
-    check("B4 切结果 Tab 画布恢复（非 0x0/非默认 300x150）", sz is not None and not sz.startswith("0x") and sz != "300x150", f"{sz}")
+    sz = page.evaluate("() => { const c = document.querySelector('.free-build-tab .builder canvas'); return c ? c.width + 'x' + c.height : null }")
+    check("B4 搭建画布尺寸健康（非 0x0/非默认 300x150）", sz is not None and not sz.startswith("0x") and sz != "300x150", f"{sz}")
     check("B5 全程无页面错误", not errs, str(errs[:1]))
     b.close()
 

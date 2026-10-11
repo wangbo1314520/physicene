@@ -51,36 +51,28 @@ def main() -> int:
         n_placed = len(placed)
         check("S0 搭建 8 件（含五类曾丢件）", n_placed == 8, f"{placed}")
 
-        # 切结果 Tab
-        pass  # 单页无结果 Tab
+        # Step2 单页：结果视图=同页同 store（架构上不再有"物理包过滤"路径）
         page.wait_for_timeout(800)
-        shown = page.evaluate("() => window.__lab ? window.__lab.scene.elements.map(e => e.type) : null")
-        check("S1 全数显示（8/8，不再经物理包过滤）", shown is not None and len(shown) == 8, f"{shown}")
+        shown = page.evaluate("() => window.__builder.elements().map(e => e.type)")
+        check("S1 全数显示（8/8，单页同源 store）", shown is not None and len(shown) == 8, f"{shown}")
 
         # 身份：capacitor_r 保持电容类型（旧路径 → wall/地面）
         check("S2 capacitor_r 身份保持（非 wall）", shown is not None and 'capacitor_r' in shown, f"{[t for t in shown or [] if 'cap' in t or t == 'wall']}")
 
-        # 连线可见：threeScene 连线层（__sim mesh debug 里 line 数）——用像素/调试口
-        linkn = page.evaluate('''() => { const r = window.__lab; return null; }''')
-        # 用截图像素证：绳（橙 #d9a05a）出现在 bracket(4,1)→(4,2) 区域
-        # 投影：世界→屏幕经 __simProject（threeScene 已暴露）
-        proj = page.evaluate('''() => {
-          const p1 = window.__simProject ? window.__simProject(4, 1.2) : null;
-          const p2 = window.__simProject ? window.__simProject(-4, 1) : null;
-          return { p1, p2, has: !!window.__simProject }; }''')
-        check("S3 threeScene 投影钩子在（连线端点可定位）", proj["has"], f"{proj['p1']}")
-        # 连线像素证：绳色 #d9a05a 全画布计数（该橙为本场景唯一；bracket 蓝/slope 绿/ground 灰）
-        shot = page.locator('.canvas-wrap canvas').first.screenshot()
+        # 连线可见（像素证）：绳色 #d9a05a 全画布计数（该橙为本场景唯一；bracket 蓝/slope 绿/ground 灰）
+        # （旧 __simProject 钩子属 threeScene 懒挂载，2D 模式不保证——以像素证为准）
+        page.wait_for_timeout(600)
+        shot = page.locator('.free-build-tab .builder canvas').first.screenshot()
         open('/tmp/tab-link.png', 'wb').write(shot)
         from PIL import Image
         im = Image.open('/tmp/tab-link.png').convert('RGB')
         found = 0
-        for yy in range(0, im.height, 2):
-            for xx in range(0, im.width, 2):
+        for yy in range(0, im.height, 1):
+            for xx in range(0, im.width, 1):
                 r0, g0, b0 = im.getpixel((xx, yy))
                 if r0 > 175 and 115 < g0 < 195 and b0 < 135:
                     found += 1
-        check("S3b 连线像素可见（绳橙色全画布 >20 点）", found > 20, f"橙点={found}")
+        check("S3 连线像素可见（绳橙色全画布 >20 点）", found > 20, f"橙点={found}")
 
         # ═══ 追问2 补丁：三态（域/选中/视角）往返保持 ═══
         pass  # 单页：/lab 即 BuilderView

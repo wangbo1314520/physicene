@@ -25,7 +25,6 @@ with sync_playwright() as p:
     page.on("pageerror", lambda e: errs.append(str(e)[:100]))
     page.goto(f"{BASE}/lab")
     page.wait_for_selector(".canvas-wrap canvas", timeout=12000)
-    page.locator(".tabbar .tab", has_text="搭建").click()
     page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
 
     rows = page.evaluate("""async () => {

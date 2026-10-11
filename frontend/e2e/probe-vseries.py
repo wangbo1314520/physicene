@@ -23,7 +23,6 @@ with sync_playwright() as p:
     page = ctx.new_page()
     page.goto(f"{BASE}/lab")
     page.wait_for_selector(".canvas-wrap canvas", timeout=12000)
-    page.locator(".tabbar .tab", has_text="搭建").click()
     page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
 
     r = page.evaluate("""async () => {

@@ -258,9 +258,9 @@ def main() -> int:
         while page.evaluate("window.__builder.simStatus()") != "ended":
             page.wait_for_timeout(200)
 
-        # ═══ 场景五：Tab 2 运行 → Tab 1 结果显示（方案 B 核心流程）═══
-        print("场景五：Tab 2 运行 → Tab 1 结果显示")
-        # 默认已是搭建 Tab——放物块并运行
+        # ═══ 场景五：单页运行 → 数据面板显示结果（Step2 Tab 合并后口径）═══
+        print("场景五：单页运行 → 结果数据直读")
+        # 默认已是搭建页——放物块并运行
         page.evaluate("window.__builder.clear()")
         domain(page, "力学")
         w = W(page)
@@ -271,24 +271,29 @@ def main() -> int:
         for _ in range(90):
             page.wait_for_timeout(200)
             if page.evaluate("window.__builder.simStatus()") == "ended": break
-        # 切到结果 Tab
-        pass  # 单页无结果 Tab
         page.wait_for_timeout(1000)
-        status_text = page.evaluate("() => document.querySelector('.lab .status')?.textContent?.trim() ?? 'none'")
-        check("Tab 1 状态栏显示运行结果", "已结束" in status_text or "ended" in status_text, f"'{status_text[:40]}'")
-        # canvas 有内容（syncFromBuilderTab 读取了 workspace）
-        info = page.evaluate("() => { const c = document.querySelector('.workspace canvas'); if (!c) return null; return { w: c.width, h: c.height } }")
+        # 结果数据：状态 ended + 曲线序列非空（旧 Tab1"结果显示"的等价物=共享 store 单源直读）
+        end_state = page.evaluate("() => ({ st: window.__builder.simStatus(), t: window.__builder.simT(),"
+                                  " series: (window.__builder.vSeries() ?? []).length })")
+        check("运行结束且曲线序列有数据", end_state["st"] == "ended" and end_state["series"] > 0,
+              f"st={end_state['st']} t={end_state['t']:.1f} series={end_state['series']}")
+        # 画布（单页直出，BuilderView 自持 canvas）
+        info = page.evaluate("() => { const c = document.querySelector('.free-build-tab .builder canvas'); if (!c) return null; return { w: c.width, h: c.height } }")
         check("画布存在（单页直出）",
               info is not None and info["w"] > 500 and info["h"] > 300,
               f"canvas={info['w']}x{info['h']}" if info else "canvas 不存在")
-        # 往返 Tab 不丢内容
-        pass  # 单页
+        # 底栏面板往返（属性↔数据↔回放）+ 左栏（元件库↔AI）不丢画布与元件——旧"Tab 往返"等价物
+        for btn in ("数据", "回放", "属性"):
+            page.locator(".bottombar-tabs button", has_text=btn).click()
+            page.wait_for_timeout(250)
+        page.locator(".leftbar-tabs button", has_text="AI").click()
+        page.wait_for_timeout(250)
+        page.locator(".leftbar-tabs button", has_text="元件库").click()
         page.wait_for_timeout(400)
-        pass  # 单页无结果 Tab
-        page.wait_for_timeout(600)
-        info2 = page.evaluate("() => { const c = document.querySelector('.workspace canvas'); if (!c) return null; return { w: c.width, h: c.height } }")
-        check("Tab 往返后 canvas 恢复", info2 is not None and info2["w"] > 500,
-              f"canvas={info2['w']}x{info2['h']}" if info2 else "丢失")
+        info2 = page.evaluate("() => { const c = document.querySelector('.free-build-tab .builder canvas'); if (!c) return null; return { w: c.width, h: c.height } }")
+        n5 = page.evaluate("window.__builder.count()")
+        check("面板往返后 canvas 与元件保留", info2 is not None and info2["w"] > 500 and n5 >= 2,
+              f"canvas={info2['w']}x{info2['h'] if info2 else 0} elements={n5}" if info2 else "丢失")
 
         b.close()
 

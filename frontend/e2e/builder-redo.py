@@ -99,7 +99,6 @@ def main() -> int:
         # P0 后 builder 迁入 /lab「自由搭建」Tab（/exp→/lab 重定向）；选择器作用域化
         page.goto(f"{BASE}/lab")
         page.wait_for_selector(".canvas-wrap canvas", timeout=12000)
-        page.locator(".tabbar .tab", has_text="搭建").click()
         page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
         tpls_meta = page.evaluate("window.__builder.templates()")
         want = [t for t in tpls_meta if not args.ids or t["id"] in args.ids.split(",")]
@@ -203,7 +202,9 @@ def main() -> int:
             check(f"{tid} 运行结束", status == "ended", f"t={samples[-1][0]:.1f}s")
             for name, ok in PROOFS[tid](samples):
                 check(f"{tid} {name}", ok)
-            # ④ 数据导出（CSV 按钮点击产生下载）
+            # ④ 数据导出（CSV 按钮点击产生下载）——单页后先开底栏数据面板
+            page.locator(".bottombar-tabs button", has_text="数据").click()
+            page.wait_for_timeout(400)
             with page.expect_download() as dl:
                 page.locator(".data button", has_text="CSV").first.click()
             check(f"{tid} CSV 导出", dl.value.suggested_filename.endswith(".csv"))
@@ -223,7 +224,6 @@ def main() -> int:
         # P0 后 builder 迁入 /lab「自由搭建」Tab（/exp→/lab 重定向）；选择器作用域化
         pg.goto(f"{BASE}/lab")
         pg.wait_for_selector(".canvas-wrap canvas", timeout=12000)
-        pg.locator(".tabbar .tab", has_text="搭建").click()
         pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
         w = W(pg)
 
@@ -417,7 +417,6 @@ def main() -> int:
         # P0 后 /exp→/lab 重定向，builder 在自由搭建 Tab
         pg.goto("http://localhost:5173/lab")
         pg.wait_for_selector(".canvas-wrap canvas", timeout=15000)
-        pg.locator(".tabbar .tab", has_text="搭建").click()
         pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=15000)
         p1b = pg.evaluate("window.__builder.add('pole', {H: 1.2}, -0.8, 0.6)")
         p2b = pg.evaluate("window.__builder.add('pole', {H: 1.2}, 0.8, 0.6)")

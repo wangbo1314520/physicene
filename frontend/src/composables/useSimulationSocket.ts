@@ -84,15 +84,22 @@ export function useSimulationSocket() {
   const error = sharedError
   // 直接操作 sharedWs（修复关闭顺序：局部变量在 close 后脱同步）
 
-  async function run(elements: PhysicsElementInput[], config: Record<string, unknown>,
-                     sceneId?: string | null) {
-    error.value = ''
+  /** 复位共享状态到 connecting——doRun 在 await 保存（HTTP 往返数百 ms）前先调，
+   * 否则上一轮 ended 的旧 t/probes 残留，用户与 E2E 在此窗口读到假数据（2026-10-11
+   * free-build 传感器"假 None"根因）。run() 内部幂等复用。 */
+  function markStarting() {
     close()
     Object.assign(state, {
       status: 'connecting', currentT: 0, subjects: [], keyEvents: [],
       vSeries: [], vIds: [], ekSeries: [], pSeries: [], probes: {}, endInfo: null, frameCount: 0,
       recordId: null,
     })
+  }
+
+  async function run(elements: PhysicsElementInput[], config: Record<string, unknown>,
+                     sceneId?: string | null) {
+    error.value = ''
+    markStarting()
     try {
       const body = sceneId ? { sceneId } : { elements, config }
       const resp = (await http.post('/simulations/run', body)) as {
@@ -105,14 +112,24 @@ export function useSimulationSocket() {
       lastAttach = { simId: resp.simId, wsUrl: resp.wsUrl, recordId: resp.recordId }
       const token = getAuthToken() ?? ''
       const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-      sharedWs = new WebSocket(
-        `${proto}://${location.host}${resp.wsUrl}?token=${encodeURIComponent(token)}`)
-      sharedWs.onopen = () => (state.status = 'running')
-      sharedWs.onmessage = (ev) => handle(JSON.parse(ev.data as string))
-      sharedWs.onclose = () => {
-        if (state.status !== 'ended') state.status = 'idle'
+      const url = `${proto}://${location.host}${resp.wsUrl}?token=${encodeURIComponent(token)}`
+      // ended 后首个新连接偶发 upgrade 失败（浏览器经 Vite ws 代理的快速重连竞态，2.3 先存后跑
+      // 放大了窗口；Java 端支持 reattach+重播）——失败即退避重连，最多 2 次
+      const connectWs = (attempt: number) => {
+        const ws = new WebSocket(url)
+        sharedWs = ws
+        let failed = false
+        ws.onopen = () => (state.status = 'running')
+        ws.onmessage = (ev) => handle(JSON.parse(ev.data as string))
+        ws.onerror = () => { failed = true }
+        ws.onclose = () => {
+          if (state.status === 'ended' || sharedWs !== ws) return
+          if (failed && attempt < 2) { setTimeout(() => connectWs(attempt + 1), 350); return }
+          state.status = 'idle'
+          if (failed) error.value = 'WebSocket 连接失败'
+        }
       }
-      sharedWs.onerror = () => (error.value = 'WebSocket 连接失败')
+      connectWs(0)
     } catch (e) {
       error.value = String(e)
       state.status = 'idle'
@@ -223,6 +240,7 @@ export function useSimulationSocket() {
   function close() {
     if (sharedWs) {
       sharedWs.onclose = null
+      sharedWs.onerror = null   // 防 ghost：被关闭的旧连接在 close 握手期报 error 会误写"连接失败"
       sharedWs.close()
       sharedWs = null
     }
@@ -264,5 +282,5 @@ export function useSimulationSocket() {
     return true
   }
 
-  return { state, error, run, attach, reattach, pause, play, step, seek, end, sync, close, reset }
+  return { state, error, run, attach, reattach, markStarting, pause, play, step, seek, end, sync, close, reset }
 }

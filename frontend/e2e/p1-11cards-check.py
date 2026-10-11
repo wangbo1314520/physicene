@@ -37,7 +37,6 @@ def main() -> int:
         print("══ 轨道 A：builder TS 引擎逐卡（搭→运行→读数对理论）")
         pg.goto(f"{BASE}/lab")
         pg.wait_for_selector(".canvas-wrap canvas", timeout=12000)
-        pg.locator(".tabbar .tab", has_text="搭建").click()
         pg.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
 
         def ts_run(build_js, name, detail=""):

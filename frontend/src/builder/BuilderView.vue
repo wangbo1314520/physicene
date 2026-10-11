@@ -231,6 +231,9 @@ onBeforeUnmount(() => {
 })
 async function doRun() {
   // 2.3：先存后跑——Java 需 sceneId 才产生 recordId（回放依赖）。静默保存，不打断操作。
+  // 保存是 HTTP 往返（数百 ms）——先同步复位运行态，否则上一轮 ended 的旧 t/probes
+  // 在此窗口残留，用户与 E2E 会读到假数据（2026-10-11 free-build 传感器"假 None"根因）
+  bridge.socket.markStarting()
   await saveToBackend(true)
   const t = currentTemplateId.value ? templateById(currentTemplateId.value) : null
   const err = await bridge.run(elements, analysis.value, t?.maxDuration ?? 12, t?.gravityY ?? -9.8, t?.substeps, backendSceneId.value ? String(backendSceneId.value) : undefined)

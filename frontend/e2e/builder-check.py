@@ -83,7 +83,6 @@ def main() -> int:
         page.evaluate("() => localStorage.removeItem('ps_builder_workspace')")
         page.reload()
         page.wait_for_selector(".canvas-wrap canvas", timeout=12000)
-        page.locator(".tabbar .tab", has_text="搭建").click()
         page.wait_for_selector(".free-build-tab .builder .palette .item", timeout=12000)
         tpls = page.evaluate("window.__builder.templates()")
         want = [t for t in tpls if not args.ids or t["id"] in args.ids.split(",")]
