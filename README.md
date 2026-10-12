@@ -40,6 +40,21 @@ cd ../frontend && pnpm install && pnpm dev           # ④ 前端 5173
 4. 费用参考：约 1.5-2.2k token/次问答；系统默认限流每学生 50 次/天 +
    全局并发 10（`AGENT_DAILY_QUOTA` / `AGENT_MAX_CONCURRENCY` 可调），超额有明确提示
 
+### 前端构建失败（拉取 node:22-alpine 超时）
+
+部分网络对 Docker Hub 限速，`node:22-alpine` 等基镜像可能拉不动。切国内 Docker 镜像源：
+
+**Windows / Mac（Docker Desktop）**：Settings → Docker Engine → 编辑 JSON，加：
+```json
+{ "registry-mirrors": ["https://docker.1ms.run", "https://docker.mirrors.ustc.edu.cn"] }
+```
+→ Apply & Restart 后重试 `docker compose up -d --build`
+
+**Linux**：编辑 `/etc/docker/daemon.json` 加同样的 `registry-mirrors` → `sudo systemctl restart docker`
+
+仍拉不动时的兜底（宿主有 Node ≥22）：`cd frontend && pnpm install && pnpm build` 产出
+dist/ 后，用 runtime 目标构建前端镜像——见 docs/Docker-FAQ.md「前端镜像 runtime 兜底」。
+
 ### 常见问题（Clone 验证实测补充 · 2026-10-12）
 
 - **改了 Java 端口**：前端 Vite 开发代理固定指向 `localhost:8080`（vite.config.ts 的

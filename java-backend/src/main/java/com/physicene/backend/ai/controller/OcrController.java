@@ -91,6 +91,17 @@ public class OcrController {
                 // 低置信度降级（SRS F4.2：建议重拍或手动建场景）
                 throw new BusinessException(ErrorCode.DEGRADED, "图片识别不清，建议重拍或手动搭建场景");
             }
+            if (e.status() == 503) {
+                // slim 档未装 OCR（P1.5）：透传 Python 侧档位指引（detail JSON），不吞成"稍后再试"
+                String detail = e.contentUTF8();
+                int i = detail.indexOf("\"detail\":");
+                if (i >= 0) {
+                    detail = detail.substring(i + 9).replace("\"", "").replace("}", "").trim();
+                } else {
+                    detail = "OCR 未安装（slim 档）——需 AI_MODE=full 重建 AI 服务";
+                }
+                throw new BusinessException(ErrorCode.EXTERNAL_UNAVAILABLE, detail);
+            }
             log.warn("OCR 服务异常: {}", e.getMessage());
             throw new BusinessException(ErrorCode.EXTERNAL_UNAVAILABLE, "识别服务暂不可用，请稍后再试");
         }
