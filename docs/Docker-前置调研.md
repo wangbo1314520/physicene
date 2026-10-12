@@ -87,3 +87,36 @@ ai(slim) → DeepSeek API（BYOK，可空降级）
 - slim 档下 warm-up 线程 import 失败是否被宽捕获（本地"模型缺失"路径已验证不崩；
   "包缺失"路径 P4 实测）
 - Windows 宿主 80 端口常被占——.env FRONTEND_PORT 已参数化 + FAQ
+
+---
+
+## 追问答复（P1 开工前 · 代码实证）
+
+### 追问 1：OCR 在 slim 下的行为 = 功能级不可用，但有降级链（不崩不白屏）
+
+证据链：slim 无 paddleocr → `ocr_service._ensure_loaded()` 的方法内 `from paddleocr import`
+抛 ImportError → routes_ocr 只捕 LowConfidenceError → FastAPI 500 → **Java 层兜底**
+（OcrController:89-96）：非 422 FeignException → `EXTERNAL_UNAVAILABLE "识别服务暂不可用，
+请稍后再试"` → **学生看到 toast「识题失败：识别服务暂不可用，请稍后再试」**。
+
+缺陷：文案对 slim 场景**误导**（重试无效，是档位问题）——与 BYOK"繁忙 vs 配置"同型。
+两个处置选项（P1 报告时裁决）：
+- A. 仅 README/FAQ 说明"OCR 需 full 档"（零代码改动，误导文案保留）
+- B.（推荐）Python routes_ocr 加 3 行 ImportError 守卫 → 明确返回"OCR 未安装（slim 档），
+  需 AI_MODE=full"——错误处理边界改动，非业务逻辑
+
+### 追问 2：full 档切换 = .env 的 AI_MODE 开关（build target 切换，非 --profile）
+
+单 Dockerfile 双阶段目标（slim=默认 / full），compose `build.target: ${AI_MODE:-slim}`。
+切法：`.env` 改 `AI_MODE=full` → `docker compose up -d --build`（AI 服务重建，其余不动）。
+默认必为 slim ✓（未设 AI_MODE 即 slim，首次下载 ~200MB 而非 5GB）。README/FAQ 双处写明。
+
+### 顺带修正任务包 compose 模板 2 处命名错误（P2 执行）
+
+1. ai 服务的内部密钥环境变量名是 **INTERNAL_KEY**（非 AI_INTERNAL_KEY——那是 Java 侧名）；
+   模板原样照抄会导致 Java↔Python 鉴权失败
+2. ai 服务还需 **JAVA_BASE_URL=http://backend:8080**（Agent 工具回调 Java 用）
+
+### 环境补充
+
+本机 Docker Desktop 引擎已启动（28.0.1，F 盘安装）——P4 全链本地可测 ✓
