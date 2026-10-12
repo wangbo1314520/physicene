@@ -66,3 +66,7 @@ resources/
 physicene-backups/
 java-backend/java-*.log
 python-ai-service/py-*.log
+
+# Docker 一键部署本地产物
+mysql-data/
+docker-compose.override.yml
