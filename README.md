@@ -40,6 +40,14 @@ cd ../frontend && pnpm install && pnpm dev           # ④ 前端 5173
 4. 费用参考：约 1.5-2.2k token/次问答；系统默认限流每学生 50 次/天 +
    全局并发 10（`AGENT_DAILY_QUOTA` / `AGENT_MAX_CONCURRENCY` 可调），超额有明确提示
 
+### 常见问题（Clone 验证实测补充 · 2026-10-12）
+
+- **改了 Java 端口**：前端 Vite 开发代理固定指向 `localhost:8080`（vite.config.ts 的
+  `/api` 与 `/ws`）——Java 换端口时同步改这两处 target
+- **INTERNAL_KEY 开箱即用**：未配置时 Java 与 Python 用同一默认内部密钥，本地开发
+  直接可用；生产请在两侧配同名强密钥（环境变量 / .env）
+- 完整排查表（端口占用/DB 连接/AI 不可用）见 docs/deployment.md §0.4
+
 ## 目录
 
 ```
