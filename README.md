@@ -6,6 +6,35 @@
 
 ![搭建台](frontend/e2e/shots/render-bugs/loop-gap.png)
 
+## 🚀 快速开始（Docker，推荐）
+
+**前置**：装 [Docker Desktop](https://www.docker.com/products/docker-desktop)
+
+```bash
+git clone https://github.com/wangbo1314520/physicene.git
+cd physicene
+cp .env.example .env
+# 编辑 .env 修改数据库密码
+docker compose up -d
+```
+
+打开 **http://localhost**（首次构建约 10-20 分钟，视网络；良好网络 4-10 分钟；之后秒起）
+
+**AI 功能**：默认 slim 档（~200MB，LLM 问答可用，无 OCR/RAG）；完整功能 `AI_MODE=full`（~5GB，**未完整验证**）；用 AI 在 `.env` 填 `DEEPSEEK_API_KEY`（BYOK，不填则提问时提示配置）
+
+**端口被占**：`.env` 改 `FRONTEND_PORT=8080`；**停止/重置/日志**：`./stop.sh` / `./reset.sh` / `./logs.sh`（Windows 用 .bat）
+
+**构建失败（拉 node:22-alpine 超时）**：见下方 FAQ「前端构建失败」切国内镜像源
+
+![搭建台](docs/视觉截图/02-搭建台全览.png)
+
+## 📚 文档索引
+
+- [Docker 部署指南](docs/Docker-部署指南.md)（架构/端口/环境变量/两档/持久化）
+- [Docker 常见问题](docs/Docker-FAQ.md)
+- [部署文档（手动三端）](docs/deployment.md) · [监控](docs/monitoring.md) · [安全](docs/security.md) · [回滚](docs/rollback.md)
+- [完整完成报告](docs/完整完成报告.md) · [遗留问题清单](docs/遗留问题.md)
+
 ## 功能
 
 - **实验库**（/exp）：120 卡——教材实验（步骤+AI 助教按问法分流）与高考多过程题
