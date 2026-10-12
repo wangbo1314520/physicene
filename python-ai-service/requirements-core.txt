@@ -1,0 +1,9 @@
+# slim 档核心依赖（钉版自 poetry.lock；RAG/OCR 重依赖刻意缺席——代码懒加载路径优雅降级）
+# P0 调研问4：chromadb/sentence_transformers/paddleocr 均为方法内 import
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+pydantic==2.13.5
+pydantic-settings==2.15.0
+loguru==0.7.3
+httpx==0.28.1
+openai==3.13.0

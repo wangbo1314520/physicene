@@ -1,0 +1,16 @@
+# full 档全量依赖（= poetry.lock 钉版；含 RAG/OCR/KB 构建）
+# 注意 torch：linux PyPI 默认轮子含 CUDA（~2.5GB+nvidia 依赖）。Dockerfile full 阶段
+# 先用 CPU 索引装 torch（约 300MB），本清单再装其余（torch 已满足即跳过）
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+pydantic==2.13.5
+pydantic-settings==2.15.0
+loguru==0.7.3
+httpx==0.28.1
+openai==3.13.0
+chromadb==1.5.9
+sentence-transformers==6.0.1
+pdfplumber==0.11.10
+paddlepaddle==3.3.1
+paddleocr==3.7.0
+huggingface-hub==1.31.0
