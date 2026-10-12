@@ -1,4 +1,6 @@
 node_modules
 .git
-e2e
+.env*
 *.log
+e2e
+# 注意：dist 不 ignore——runtime 兜底目标需宿主 dist 入 context（README FAQ Q3）
