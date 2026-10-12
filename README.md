@@ -39,6 +39,9 @@ cd ../frontend && pnpm install && pnpm dev           # ④ 前端 5173
    显式提示"请先配置 DeepSeek API key"，不是静默失败
 4. 费用参考：约 1.5-2.2k token/次问答；系统默认限流每学生 50 次/天 +
    全局并发 10（`AGENT_DAILY_QUOTA` / `AGENT_MAX_CONCURRENCY` 可调），超额有明确提示
+5. Docker 部署的 AI 两档：默认 **slim**（~200MB，LLM 问答可用、无 OCR/RAG，已实测）；
+   `AI_MODE=full`（~5GB，含 OCR/RAG）**理论支持、未完整验证**——需要 OCR/RAG 时启用，
+   启用后建议反馈问题
 
 ### 前端构建失败（拉取 node:22-alpine 超时）
 
@@ -50,7 +53,16 @@ cd ../frontend && pnpm install && pnpm dev           # ④ 前端 5173
 ```
 → Apply & Restart 后重试 `docker compose up -d --build`
 
-**Linux**：编辑 `/etc/docker/daemon.json` 加同样的 `registry-mirrors` → `sudo systemctl restart docker`
+**Linux**：
+```bash
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json <<EOF
+{ "registry-mirrors": ["https://docker.mirrors.ustc.edu.cn"] }
+EOF
+sudo systemctl restart docker
+```
+
+备选镜像源：`https://docker.mirrors.ustc.edu.cn`、`https://hub-mirror.c.163.com`、`https://docker.1ms.run`
 
 仍拉不动时的兜底（宿主有 Node ≥22）：`cd frontend && pnpm install && pnpm build` 产出
 dist/ 后，用 runtime 目标构建前端镜像——见 docs/Docker-FAQ.md「前端镜像 runtime 兜底」。
