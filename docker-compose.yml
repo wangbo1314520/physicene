@@ -46,8 +46,8 @@ services:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/actuator/health 2>/dev/null || curl -fsS http://localhost:8080/actuator/health 2>/dev/null || bash -c '</dev/tcp/localhost/8080'"]
       interval: 15s
       timeout: 5s
-      retries: 10
-      start_period: 90s
+      retries: 15
+      start_period: 120s   # P4 实测：MySQL 首次初始化 ~60s 吃掉观察窗致误判 unhealthy，放宽
     networks: [physicene]
 
   ai:
